@@ -49,7 +49,6 @@ SELECT COUNT(*) seconds,
  GROUP BY 
        SUBSTR(client_id, 1, INSTR(client_id, ':') - 1)
 HAVING SUBSTR(client_id, 1, INSTR(client_id, ':') - 1) IS NOT NULL
-   AND COUNT(*) > 1
  ORDER BY
        1 DESC, 2
 /
@@ -65,7 +64,6 @@ SELECT MIN(sample_time) min_sample_time,
    AND SUBSTR(client_id, 1, INSTR(client_id, ':') - 1) = TRIM('&&appl_user.')
  GROUP BY 
        SUBSTR(client_id, INSTR(client_id, ':') + 1)
-HAVING COUNT(*) > 1
  ORDER BY
        1 DESC
 /
@@ -88,7 +86,6 @@ SELECT COUNT(*) seconds,
        SUBSTR(h.module, INSTR(h.module, ':', 1, 2) + 1),
        h.sql_id,
        SUBSTR(s.sql_text, 1, 80)
-HAVING COUNT(*) > 1
  ORDER BY
        1 DESC, 2, 3
 /
