@@ -1,0 +1,24 @@
+Carlos Sierra's Shared Scripts 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+last update: 2014/09/03
+
+Feel free to use these scripts. They are mostly useful in the scope of SQL performance
+diagnostics. Keep original names please.
+
+Script Name                 YY/MM/DD Purpose
+~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+find_apex.sql               14/09/03 Finds APEX related expensive SQL for given application user and session
+acs_spm_scripts.zip         14/02/05 ACS and SPM Scripts
+dba_hist_ash_summaries.sql  13/12/19 ASH summaries by timed events then by plan operation
+largest_200_objects.sql     14/01/23 Reports 200 largest objects as per segments bytes
+mystat.sql                  14/01/11 Reports delta of current sessions stats before and after a SQL
+mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
+plan_prev.sql               13/10/09 Execution Plan for last SQL executed in current session
+planx.sql                   14/01/18 Reports Execution Plans for one SQL_ID from RAC and AWR(opt)
+sqlash.sql                  13/12/18 ASH Reports for one SQL_ID
+sqlmon.sql                  13/12/18 SQL Monitor Reports for one SQL_ID
+sqlpch.sql                  13/12/28 Create Diagnostics SQL Patch for one SQL_ID
+tablex.sql                  14/01/24 Reports CBO Statistics for a given Table
+tkprof.sql                  13/10/15 Turns trace off and generates a TKPROF for trace under current session
+trace_off.sql               13/10/15 Turns sql trace off
+trace_on.sql                13/10/04 Turns sql trace on using event 10046 level 12 (include binds and waits)
