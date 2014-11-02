@@ -11,6 +11,7 @@ COL current_time NEW_V current_time FOR A15 NOPRI;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
 SPO active_sessions_&&current_time..txt
 
+PRO gv$session
 SELECT /* active_sessions */ 
        se.*
   FROM gv$session se,
@@ -22,7 +23,8 @@ SELECT /* active_sessions */
    AND sq.sql_text NOT LIKE 'SELECT /* active_sessions */%'
  ORDER BY
        se.inst_id, se.sid, se.serial#;
-   
+
+PRO gv$sql
 SELECT /* active_sql */ 
        sq.*
   FROM gv$session se,
@@ -37,6 +39,7 @@ SELECT /* active_sql */
 
 SET LONG 3000000 LONGC 300;
 
+PRO sql_text
 SELECT /* active_sql */ 
        sq.inst_id, sq.sql_id, sq.child_number,
        sq.sql_fulltext
