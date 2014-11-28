@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2014/10/31
+-- Version:     2014/11/28
 --
 -- Usage:       Lists statements that have changed their elapsed time per execution over
 --              some history.
@@ -56,6 +56,7 @@ SELECT h.dbid,
   FROM dba_hist_sqlstat h, 
        dba_hist_snapshot s
  WHERE h.executions_total > 0 
+   AND h.plan_hash_value > 0
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number

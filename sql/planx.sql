@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2014/07/20
+-- Version:     2014/11/23
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -46,6 +46,10 @@ END;
 DEF is_10g = '';
 COL is_10g NEW_V is_10g NOPRI;
 SELECT '--' is_10g FROM v$instance WHERE version LIKE '10%';
+-- is_11r1
+DEF is_11r1 = '';
+COL is_11r1 NEW_V is_11r1 NOPRI;
+SELECT '--' is_11r1 FROM v$instance WHERE version LIKE '11.1%';
 -- get current time
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -101,14 +105,14 @@ SELECT inst_id,
        LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
        LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
        LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.,
-       &&is_10g.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_10g.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_10g.CASE 
-         &&is_10g.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           &&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_10g.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           &&is_10g., 2), '990.00')||' %', 8) END io_saved
+       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
+       &&is_10g.&&is_11r1.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
+       &&is_10g.&&is_11r1.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
+       &&is_10g.&&is_11r1.CASE 
+         &&is_10g.&&is_11r1.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
+           &&is_10g.&&is_11r1.LPAD(TO_CHAR(ROUND(
+           &&is_10g.&&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
+           &&is_10g.&&is_11r1., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sqlstats
  WHERE sql_id = '&&sql_id.'
  ORDER BY 1
@@ -129,14 +133,14 @@ SELECT inst_id, plan_hash_value,
        LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
        LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
        LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs,
-       LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       CASE 
-         WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           LPAD(TO_CHAR(ROUND(
-           (io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           , 2), '990.00')||' %', 8) END io_saved
+       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_11r1.,
+       &&is_11r1.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
+       &&is_11r1.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
+       &&is_11r1.CASE 
+         &&is_11r1.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
+           &&is_11r1.LPAD(TO_CHAR(ROUND(
+           &&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
+           &&is_11r1., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sqlstats_plan_hash
  WHERE sql_id = '&&sql_id.'
  ORDER BY 1, 2
@@ -158,14 +162,14 @@ SELECT inst_id, child_number, plan_hash_value, &&is_10g.is_shareable,
        LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
        LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
        LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.,
-       &&is_10g.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_10g.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_10g.CASE 
-         &&is_10g.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           &&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_10g.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           &&is_10g., 2), '990.00')||' %', 8) END io_saved
+       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
+       &&is_11r1.&&is_10g.CASE 
+         &&is_11r1.&&is_10g.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
+           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
+           &&is_11r1.&&is_10g.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
+           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sql
  WHERE sql_id = '&&sql_id.'
  ORDER BY 1, 2
@@ -210,14 +214,14 @@ SELECT s.snap_id,
        LPAD(TO_CHAR(ROUND(h.apwait_delta/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
        LPAD(TO_CHAR(ROUND(h.ccwait_delta/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
        LPAD(TO_CHAR(ROUND(h.plsexec_time_delta/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(h.javexec_time_delta/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.,
-       &&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_delta, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_10g.CASE 
-         &&is_10g.WHEN h.io_offload_elig_bytes_delta > h.io_interconnect_bytes_delta THEN
-           &&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_10g.(h.io_offload_elig_bytes_delta - h.io_interconnect_bytes_delta) * 100 / h.io_offload_elig_bytes_delta
-           &&is_10g., 2), '990.00')||' %', 8) END io_saved
+       LPAD(TO_CHAR(ROUND(h.javexec_time_delta/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_delta, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
+       &&is_11r1.&&is_10g.CASE 
+         &&is_11r1.&&is_10g.WHEN h.io_offload_elig_bytes_delta > h.io_interconnect_bytes_delta THEN
+           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
+           &&is_11r1.&&is_10g.(h.io_offload_elig_bytes_delta - h.io_interconnect_bytes_delta) * 100 / h.io_offload_elig_bytes_delta
+           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
@@ -248,14 +252,14 @@ SELECT s.snap_id,
        LPAD(TO_CHAR(ROUND(h.apwait_total/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
        LPAD(TO_CHAR(ROUND(h.ccwait_total/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
        LPAD(TO_CHAR(ROUND(h.plsexec_time_total/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(h.javexec_time_total/1e6, 3), '999,999,990.000'), 18) java_exec_secs &&is_10g.,
-       &&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_total, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_10g.CASE 
-         &&is_10g.WHEN h.io_offload_elig_bytes_total > h.io_interconnect_bytes_total THEN
-           &&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_10g.(h.io_offload_elig_bytes_total - h.io_interconnect_bytes_total) * 100 / h.io_offload_elig_bytes_total
-           &&is_10g., 2), '990.00')||' %', 8) END io_saved
+       LPAD(TO_CHAR(ROUND(h.javexec_time_total/1e6, 3), '999,999,990.000'), 18) java_exec_secs &&is_10g.&&is_11r1.,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
+       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_total, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
+       &&is_11r1.&&is_10g.CASE 
+         &&is_11r1.&&is_10g.WHEN h.io_offload_elig_bytes_total > h.io_interconnect_bytes_total THEN
+           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
+           &&is_11r1.&&is_10g.(h.io_offload_elig_bytes_total - h.io_interconnect_bytes_total) * 100 / h.io_offload_elig_bytes_total
+           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
