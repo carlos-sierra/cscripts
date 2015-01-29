@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2014/11/23
+-- Version:     2015/01/28
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -808,7 +808,7 @@ BEGIN
   LOOP
     l_low := compute_low_high(i.data_type, i.low_value);
     l_high := compute_low_high(i.data_type, i.high_value);
-    INSERT INTO plan_table (statement_id, object_owner, object_name, object_alias, partition_start, partition_stop)
+    INSERT INTO plan_table (statement_id, object_owner, object_name, other_tag, partition_start, partition_stop)
     VALUES ('low_high', i.owner, i.table_name, i.column_name, l_low, l_high);
   END LOOP;
 END;
@@ -843,7 +843,7 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
    AND p.statement_id(+) = 'low_high'
    AND p.object_owner(+) = c.owner
    AND p.object_name(+) = c.table_name
-   AND p.object_alias(+) = c.column_name
+   AND p.other_tag(+) = c.column_name
  ORDER BY
        c.owner,
        c.table_name,
@@ -878,7 +878,7 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
    AND p.statement_id(+) = 'low_high'
    AND p.object_owner(+) = c.owner
    AND p.object_name(+) = c.table_name
-   AND p.object_alias(+) = c.column_name
+   AND p.other_tag(+) = c.column_name
  ORDER BY
        i.index_owner,
        i.index_name,

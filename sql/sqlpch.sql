@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2013/12/28
+-- Version:     2015/01/28
 --
 -- Usage:       This script inputs two parameters. Parameter 1 the SQL_ID and Parameter 2
 --              the set of Hints for the SQL Patch (default to GATHER_PLAN_STATISTICS 
@@ -33,6 +33,7 @@ PRO Parameter 2:
 PRO HINT_TEXT (default: &&def_hint_text.)
 PRO
 DEF hint_text_2 = '&2';
+SPO sqlpch_&&sql_id_1..txt;
 PRO
 PRO Values passed:
 PRO ~~~~~~~~~~~~~
@@ -151,8 +152,9 @@ BEGIN
     sql_text    => :sql_text,
     hint_text   => '&&hint_text.',
     name        => 'sqlpch_&&sql_id.',
+    description => '/*+ &&hint_text. */',
     category    => 'DEFAULT',
-    description => '/*+ &&hint_text. */'
+    validate    => TRUE
   );
 END;
 /
@@ -193,7 +195,7 @@ SET SERVEROUT OFF;
 PRO
 PRO SQL Patch "sqlpch_&&sql_id." will be used on next parse.
 PRO To drop SQL Patch on this SQL:
-PRO EXEC DBMS_SQLDIAG.DROP_SQL_PATCH(name => 'sqlpch_&&sql_id.');
+PRO EXEC DBMS_SQLDIAG.DROP_SQL_PATCH(name => 'sqlpch_&&sql_id.', ignore => TRUE);
 PRO
 UNDEFINE 1 2 sql_id_1 sql_id hint_text_2 hint_text
 CL COL
