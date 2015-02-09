@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2015/01/28
+last update: 2015/02/07
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -22,7 +22,7 @@ mystat.sql                  14/01/11 Reports delta of current sessions stats bef
 mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
 one_sql_time_series.sql     14/10/31 Performance History for one SQL
 plan_prev.sql               13/10/09 Execution Plan for last SQL executed in current session
-planx.sql                   15/01/28 Reports Execution Plans for one SQL_ID from RAC and AWR(opt)
+planx.sql                   15/02/07 Reports Execution Plans for one SQL_ID from RAC and AWR(opt)
 sql_performance_changed.sql 14/11/28 Lists SQL Statements with Elapsed Time per Execution changing over time
 sql_perf_change_by_date.sql 14/11/28 Lists SQL Statements with Elapsed Time per Execution changing over time (passing date)
 sql_with_multiple_plans.sql 14/11/28 Lists SQL Statements with multiple Execution Plans performing significantly different

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2015/01/28
+-- Version:     2015/02/07
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -286,7 +286,7 @@ SELECT /*+ ORDERED USE_NL(t) */ t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
 PRO
-PRO GV$ACTIVE_SESSION_HISTORY (past 1 hour by timed event) 
+PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '10';
 SET PAGES 50000;
@@ -301,7 +301,6 @@ SELECT /*+ MATERIALIZE */
   FROM gv$active_session_history h
  WHERE :license = 'Y'
    AND sql_id = '&&sql_id.'
-   AND CAST(sample_time AS DATE) BETWEEN SYSDATE - (1 / 24) AND SYSDATE -- past 1 hour
  GROUP BY
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
@@ -328,9 +327,9 @@ SELECT others samples,
    AND ROUND(100 * others / samples, 1) > 0.1
 /
 PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 4 hours by timed event)
+PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '4 / 24';
+DEF x_days = '7';
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
@@ -372,16 +371,6 @@ SELECT others samples,
    AND ROUND(100 * others / samples, 1) > 0.1
 /
 PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 1 day by timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '1';
-/
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
-/
-PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRO
@@ -390,7 +379,7 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
 /
 PRO
-PRO GV$ACTIVE_SESSION_HISTORY (past 1 hour by plan line and timed event) 
+PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '15';
 COL operation FOR A50;
@@ -406,7 +395,6 @@ SELECT /*+ MATERIALIZE */
   FROM gv$active_session_history h
  WHERE :license = 'Y'
    AND sql_id = '&&sql_id.'
-   AND CAST(sample_time AS DATE) BETWEEN SYSDATE - (1 / 24) AND SYSDATE -- past 1 hour
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -443,9 +431,9 @@ SELECT others samples,
    AND ROUND(100 * others / samples, 1) > 0.1
 /
 PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 4 hours by plan line and timed event)
+PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '4 / 24';
+DEF x_days = '7';
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
@@ -498,16 +486,6 @@ SELECT others samples,
   FROM total
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
-/
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 1 day by plan line and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '1';
-/
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
 /
 PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
@@ -518,7 +496,7 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
 /
 PRO
-PRO GV$ACTIVE_SESSION_HISTORY (past 1 hour by plan line, obj and timed event) 
+PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '20';
 COL current_object FOR A60;
@@ -529,19 +507,18 @@ SELECT /*+ MATERIALIZE */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
-       h.current_obj#,
+       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END current_obj#,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM gv$active_session_history h
  WHERE :license = 'Y'
    AND sql_id = '&&sql_id.'
-   AND CAST(sample_time AS DATE) BETWEEN SYSDATE - (1 / 24) AND SYSDATE -- past 1 hour
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
        h.sql_plan_operation,
        h.sql_plan_options,
-       h.current_obj#,
+       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
        6 DESC
@@ -576,16 +553,16 @@ SELECT others samples,
    AND ROUND(100 * others / samples, 1) > 0.1
 /
 PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 4 hours by plan line, obj and timed event)
+PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line, obj and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '4 / 24';
+DEF x_days = '7';
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
-       h.current_obj#,
+       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END current_obj#,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM dba_hist_active_sess_history h,
@@ -603,7 +580,7 @@ SELECT /*+ MATERIALIZE */
        h.sql_plan_line_id,
        h.sql_plan_operation,
        h.sql_plan_options,
-       h.current_obj#,
+       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
        6 DESC
@@ -636,16 +613,6 @@ SELECT others samples,
   FROM total
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
-/
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 1 day by plan line, obj and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '1';
-/
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line, obj and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
 /
 PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
