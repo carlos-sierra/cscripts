@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2015/02/07
+-- Version:     2015/04/27
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -64,11 +64,40 @@ COL x_minimum_date NEW_V x_minimum_date NOPRI;
 SELECT TO_CHAR(MIN(begin_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_minimum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_minimum_snap_id.;
 COL x_maximum_date NEW_V x_maximum_date NOPRI;
 SELECT TO_CHAR(MAX(end_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_maximum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_maximum_snap_id.;
+-- get sql_text
+VAR sql_text CLOB;
+BEGIN
+  SELECT sql_fulltext 
+    INTO :sql_text
+    FROM gv$sqlstats 
+   WHERE sql_id = '&&sql_id.' 
+     AND ROWNUM = 1;
+END;
+/
+BEGIN
+  IF :sql_text IS NULL OR NVL(DBMS_LOB.GETLENGTH(:sql_text), 0) = 0 THEN
+    SELECT sql_text
+      INTO :sql_text
+      FROM dba_hist_sqltext
+     WHERE sql_id = '&&sql_id.'
+       AND ROWNUM = 1;
+  END IF;
+END;
+/
+VAR signature NUMBER;
+VAR signaturef NUMBER;
+EXEC :signature := DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text);
+EXEC :signaturef := DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text, TRUE);
+COL signature NEW_V signature FOR A20;
+COL signaturef NEW_V signaturef FOR A20;
+SELECT TO_CHAR(:signature) signature, TO_CHAR(:signaturef) signaturef FROM DUAL;
 -- spool and sql_text
 SPO planx_&&sql_id._&&current_time..txt;
 PRO SQL_ID: &&sql_id.
+PRO SIGNATURE: &&signature.
+PRO SIGNATUREF: &&signaturef.
 SET PAGES 0;
-SELECT sql_fulltext FROM gv$sqlstats WHERE sql_id = '&&sql_id.' AND ROWNUM = 1;
+PRINT :sql_text;
 SET PAGES 50000;
 -- columns format
 COL is_shareable FOR A12;
@@ -533,8 +562,10 @@ SELECT e.samples,
        e.plan_hash_value,
        e.line_id,
        e.operation,
-       SUBSTR(e.current_obj#||
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1), 1, 60) current_object,
+       SUBSTR(e.current_obj#||TRIM(NVL(
+       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1),  
+       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.data_object_id = e.current_obj# AND ROWNUM = 1) 
+       )), 1, 60) current_object,
        e.timed_event
   FROM events e,
        total t
@@ -595,8 +626,10 @@ SELECT e.samples,
        e.plan_hash_value,
        e.line_id,
        e.operation,
-       SUBSTR(e.current_obj#||
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1), 1, 60) current_object,
+       SUBSTR(e.current_obj#||TRIM(NVL(
+       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1),  
+       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.data_object_id = e.current_obj# AND ROWNUM = 1) 
+       )), 1, 60) current_object,
        e.timed_event
   FROM events e,
        total t
@@ -654,6 +687,14 @@ BEGIN
   	       AND h.sql_id = '&&sql_id.'
   	       AND h.current_obj# > 0
   	       AND o.object_id = h.current_obj#
+  	     /*UNION
+  	    SELECT o.owner, o.object_name name
+  	      FROM gv$active_session_history h,
+  	           dba_objects o
+  	     WHERE :license = 'Y'
+  	       AND h.sql_id = '&&sql_id.'
+  	       AND h.current_obj# > 0
+  	       AND o.data_object_id = h.current_obj#*/
   	     UNION
   	    SELECT o.owner, o.object_name name
   	      FROM dba_hist_active_sess_history h,
@@ -663,6 +704,15 @@ BEGIN
   	       AND h.sql_id = '&&sql_id.'
   	       AND h.current_obj# > 0
   	       AND o.object_id = h.current_obj#
+  	     /*UNION
+  	    SELECT o.owner, o.object_name name
+  	      FROM dba_hist_active_sess_history h,
+  	           dba_objects o
+  	     WHERE :license = 'Y'
+  	       AND h.dbid = :dbid
+  	       AND h.sql_id = '&&sql_id.'
+  	       AND h.current_obj# > 0
+  	       AND o.data_object_id = h.current_obj#*/
   	    )
   	    SELECT 'TABLE', t.owner, t.table_name
   	      FROM dba_tab_statistics t, -- include fixed objects
@@ -682,7 +732,12 @@ BEGIN
       DBMS_LOB.WRITEAPPEND(:tables_list, 1, ',');
     END IF;
     l_pair := '('''||i.owner||''','''||i.table_name||''')';
-    DBMS_LOB.WRITEAPPEND(:tables_list, LENGTH(l_pair), l_pair);
+    -- SP2-0341: line overflow during variable substitution (>3000 characters at line 12)
+    IF DBMS_LOB.GETLENGTH(:tables_list) < 2800 THEN 
+      DBMS_LOB.WRITEAPPEND(:tables_list, LENGTH(l_pair), l_pair);
+    ELSE
+      EXIT;
+    END IF; 
   END LOOP;
   IF l_pair IS NULL THEN
     l_pair := '((''DUMMY'',''DUMMY''))';
@@ -693,7 +748,7 @@ BEGIN
 END;
 /
 SET LONG 2000000 LONGC 2000 LIN 32767;
-COL tables_list NEW_V tables_list FOR A32767 NOPRI;
+COL tables_list NEW_V tables_list FOR A32767;
 SELECT :tables_list tables_list FROM DUAL;
 PRO
 PRO Tables Accessed 
