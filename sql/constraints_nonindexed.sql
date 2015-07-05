@@ -89,7 +89,6 @@ SELECT NULL
   FROM ref_int_indexes i
  WHERE i.owner = c.owner
    AND i.constraint_name = c.constraint_name
-   AND i.col_cnt >= c.col_cnt
 )
  ORDER BY
        1, 2, 3
