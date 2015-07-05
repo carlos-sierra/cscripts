@@ -66,6 +66,7 @@ COL x_maximum_date NEW_V x_maximum_date NOPRI;
 SELECT TO_CHAR(MAX(end_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_maximum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_maximum_snap_id.;
 -- get sql_text
 VAR sql_text CLOB;
+EXEC :sql_text := NULL;
 BEGIN
   SELECT sql_fulltext 
     INTO :sql_text
@@ -86,16 +87,23 @@ END;
 /
 VAR signature NUMBER;
 VAR signaturef NUMBER;
-EXEC :signature := DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text);
-EXEC :signaturef := DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text, TRUE);
+EXEC :signature := NVL(DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text), -1);
+EXEC :signaturef := NVL(DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text, TRUE), -1);
 COL signature NEW_V signature FOR A20;
 COL signaturef NEW_V signaturef FOR A20;
 SELECT TO_CHAR(:signature) signature, TO_CHAR(:signaturef) signaturef FROM DUAL;
+BEGIN
+  IF :sql_text IS NULL THEN
+    :sql_text := 'Unknown SQL Text';
+  END IF;
+END;
+/
 -- spool and sql_text
 SPO planx_&&sql_id._&&current_time..txt;
 PRO SQL_ID: &&sql_id.
 PRO SIGNATURE: &&signature.
 PRO SIGNATUREF: &&signaturef.
+PRO
 SET PAGES 0;
 PRINT :sql_text;
 SET PAGES 50000;
@@ -302,16 +310,20 @@ SELECT s.snap_id,
 PRO
 PRO DBA_HIST_SQL_PLAN (ordered by plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~
+COL plan_timestamp FOR A19;
+BREAK ON plan_timestamp SKIP 2;
 SET PAGES 0;
 WITH v AS (
 SELECT /*+ MATERIALIZE */ 
-       DISTINCT sql_id, plan_hash_value, dbid
+       DISTINCT sql_id, plan_hash_value, dbid, timestamp
   FROM dba_hist_sql_plan 
  WHERE :license = 'Y'
    AND dbid = :dbid 
    AND sql_id = '&&sql_id.'
  ORDER BY 1, 2, 3 )
-SELECT /*+ ORDERED USE_NL(t) */ t.plan_table_output
+SELECT /*+ ORDERED USE_NL(t) */ 
+       TO_CHAR(v.timestamp, 'YYYY-MM-DD HH24:MI:SS') plan_timestamp,
+       t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
 PRO
@@ -749,7 +761,12 @@ END;
 /
 SET LONG 2000000 LONGC 2000 LIN 32767;
 COL tables_list NEW_V tables_list FOR A32767;
+SET HEAD OFF;
+PRO 
+PRO (owner, table) list
+PRO ~~~~~~~~~~~~~~~~~~~
 SELECT :tables_list tables_list FROM DUAL;
+SET HEAD ON;
 PRO
 PRO Tables Accessed 
 PRO ~~~~~~~~~~~~~~~
