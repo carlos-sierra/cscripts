@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2015/04/27
+-- Version:     2015/10/29
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -817,6 +817,7 @@ SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_a
        i.index_name
 /
 -- compute low and high values for each table column
+SAVEPOINT my_savepoint;
 DELETE plan_table WHERE statement_id = 'low_high';
 DECLARE
   l_low VARCHAR2(256);
@@ -924,6 +925,7 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        i.column_position
 /
 -- spool off and cleanup
+ROLLBACK TO my_savepoint;
 PRO
 PRO planx_&&sql_id._&&current_time..txt has been generated
 SET FEED ON VER ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF;

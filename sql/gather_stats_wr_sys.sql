@@ -18,7 +18,7 @@
 --
 SET HEA OFF PAGES 0;
 SPO gather_stats_awr.sql;
-SELECT 'EXEC DBMS_STATS.GATHER_TABLE_STATS(''SYS'','''||table_name||''');'
+SELECT 'EXEC DBMS_STATS.GATHER_TABLE_STATS(''SYS'','''||table_name||''',force=>TRUE);'
   FROM dba_tables
  WHERE owner = 'SYS'
    AND table_name LIKE 'WR_$%'
