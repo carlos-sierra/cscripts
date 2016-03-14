@@ -22,6 +22,26 @@
 --             
 ---------------------------------------------------------------------------------------
 --
+PRO If planx.sql disconnects right after this message it means the user executing it
+PRO owns a table called PLAN_TABLE that is not the Oracle seeded GTT plan table
+PRO owned by SYS (PLAN_TABLE$ table with a PUBLIC synonym PLAN_TABLE).
+PRO planx.sql requires the Oracle seeded PLAN_TABLE, consider dropping the one in this schema.
+WHENEVER SQLERROR EXIT;
+DECLARE
+ is_plan_table_in_usr_schema NUMBER; 
+BEGIN
+ SELECT COUNT(*)
+   INTO is_plan_table_in_usr_schema
+   FROM user_tables
+  WHERE table_name = 'PLAN_TABLE';
+  -- user has a physical table called PLAN_TABLE, abort
+  IF is_plan_table_in_usr_schema > 0 THEN
+    RAISE_APPLICATION_ERROR(-20100, 'PLAN_TABLE physical table present in user schema. ');
+  END IF;
+
+END;
+/
+WHENEVER SQLERROR CONTINUE;
 CL COL;
 SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
 PRO

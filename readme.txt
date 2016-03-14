@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2015/12/28
+last update: 2016/03/13
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -21,19 +21,22 @@ find_apex.sql               14/09/03 Finds APEX related expensive SQL for given 
 gather_stats_wr_sys.sql     15/10/15 Gather fresh CBO statistics for AWR Tables and Indexes
 largest_200_objects.sql     14/01/23 Reports 200 largest objects as per segments bytes
 list_plans.sql              13/12/28 Lists SQL Plan Baselines
+mon subdirectory            16/02/29 A set of scripts to monitor executions taking over X time
 mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
 mystat.sql                  14/01/11 Reports delta of current sessions stats before and after a SQL
 one_sql_time_series.sql     14/10/31 Performance History for one SQL
 plan_prev.sql               13/10/09 Execution Plan for last SQL executed in current session
 profiler.sql                12/07/02 Generates HTML report out of DBMS_PROFILER data
 recent.sql                  15/07/09 List of SQL on execution or recently executed
-planx.sql                   15/10/29 Reports Execution Plans for one SQL_ID from RAC and AWR(opt)
+planx.sql                   16/03/11 Reports Execution Plans for one SQL_ID from RAC and AWR(opt)
 sql_perf_change_by_date.sql 14/11/28 Lists SQL Statements with Elapsed Time per Execution changing over time (passing date)
 sql_performance_changed.sql 14/11/28 Lists SQL Statements with Elapsed Time per Execution changing over time
 sql_with_multiple_plans.sql 14/11/28 Lists SQL Statements with multiple Execution Plans performing significantly different
 sqlash.sql                  13/12/18 ASH Reports for one SQL_ID
+spm subdirectory            16/02/29 Several scripts to manage SQL Plan Baselines
 sqlmon.sql                  13/12/18 SQL Monitor Reports for one SQL_ID
 sqlpch.sql                  15/01/28 Create Diagnostics SQL Patch for one SQL_ID
+spm directory               16/01/01 SQL Plan Management scripts
 tablex.sql                  14/01/24 Reports CBO Statistics for a given Table
 tkprof.sql                  13/10/15 Turns trace off and generates a TKPROF for trace under current session
 trace_off.sql               13/10/15 Turns sql trace off
