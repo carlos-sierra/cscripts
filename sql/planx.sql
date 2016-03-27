@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2015/10/29
+-- Version:     2016/03/22
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -18,7 +18,7 @@
 -- Example:     @planx.sql Y f995z9antmhxn
 --
 -- Notes:       Developed and tested on 11.2.0.3 and 12.0.1.0
---              For a more robust tool use SQLHC or SQLTXPLAIN(SQLT) from MOS
+--              For a more robust tool use SQLd360
 --             
 ---------------------------------------------------------------------------------------
 --
@@ -42,7 +42,7 @@ BEGIN
 END;
 /
 WHENEVER SQLERROR CONTINUE;
-CL COL;
+--CL COL;
 SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
 PRO
 PRO 1. Enter Oracle Diagnostics Pack License Flag [ Y | N ] (required)
@@ -85,13 +85,15 @@ SELECT TO_CHAR(MIN(begin_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_minimum_dat
 COL x_maximum_date NEW_V x_maximum_date NOPRI;
 SELECT TO_CHAR(MAX(end_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_maximum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_maximum_snap_id.;
 -- get sql_text
+VAR sql_id VARCHAR2(13);
+EXEC :sql_id := '&&sql_id.';
 VAR sql_text CLOB;
 EXEC :sql_text := NULL;
 BEGIN
   SELECT sql_fulltext 
     INTO :sql_text
     FROM gv$sqlstats 
-   WHERE sql_id = '&&sql_id.' 
+   WHERE sql_id = :sql_id 
      AND ROWNUM = 1;
 END;
 /
@@ -100,7 +102,7 @@ BEGIN
     SELECT sql_text
       INTO :sql_text
       FROM dba_hist_sqltext
-     WHERE sql_id = '&&sql_id.'
+     WHERE sql_id = :sql_id
        AND ROWNUM = 1;
   END IF;
 END;
@@ -171,7 +173,7 @@ SELECT inst_id,
            &&is_10g.&&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
            &&is_10g.&&is_11r1., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sqlstats
- WHERE sql_id = '&&sql_id.'
+ WHERE sql_id = :sql_id
  ORDER BY 1
 /
 PRO
@@ -199,7 +201,7 @@ SELECT inst_id, plan_hash_value,
            &&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
            &&is_11r1., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sqlstats_plan_hash
- WHERE sql_id = '&&sql_id.'
+ WHERE sql_id = :sql_id
  ORDER BY 1, 2
 /
 PRO
@@ -228,7 +230,7 @@ SELECT inst_id, child_number, plan_hash_value, &&is_10g.is_shareable,
            &&is_11r1.&&is_10g.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
            &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
   FROM gv$sql
- WHERE sql_id = '&&sql_id.'
+ WHERE sql_id = :sql_id
  ORDER BY 1, 2
 /
 PRO       
@@ -241,7 +243,7 @@ WITH v AS (
 SELECT /*+ MATERIALIZE */
        DISTINCT sql_id, inst_id, child_number
   FROM gv$sql
- WHERE sql_id = '&&sql_id.'
+ WHERE sql_id = :sql_id
    AND loaded_versions > 0
  ORDER BY 1, 2, 3 )
 SELECT /*+ ORDERED USE_NL(t) */
@@ -283,7 +285,7 @@ SELECT s.snap_id,
        dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid
-   AND h.sql_id = '&&sql_id.'
+   AND h.sql_id = :sql_id
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
@@ -321,7 +323,7 @@ SELECT s.snap_id,
        dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid
-   AND h.sql_id = '&&sql_id.'
+   AND h.sql_id = :sql_id
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
@@ -339,7 +341,7 @@ SELECT /*+ MATERIALIZE */
   FROM dba_hist_sql_plan 
  WHERE :license = 'Y'
    AND dbid = :dbid 
-   AND sql_id = '&&sql_id.'
+   AND sql_id = :sql_id
  ORDER BY 1, 2, 3 )
 SELECT /*+ ORDERED USE_NL(t) */ 
        TO_CHAR(v.timestamp, 'YYYY-MM-DD HH24:MI:SS') plan_timestamp,
@@ -361,7 +363,7 @@ SELECT /*+ MATERIALIZE */
        COUNT(*) samples
   FROM gv$active_session_history h
  WHERE :license = 'Y'
-   AND sql_id = '&&sql_id.'
+   AND sql_id = :sql_id
  GROUP BY
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
@@ -393,19 +395,19 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE */
+SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
-  FROM dba_hist_active_sess_history h,
-       dba_hist_snapshot s
+  FROM dba_hist_active_sess_history h
+       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
-   AND h.sql_id = '&&sql_id.'
+   AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   AND s.snap_id = h.snap_id
-   AND s.dbid = h.dbid
-   AND s.instance_number = h.instance_number
-   AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
+   --AND s.snap_id = h.snap_id
+   --AND s.dbid = h.dbid
+   --AND s.instance_number = h.instance_number
+   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
@@ -455,7 +457,7 @@ SELECT /*+ MATERIALIZE */
        COUNT(*) samples
   FROM gv$active_session_history h
  WHERE :license = 'Y'
-   AND sql_id = '&&sql_id.'
+   AND sql_id = :sql_id
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -497,22 +499,22 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE */
+SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
-  FROM dba_hist_active_sess_history h,
-       dba_hist_snapshot s
+  FROM dba_hist_active_sess_history h
+       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
-   AND h.sql_id = '&&sql_id.'
+   AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   AND s.snap_id = h.snap_id
-   AND s.dbid = h.dbid
-   AND s.instance_number = h.instance_number
-   AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
+   --AND s.snap_id = h.snap_id
+   --AND s.dbid = h.dbid
+   --AND s.instance_number = h.instance_number
+   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -573,7 +575,7 @@ SELECT /*+ MATERIALIZE */
        COUNT(*) samples
   FROM gv$active_session_history h
  WHERE :license = 'Y'
-   AND sql_id = '&&sql_id.'
+   AND sql_id = :sql_id
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -594,10 +596,10 @@ SELECT e.samples,
        e.plan_hash_value,
        e.line_id,
        e.operation,
-       SUBSTR(e.current_obj#||TRIM(NVL(
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1),  
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.data_object_id = e.current_obj# AND ROWNUM = 1) 
-       )), 1, 60) current_object,
+       SUBSTR(e.current_obj#||' '||TRIM(
+       (SELECT CASE e.current_obj# WHEN 0 THEN ' UNDO' ELSE ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' END
+          FROM dba_objects o WHERE o.object_id(+) = e.current_obj# AND ROWNUM = 1) 
+       ), 1, 60) current_object,
        e.timed_event
   FROM events e,
        total t
@@ -621,23 +623,23 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE */
+SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
        CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END current_obj#,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
-  FROM dba_hist_active_sess_history h,
-       dba_hist_snapshot s
+  FROM dba_hist_active_sess_history h
+       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
-   AND h.sql_id = '&&sql_id.'
+   AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   AND s.snap_id = h.snap_id
-   AND s.dbid = h.dbid
-   AND s.instance_number = h.instance_number
-   AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
+   --AND s.snap_id = h.snap_id
+   --AND s.dbid = h.dbid
+   --AND s.instance_number = h.instance_number
+   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -658,10 +660,10 @@ SELECT e.samples,
        e.plan_hash_value,
        e.line_id,
        e.operation,
-       SUBSTR(e.current_obj#||TRIM(NVL(
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.object_id = e.current_obj# AND ROWNUM = 1),  
-       (SELECT ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' FROM dba_objects o WHERE o.data_object_id = e.current_obj# AND ROWNUM = 1) 
-       )), 1, 60) current_object,
+       SUBSTR(e.current_obj#||' '||TRIM(
+       (SELECT CASE e.current_obj# WHEN 0 THEN ' UNDO' ELSE ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' END
+          FROM dba_objects o WHERE o.object_id(+) = e.current_obj# AND ROWNUM = 1) 
+       ), 1, 60) current_object,
        e.timed_event
   FROM events e,
        total t
@@ -700,7 +702,7 @@ BEGIN
   	           object_owner owner, object_name name
   	      FROM gv$sql_plan
   	     WHERE inst_id IN (SELECT inst_id FROM gv$instance)
-  	       AND sql_id = '&&sql_id.'
+  	       AND sql_id = :sql_id
   	       AND object_owner IS NOT NULL
   	       AND object_name IS NOT NULL
   	     UNION
@@ -708,43 +710,29 @@ BEGIN
   	      FROM dba_hist_sql_plan
   	     WHERE :license = 'Y'
   	       AND dbid = :dbid
-  	       AND sql_id = '&&sql_id.'
+  	       AND sql_id = :sql_id
   	       AND object_owner IS NOT NULL
   	       AND object_name IS NOT NULL
   	     UNION
-  	    SELECT o.owner, o.object_name name
+  	    SELECT CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
+  	           CASE h.current_obj# WHEN 0 THEN 'UNDO' ELSE o.object_name END name
   	      FROM gv$active_session_history h,
   	           dba_objects o
   	     WHERE :license = 'Y'
-  	       AND h.sql_id = '&&sql_id.'
-  	       AND h.current_obj# > 0
-  	       AND o.object_id = h.current_obj#
-  	     /*UNION
-  	    SELECT o.owner, o.object_name name
-  	      FROM gv$active_session_history h,
-  	           dba_objects o
-  	     WHERE :license = 'Y'
-  	       AND h.sql_id = '&&sql_id.'
-  	       AND h.current_obj# > 0
-  	       AND o.data_object_id = h.current_obj#*/
+  	       AND h.sql_id = :sql_id
+  	       AND h.current_obj# >= 0
+  	       AND o.object_id(+) = h.current_obj#
   	     UNION
-  	    SELECT o.owner, o.object_name name
+  	    SELECT /*+ FULL(h.ash) FULL(h.evt) FULL(h.sn) */
+  	           CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
+  	           CASE h.current_obj# WHEN 0 THEN 'UNDO' ELSE o.object_name END name
   	      FROM dba_hist_active_sess_history h,
   	           dba_objects o
   	     WHERE :license = 'Y'
   	       AND h.dbid = :dbid
-  	       AND h.sql_id = '&&sql_id.'
-  	       AND h.current_obj# > 0
-  	       AND o.object_id = h.current_obj#
-  	     /*UNION
-  	    SELECT o.owner, o.object_name name
-  	      FROM dba_hist_active_sess_history h,
-  	           dba_objects o
-  	     WHERE :license = 'Y'
-  	       AND h.dbid = :dbid
-  	       AND h.sql_id = '&&sql_id.'
-  	       AND h.current_obj# > 0
-  	       AND o.data_object_id = h.current_obj#*/
+  	       AND h.sql_id = :sql_id
+  	       AND h.current_obj# >= 0
+  	       AND o.object_id(+) = h.current_obj#
   	    )
   	    SELECT 'TABLE', t.owner, t.table_name
   	      FROM dba_tab_statistics t, -- include fixed objects
@@ -873,46 +861,16 @@ BEGIN
   END LOOP;
 END;
 /
-PRO
-PRO Table Columns 
-PRO ~~~~~~~~~~~~~
 SET LONG 200 LONGC 20;
+COL index_and_column_name FOR A70;
 COL table_and_column_name FOR A70;
 COL data_type FOR A20;
 COL data_default FOR A20;
 COL low_value FOR A32;
 COL high_value FOR A32;
-SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
-       c.data_type,
-       c.nullable,
-       c.data_default,
-       c.num_distinct,
-       NVL(p.partition_start, c.low_value) low_value,
-       NVL(p.partition_stop, c.high_value) high_value,
-       c.density,
-       c.num_nulls,
-       c.num_buckets,
-       c.histogram,
-       c.sample_size,
-       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
-       c.global_stats,
-       c.avg_col_len
-  FROM dba_tab_cols c,
-       plan_table p
- WHERE (c.owner, c.table_name) IN &&tables_list.
-   AND p.statement_id(+) = 'low_high'
-   AND p.object_owner(+) = c.owner
-   AND p.object_name(+) = c.table_name
-   AND p.other_tag(+) = c.column_name
- ORDER BY
-       c.owner,
-       c.table_name,
-       c.column_name
-/
 PRO
 PRO Index Columns 
 PRO ~~~~~~~~~~~~~
-COL index_and_column_name FOR A70;
 SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_name,
        c.data_type,
        c.nullable,
@@ -943,6 +901,36 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        i.index_owner,
        i.index_name,
        i.column_position
+/
+PRO
+PRO Table Columns 
+PRO ~~~~~~~~~~~~~
+SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
+       c.data_type,
+       c.nullable,
+       c.data_default,
+       c.num_distinct,
+       NVL(p.partition_start, c.low_value) low_value,
+       NVL(p.partition_stop, c.high_value) high_value,
+       c.density,
+       c.num_nulls,
+       c.num_buckets,
+       c.histogram,
+       c.sample_size,
+       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
+       c.global_stats,
+       c.avg_col_len
+  FROM dba_tab_cols c,
+       plan_table p
+ WHERE (c.owner, c.table_name) IN &&tables_list.
+   AND p.statement_id(+) = 'low_high'
+   AND p.object_owner(+) = c.owner
+   AND p.object_name(+) = c.table_name
+   AND p.other_tag(+) = c.column_name
+ ORDER BY
+       c.owner,
+       c.table_name,
+       c.column_name
 /
 -- spool off and cleanup
 ROLLBACK TO my_savepoint;

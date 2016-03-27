@@ -109,7 +109,7 @@ SELECT owner, segment_name, SUM(bytes) actual_bytes
    AND owner NOT IN &&exclusion_list. -- exclude non-application schemas
    AND owner NOT IN &&exclusion_list2. -- exclude more non-application schemas
    AND segment_type LIKE 'INDEX%'
-HAVING SUM(bytes) > POWER(2, 20) -- only indexes with actual size > 1 MB
+HAVING SUM(bytes) > POWER(10,6) -- only indexes with actual size > 1 MB
  GROUP BY
        owner,
        segment_name
@@ -122,17 +122,17 @@ SELECT (s.actual_bytes - i.estimated_bytes) actual_minus_estimated,
        i.object_name
   FROM indexes i,
        segments s
- WHERE i.estimated_bytes > POWER(2, 20) -- only indexes with estimated size > 1 MB
+ WHERE i.estimated_bytes > POWER(10,6) -- only indexes with estimated size > 1 MB
    AND s.owner = i.object_owner
    AND s.segment_name = i.object_name
 )
-SELECT ROUND(actual_minus_estimated / POWER(2, 20)) actual_minus_estimated,
-       ROUND(actual_bytes / POWER(2, 20)) actual_mb,
-       ROUND(estimated_bytes / POWER(2, 20)) estimated_mb,
+SELECT ROUND(actual_minus_estimated / POWER(10,6)) actual_minus_estimated,
+       ROUND(actual_bytes / POWER(10,6)) actual_mb,
+       ROUND(estimated_bytes / POWER(10,6)) estimated_mb,
        object_owner owner,
        object_name index_name
   FROM list_bytes
- WHERE actual_minus_estimated > POWER(2, 20) -- only differences > 1 MB
+ WHERE actual_minus_estimated > POWER(10,6) -- only differences > 1 MB
  ORDER BY
        1 DESC,
        object_owner,
