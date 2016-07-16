@@ -33,9 +33,12 @@
 --
 ALTER SESSION SET STATISTICS_LEVEL = 'TYPICAL';
 ALTER SESSION SET SQL_TRACE = FALSE;
+-- find trace and produce tkprof sorted by elapsed time descending
 COL trace NEW_V trace;
 SELECT value trace FROM v$diag_info WHERE name = 'Default Trace File';
 HOS tkprof &&trace. &&_user._tkprof.txt sort=prsela exeela fchela 
 HOS more &&_user._tkprof.txt
 --
 -- end
+
+

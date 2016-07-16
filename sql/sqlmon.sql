@@ -28,6 +28,7 @@ DEF max_reports = '12';
 --
 SET FEED OFF VER OFF LIN 32767 PAGES 0 TIMI OFF LONG 32767000 LONGC 32767 TRIMS ON AUTOT OFF;
 SET SERVEROUT ON;
+SET SERVEROUT ON SIZE 1000000;
 PRO
 PRO 1. Enter Oracle Tuning Pack License Flag [ Y | N ] (required)
 DEF input_license = '&1';

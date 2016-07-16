@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/03/22
+-- Version:     2016/07/09
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -22,6 +22,7 @@
 --             
 ---------------------------------------------------------------------------------------
 --
+/*
 PRO If planx.sql disconnects right after this message it means the user executing it
 PRO owns a table called PLAN_TABLE that is not the Oracle seeded GTT plan table
 PRO owned by SYS (PLAN_TABLE$ table with a PUBLIC synonym PLAN_TABLE).
@@ -42,6 +43,7 @@ BEGIN
 END;
 /
 WHENEVER SQLERROR CONTINUE;
+*/
 --CL COL;
 SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
 PRO
@@ -825,6 +827,7 @@ SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_a
        i.index_name
 /
 -- compute low and high values for each table column
+/*
 SAVEPOINT my_savepoint;
 DELETE plan_table WHERE statement_id = 'low_high';
 DECLARE
@@ -861,6 +864,7 @@ BEGIN
   END LOOP;
 END;
 /
+*/
 SET LONG 200 LONGC 20;
 COL index_and_column_name FOR A70;
 COL table_and_column_name FOR A70;
@@ -876,8 +880,10 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.nullable,
        c.data_default,
        c.num_distinct,
-       NVL(p.partition_start, c.low_value) low_value,
-       NVL(p.partition_stop, c.high_value) high_value,
+       --NVL(p.partition_start, c.low_value) low_value,
+       --NVL(p.partition_stop, c.high_value) high_value,
+       c.low_value,
+       c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,
@@ -887,16 +893,18 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.global_stats,
        c.avg_col_len
   FROM dba_ind_columns i,
-       dba_tab_cols c,
-       plan_table p
+       dba_tab_cols c/*,
+       plan_table p*/
  WHERE (i.table_owner, i.table_name) IN &&tables_list.
    AND c.owner = i.table_owner
    AND c.table_name = i.table_name
    AND c.column_name = i.column_name
+   /*
    AND p.statement_id(+) = 'low_high'
    AND p.object_owner(+) = c.owner
    AND p.object_name(+) = c.table_name
    AND p.other_tag(+) = c.column_name
+   */
  ORDER BY
        i.index_owner,
        i.index_name,
@@ -910,8 +918,10 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.nullable,
        c.data_default,
        c.num_distinct,
-       NVL(p.partition_start, c.low_value) low_value,
-       NVL(p.partition_stop, c.high_value) high_value,
+       --NVL(p.partition_start, c.low_value) low_value,
+       --NVL(p.partition_stop, c.high_value) high_value,
+       c.low_value,
+       c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,
@@ -920,20 +930,22 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
        c.global_stats,
        c.avg_col_len
-  FROM dba_tab_cols c,
-       plan_table p
+  FROM dba_tab_cols c/*,
+       plan_table p*/
  WHERE (c.owner, c.table_name) IN &&tables_list.
+   /*
    AND p.statement_id(+) = 'low_high'
    AND p.object_owner(+) = c.owner
    AND p.object_name(+) = c.table_name
    AND p.other_tag(+) = c.column_name
+   */
  ORDER BY
        c.owner,
        c.table_name,
        c.column_name
 /
 -- spool off and cleanup
-ROLLBACK TO my_savepoint;
+--ROLLBACK TO my_savepoint;
 PRO
 PRO planx_&&sql_id._&&current_time..txt has been generated
 SET FEED ON VER ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF;
