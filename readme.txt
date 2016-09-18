@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2016/07/16
+last update: 2016/09/18
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -28,13 +28,14 @@ get_my_trace1.sql           16/06/24 Copy trace file on DB server from trace dir
 get_my_trace2.sql           16/06/24 Copy trace file from DB server into local directory using all_directories
 identification.sql          16/05/27 System identification with global info such as versions
 largest_200_objects.sql     14/01/23 Reports 200 largest objects as per segments bytes
+line_chart.sql              16/08/19 Sample script to generate a Google line chart
 list_plans.sql              13/12/28 Lists SQL Plan Baselines
 mon subdirectory            16/02/29 A set of scripts to monitor executions taking over X time
 mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
 mystat.sql                  14/01/11 Reports delta of current sessions stats before and after a SQL
 one_sql_time_series.sql     14/10/31 Performance History for one SQL
-plan.sql                    16/06/22 Gets execution plan for given SQL_ID
-plan_prev.sql               13/10/09 Execution Plan for last SQL executed in current session
+planx.sql                   16/09/08 Gets execution plan for given SQL_ID
+plan_prev.sql               16/08/29 Execution Plan for last SQL executed in current session
 prev.sql                    16/06/21 Most recent SQL_ID and CHILD_NUMBER for current SID
 profiler.sql                15/12/28 Generates HTML report out of DBMS_PROFILER data
 recent.sql                  15/07/09 List of SQL on execution or recently executed

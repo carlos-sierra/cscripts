@@ -150,6 +150,9 @@ COL java_exec_secs FOR A18;
 COL io_cell_offload_eligible_bytes FOR A30;
 COL io_interconnect_bytes FOR A30;
 COL io_saved FOR A8;
+COL begin_interval_time FOR A20;
+COL end_interval_time FOR A20;
+
 PRO
 PRO GV$SQLSTATS (ordered by inst_id)
 PRO ~~~~~~~~~~~
