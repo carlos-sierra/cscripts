@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/07/09
+-- Version:     2016/09/27
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -400,7 +400,16 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
+SELECT /*+ 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
+       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
+       FULL(h.sn) 
+       FULL(h.ash) 
+       FULL(h.evt) 
+       USE_HASH(h.sn h.ash h.evt)
+       */
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM dba_hist_active_sess_history h
@@ -504,7 +513,16 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
+SELECT /*+ 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
+       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
+       FULL(h.sn) 
+       FULL(h.ash) 
+       FULL(h.evt) 
+       USE_HASH(h.sn h.ash h.evt)
+       */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
@@ -628,7 +646,16 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
 WITH
 events AS (
-SELECT /*+ MATERIALIZE FULL(h.ash) FULL(h.evt) FULL(h.sn) */
+SELECT /*+ 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
+       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
+       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
+       FULL(h.sn) 
+       FULL(h.ash) 
+       FULL(h.evt) 
+       USE_HASH(h.sn h.ash h.evt)
+       */
        h.sql_plan_hash_value plan_hash_value,
        NVL(h.sql_plan_line_id, 0) line_id,
        SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation,
@@ -728,8 +755,17 @@ BEGIN
   	       AND h.current_obj# >= 0
   	       AND o.object_id(+) = h.current_obj#
   	     UNION
-  	    SELECT /*+ FULL(h.ash) FULL(h.evt) FULL(h.sn) */
-  	           CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
+  	    SELECT /*+ 
+               FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
+               FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
+               FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
+               USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
+               FULL(h.sn) 
+               FULL(h.ash) 
+               FULL(h.evt) 
+               USE_HASH(h.sn h.ash h.evt)
+               */
+       CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
   	           CASE h.current_obj# WHEN 0 THEN 'UNDO' ELSE o.object_name END name
   	      FROM dba_hist_active_sess_history h,
   	           dba_objects o
@@ -875,6 +911,8 @@ COL data_type FOR A20;
 COL data_default FOR A20;
 COL low_value FOR A32;
 COL high_value FOR A32;
+COL low_value_translated FOR A32;
+COL high_value_translated FOR A32;
 PRO
 PRO Index Columns 
 PRO ~~~~~~~~~~~~~
@@ -885,8 +923,50 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.num_distinct,
        --NVL(p.partition_start, c.low_value) low_value,
        --NVL(p.partition_stop, c.high_value) high_value,
-       c.low_value,
-       c.high_value,
+       CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
+        WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.low_value))
+        WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.low_value))
+        WHEN c.data_type = 'DATE' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00')))
+        WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00'))||'.'||
+                    to_number(substr(c.low_value,15,8),'XXXXXXXX'))
+       END low_value_translated,
+       CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.high_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.high_value))
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.high_value))
+        WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.high_value))
+        WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.high_value))
+        WHEN c.data_type = 'DATE' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00')))
+        WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00'))||'.'||
+                    to_number(substr(c.high_value,15,8),'XXXXXXXX'))
+        END high_value_translated,
+       --c.low_value,
+       --c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,
@@ -923,8 +1003,50 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.num_distinct,
        --NVL(p.partition_start, c.low_value) low_value,
        --NVL(p.partition_stop, c.high_value) high_value,
-       c.low_value,
-       c.high_value,
+       CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
+        WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.low_value))
+        WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.low_value))
+        WHEN c.data_type = 'DATE' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00')))
+        WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00'))||'.'||
+                    to_number(substr(c.low_value,15,8),'XXXXXXXX'))
+       END low_value_translated,
+       CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.high_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.high_value))
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.high_value))
+        WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.high_value))
+        WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.high_value))
+        WHEN c.data_type = 'DATE' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00')))
+        WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
+                    ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
+                    ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00'))||'.'||
+                    to_number(substr(c.high_value,15,8),'XXXXXXXX'))
+        END high_value_translated,
+       --c.low_value,
+       --c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,

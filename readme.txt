@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2016/09/18
+last update: 2016/11/23
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -11,6 +11,7 @@ act.sql                     14/10/13 Active Sessions (lite)
 active_sessions.sql         14/10/31 Active Sessions (more columns)
 active_sql.sql              14/10/31 Simple list of Active SQL (just sql id and text)
 alter_plans.sql             13/12/28 Alter attributes of a SQL Plan Baseline
+awr_ash_pre_check.sql       16/11/23 Analyzes state of ASH on AWR and computes how long eDB360 would take to execute
 chained_rows.sql            16/04/18 Chained rows analysis for one table
 columns_multiple_types.sql  15/07/07 List Columns with multiple data types
 constraints_nonindexed.sql  15/07/05 List FK Constrains with no index to supportthem
@@ -34,7 +35,7 @@ mon subdirectory            16/02/29 A set of scripts to monitor executions taki
 mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
 mystat.sql                  14/01/11 Reports delta of current sessions stats before and after a SQL
 one_sql_time_series.sql     14/10/31 Performance History for one SQL
-planx.sql                   16/09/08 Gets execution plan for given SQL_ID
+planx.sql                   16/11/18 Gets execution plan for given SQL_ID
 plan_prev.sql               16/08/29 Execution Plan for last SQL executed in current session
 prev.sql                    16/06/21 Most recent SQL_ID and CHILD_NUMBER for current SID
 profiler.sql                15/12/28 Generates HTML report out of DBMS_PROFILER data
@@ -52,4 +53,4 @@ tablex.sql                  14/01/24 Reports CBO Statistics for a given Table
 tkprof.sql                  13/10/15 Turns trace off and generates a TKPROF for trace under current session
 trace_off.sql               16/06/19 Turns sql trace off
 trace_on.sql                16/06/19 Turns sql trace on using event 10046 level 12 (include binds and waits)
-verify_stats_wr_sys.sql     15/04/23 Verify CBO statistics for AWR Tables and Indexes
+verify_stats_wr_sys.sql     16/11/23 Verify CBO statistics for AWR Tables and Indexes
