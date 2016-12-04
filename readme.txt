@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2016/11/23
+last update: 2016/12/03
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -11,7 +11,7 @@ act.sql                     14/10/13 Active Sessions (lite)
 active_sessions.sql         14/10/31 Active Sessions (more columns)
 active_sql.sql              14/10/31 Simple list of Active SQL (just sql id and text)
 alter_plans.sql             13/12/28 Alter attributes of a SQL Plan Baseline
-awr_ash_pre_check.sql       16/11/23 Analyzes state of ASH on AWR and computes how long eDB360 would take to execute
+awr_ash_pre_check.sql       16/12/03 Analyzes state of ASH on AWR and computes how long eDB360 would take to execute
 chained_rows.sql            16/04/18 Chained rows analysis for one table
 columns_multiple_types.sql  15/07/07 List Columns with multiple data types
 constraints_nonindexed.sql  15/07/05 List FK Constrains with no index to supportthem

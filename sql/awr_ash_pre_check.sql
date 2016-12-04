@@ -13,7 +13,8 @@
 --
 -- Usage:       This script validates state of ASH on AWR 
 --
--- Example:     @awr_ash_pre_check.sql
+-- Example:     sqlplus / as sysdba
+--              @awr_ash_pre_check.sql
 --
 -- Notes:       Developed and tested on 11.2.0.3
 --             
@@ -40,6 +41,7 @@ SET ECHO OFF;
 SET VER OFF;
 SET FEED OFF;
 
+DEF ash_edb360_days = '31';
 DEF ash_fts_on_edb360 = '250';
 DEF ash_date_format = 'YYYY-MM-DD"T"HH24:MI:SS';
 
@@ -53,7 +55,29 @@ COL number_of_instances NEW_V number_of_instances NOPRI;
 SELECT COUNT(*) number_of_instances FROM gv$instance;
 
 COL my_spool_filename NEW_V my_spool_filename NOPRI;
-SELECT 'awr_ash_pre_check_'||name||'.txt' my_spool_filename FROM v$database;
+COL this_dbid NEW_V this_dbid NOPRI;
+
+-- get sool filename and dbid
+SELECT 'awr_ash_pre_check_'||name||'.txt' my_spool_filename, dbid this_dbid FROM v$database
+/
+
+
+COL ash_min_snap_id NEW_V ash_min_snap_id NOPRI;
+COL ash_max_snap_id NEW_V ash_max_snap_id NOPRI;
+
+-- range of snapshots for edb360
+SELECT NVL(TO_CHAR(MIN(snap_id)), '0') ash_min_snap_id
+  FROM sys.wrm$_snapshot 
+ WHERE dbid = &&this_dbid. 
+   AND begin_interval_time > SYSTIMESTAMP - &&ash_edb360_days.
+/
+
+SELECT NVL(TO_CHAR(MAX(snap_id)), '0') ash_max_snap_id 
+  FROM sys.wrm$_snapshot 
+ WHERE dbid = &&this_dbid. 
+   AND begin_interval_time < SYSTIMESTAMP
+/
+
 SPO &&my_spool_filename.
 
 PRO
@@ -65,8 +89,12 @@ PRO Control
 PRO ~~~~~~~
 PRO
 
+SELECT TO_CHAR(SYSDATE, '&&ash_date_format.') date_and_time FROM DUAL
+/
+
 COL db_name FOR A9;
 
+PRO
 SELECT dbid, name db_name, db_unique_name, version, &&ash_database_block_size. db_block_size, &&number_of_instances. instances FROM v$database, v$instance
 /
 
@@ -313,49 +341,92 @@ SET SERVEROUT OFF;
 
 VAR ash_time_t1 NUMBER;
 EXEC :ash_time_t1 := DBMS_UTILITY.get_time;
+
 COL ash_fts_seconds NEW_V ash_fts_seconds NOPRI;
-SELECT TO_CHAR(CEIL((:ash_time_t1 - :ash_time_t0) / 100)) ash_fts_seconds FROM DUAL;
+SELECT TO_CHAR(CEIL((GREATEST(:ash_time_t1 - :ash_time_t0, 1)) / 100)) ash_fts_seconds FROM DUAL
+/
+
 COL ash_days_of_history NEW_V ash_days_of_history NOPRI;
-SELECT TO_CHAR(:ash_days_of_history) ash_days_of_history FROM DUAL;
+SELECT TO_CHAR(:ash_days_of_history) ash_days_of_history FROM DUAL
+/
+
 COL ash_med_sample_date NEW_V ash_med_sample_date NOPRI;
-SELECT :ash_med_sample_date ash_med_sample_date FROM DUAL;
+SELECT :ash_med_sample_date ash_med_sample_date FROM DUAL
+/
+
 COL ash_median_age_days NEW_V ash_median_age_days NOPRI;
-SELECT TO_CHAR(:ash_median_age_days) ash_median_age_days FROM DUAL;
+SELECT TO_CHAR(:ash_median_age_days) ash_median_age_days FROM DUAL
+/
+
+EXEC :ash_time_t0 := DBMS_UTILITY.get_time;
+
+COL ignore_this NEW_V ignore_this NOPRI;
+SELECT COUNT(*) ignore_this 
+  FROM sys.wrh$_active_session_history 
+ WHERE dbid = &&this_dbid. 
+   AND snap_id BETWEEN &&ash_min_snap_id. AND &&ash_max_snap_id. 
+   AND sql_id IS NOT NULL /* to induce FTS instead of index access */
+/
+
+EXEC :ash_time_t1 := DBMS_UTILITY.get_time;
+
+COL edb360_fts_seconds NEW_V edb360_fts_seconds NOPRI;
+SELECT TO_CHAR(CEIL((GREATEST(:ash_time_t1 - :ash_time_t0, 1)) / 100)) edb360_fts_seconds FROM DUAL
+/
+
 COL edb360_estimated_hrs NEW_V edb360_estimated_hrs NOPRI;
-SELECT TO_CHAR(CEIL(&&ash_fts_on_edb360. * &&ash_fts_seconds. * &&number_of_instances. * 3 / 3600)) edb360_estimated_hrs FROM DUAL;
+SELECT TO_CHAR(CEIL(&&ash_fts_on_edb360. * &&edb360_fts_seconds. * &&number_of_instances. * 2 / 3600)) edb360_estimated_hrs FROM DUAL
+/
 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRO
 PRO Pre-check results
 PRO ~~~~~~~~~~~~~~~~~
 PRO
-PRO If there are outdated AWR baselines, drop them using DBMS_WORKLOAD_REPOSITORY.DROP_BASELINE.
+PRO If there are outdated AWR baselines, use DBMS_WORKLOAD_REPOSITORY.DROP_BASELINE.
+PRO (preserve SYSTEM_MOVING_WINDOW).
 PRO
-PRO ASH stats are &&ash_cbo_stats_age_days. days old (&&ash_last_analyzed.).
-PRO If older than a week then eDB360 may take long to execute (suboptimal execution plans).
+PRO ASH stats are &&ash_cbo_stats_age_days. day(s) old (&&ash_last_analyzed.).
+PRO If older than a week then eDB360 may take long to execute 
+PRO (suboptimal execution plans).
 PRO
-PRO There are &&ash_days_of_history. days of history in ASH.
-PRO If more than a month then eDB360 may take long to execute (default retention is one week, and one month is usually enough).
+PRO There are &&ash_days_of_history. day(s) of history in ASH.
+PRO If more than 31 days then eDB360 may take long to execute 
+PRO (default retention is 8 days, and one month is usually enough).
 PRO
-PRO Median age of largest ASH partition is &&ash_median_age_days. days (&&ash_med_sample_date).
-PRO If older than a month then eDB360 may take long to execute (a median older than 45 days usually means purging not happening).
+PRO Median age of largest ASH partition is &&ash_median_age_days. day(s) (&&ash_med_sample_date).
+PRO If older than a month then eDB360 may take long to execute 
+PRO (a median older than half the retention days usually means purging not happening).
 PRO
 PRO ASH size is &&ash_size_gb.
-PRO If bigger than 1 GB then eDB360 may take long to execute (eDB360 may timeout after default threshold of 24hrs). 
+PRO If larger than 1 GB then eDB360 may take long to execute 
+PRO (eDB360 may timeout after default threshold of 24hrs). 
 PRO
-PRO Last DDL on ASH objects is &&last_ddl_age_days. days old (&&seg_last_ddl_time.).
-PRO If older than a week then eDB360 may take long to execute (automatic partition split may not be happening).
+PRO Last DDL on ASH objects is &&last_ddl_age_days. day(s) old (&&seg_last_ddl_time.).
+PRO If older than a day then eDB360 may take long to execute 
+PRO (automatic daily partition split may not be happening).
 PRO
 PRO Max percent of INSERTs into an ASH segment since stats gathering is &&percent_of_inserts.%
-PRO If over 50% then eDB360 may take long to execute (statistics may be locked or outdated, thus prone to suboptimal execution plans).
+PRO If over 50% then eDB360 may take long to execute 
+PRO (statistics may be locked or outdated, thus prone to suboptimal execution plans).
 PRO
-PRO One full scan of ASH takes &&ash_fts_seconds. seconds on this database.
-PRO eDB360 performs over &&ash_fts_on_edb360. full scans on ASH per instance, and access to ASH is about 1/3 of eDB360 work load.
-PRO Ballpark execution time for eDB360 is &&edb360_estimated_hrs. hour(s), assuming optimal execution plans (with representative stats).
+PRO One full scan of ASH takes &&ash_fts_seconds. second(s) on this database.
+PRO One scan of &&ash_edb360_days. day(s) of data takes &&edb360_fts_seconds. second(s) on this database.
+PRO eDB360 performs over &&ash_fts_on_edb360. scans of &&ash_edb360_days. day(s) of data on ASH per instance.
+PRO About 1/2 of eDB360 work load is access to ASH.
 PRO
-PRO If pre-check suggests eDB360 may take long to execute (over 24 hrs), take care first of ASH state:
-PRO 1. If stats are outdated, gather fresh stats using edb360-master/sql/gather_stats_wr_sys.sql.
-PRO 2. If ASH size is large, or last DDL is old, review references below and proceed to purge and partition ASH.
+PRO *******************************************************************************
+PRO *** Estimated ballpark execution time for eDB360 is &&edb360_estimated_hrs. hour(s), 
+PRO *** that is assuming optimal execution plans (with representative CBO stats).
+PRO *******************************************************************************
+PRO
+PRO If pre-check suggests eDB360 may take long to execute (over 24 hrs), 
+PRO then take care first of ASH state:
+PRO 1. If stats are outdated, use edb360-master/sql/gather_stats_wr_sys.sql.
+PRO 2. If last DDL is old, proceed to manually split partition ASH.
+PRO 3. If ASH size is over 2 GB, purge ASH.
+PRO 4. If retention days are over 31, consider reducing to 31.
+PRO 5. If spanshots intervals are more frequent than 1hr, consider setting them to 1hr.
 PRO
 PRO References:
 PRO WRH$_ACTIVE_SESSION_HISTORY Does Not Get Purged Based Upon the Retention Policy (Doc ID 387914.1)
@@ -367,31 +438,36 @@ PRO
 
 SPO OFF;
 
-COL ash_database_block_size CLE;
-COL number_of_instances CLE;
-COL my_spool_filename CLE;
-COL db_name CLE;
-COL snap_interval CLE;
-COL retention CLE;
-COL last_purge_time CLE;
-COL days_since_purge CLE;
-COL locked CLE;
-COL stale CLE;
-COL ash_last_analyzed CLE;
-COL ash_cbo_stats_age_days CLE;
-COL table_or_partition CLE;
-COL percent_of_inserts CLE;
-COL size_gb CLE;
-COL partition_name CLE;
 COL all_segments CLE;
-COL ash_size_gb CLE;
-COL ash_object CLE;
-COL last_ddl_time CLE;
-COL last_ddl_age_days CLE;
-COL seg_last_ddl_time CLE;
-COL ash_fts_seconds CLE;
+COL ash_cbo_stats_age_days CLE;
+COL ash_database_block_size CLE;
 COL ash_days_of_history CLE;
+COL ash_fts_seconds CLE;
+COL ash_last_analyzed CLE;
+COL ash_max_snap_id CLE;
 COL ash_med_sample_date CLE;
 COL ash_median_age_days CLE;
+COL ash_min_snap_id CLE;
+COL ash_object CLE;
+COL ash_size_gb CLE;
+COL days_since_purge CLE;
+COL db_name CLE;
 COL edb360_estimated_hrs CLE;
+COL edb360_fts_seconds CLE;
+COL ignore_this CLE;
+COL last_ddl_age_days CLE;
+COL last_ddl_time CLE;
+COL last_purge_time CLE;
+COL locked CLE;
+COL my_spool_filename CLE;
+COL number_of_instances CLE;
+COL partition_name CLE;
+COL percent_of_inserts CLE;
+COL retention CLE;
+COL seg_last_ddl_time CLE;
+COL size_gb CLE;
+COL snap_interval CLE;
+COL stale CLE;
+COL table_or_partition CLE;
+COL this_dbid CLE;
 

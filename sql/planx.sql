@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/09/27
+-- Version:     2016/11/28
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -156,6 +156,7 @@ COL end_interval_time FOR A20;
 PRO
 PRO GV$SQLSTATS (ordered by inst_id)
 PRO ~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT inst_id, 
        LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
        LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed, 
@@ -181,9 +182,11 @@ SELECT inst_id,
  WHERE sql_id = :sql_id
  ORDER BY 1
 /
+
 PRO
 PRO GV$SQLSTATS_PLAN_HASH (ordered by inst_id and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT inst_id, plan_hash_value,
        LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
        LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed, 
@@ -209,9 +212,11 @@ SELECT inst_id, plan_hash_value,
  WHERE sql_id = :sql_id
  ORDER BY 1, 2
 /
+
 PRO
 PRO GV$SQL (ordered by inst_id and child_number)
 PRO ~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT inst_id, child_number, plan_hash_value, &&is_10g.is_shareable, 
        DECODE(loaded_versions, 1, 'Y', 'N') loaded, 
        LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
@@ -238,12 +243,14 @@ SELECT inst_id, child_number, plan_hash_value, &&is_10g.is_shareable,
  WHERE sql_id = :sql_id
  ORDER BY 1, 2
 /
+
 PRO       
 PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by inst_id and child_number)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 COL inst_child FOR A21;
 BREAK ON inst_child SKIP 2;
 SET PAGES 0;
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH v AS (
 SELECT /*+ MATERIALIZE */
        DISTINCT sql_id, inst_id, child_number
@@ -257,10 +264,12 @@ SELECT /*+ ORDERED USE_NL(t) */
   FROM v, TABLE(DBMS_XPLAN.DISPLAY('gv$sql_plan_statistics_all', NULL, 'ADVANCED ALLSTATS LAST', 
        'inst_id = '||v.inst_id||' AND sql_id = '''||v.sql_id||''' AND child_number = '||v.child_number)) t
 /
+
 PRO
 PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SET PAGES 50000;
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT s.snap_id, 
        TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time,
        TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time,
@@ -296,9 +305,11 @@ SELECT s.snap_id,
    AND s.instance_number = h.instance_number
  ORDER BY 1 DESC, 4, 5
 /
+
 PRO
 PRO DBA_HIST_SQLSTAT TOTAL (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT s.snap_id, 
        TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time,
        TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time,
@@ -334,12 +345,14 @@ SELECT s.snap_id,
    AND s.instance_number = h.instance_number
  ORDER BY 1 DESC, 4, 5
 /
+
 PRO
 PRO DBA_HIST_SQL_PLAN (ordered by plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~
 COL plan_timestamp FOR A19;
 BREAK ON plan_timestamp SKIP 2;
 SET PAGES 0;
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH v AS (
 SELECT /*+ MATERIALIZE */ 
        DISTINCT sql_id, plan_hash_value, dbid, timestamp
@@ -353,6 +366,7 @@ SELECT /*+ ORDERED USE_NL(t) */
        t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
+
 PRO
 PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -361,6 +375,7 @@ SET PAGES 50000;
 COL samples FOR 999,999,999,999
 COL percent FOR 9,990.0;
 COL timed_event FOR A70;
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
@@ -394,10 +409,12 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ 
@@ -447,6 +464,7 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -454,13 +472,16 @@ PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
+SPO planx_&&sql_id._&&current_time..txt APP;
 /
+
 PRO
 PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '15';
 COL operation FOR A50;
 COL line_id FOR 9999999;
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
@@ -507,10 +528,12 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ 
@@ -573,6 +596,7 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -580,13 +604,16 @@ PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by plan line and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
+SPO planx_&&sql_id._&&current_time..txt APP;
 /
+
 PRO
 PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '20';
 COL current_object FOR A60;
 COL line_id FOR 9999999;
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ MATERIALIZE */
@@ -640,10 +667,12 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line, obj and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '7';
+SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
 SELECT /*+ 
@@ -713,6 +742,7 @@ SELECT others samples,
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
 /
+
 PRO
 PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -720,7 +750,12 @@ PRO
 PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by plan line, obj and timed event)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
+SPO planx_&&sql_id._&&current_time..txt APP;
 /
+
+SPO planx_&&sql_id._&&current_time..txt APP;
+PRO get list of tables from execution plan
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 VAR tables_list CLOB;
 EXEC :tables_list := NULL;
 -- get list of tables from execution plan
@@ -765,7 +800,7 @@ BEGIN
                FULL(h.evt) 
                USE_HASH(h.sn h.ash h.evt)
                */
-       CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
+               CASE h.current_obj# WHEN 0 THEN 'SYS' ELSE o.owner END owner, 
   	           CASE h.current_obj# WHEN 0 THEN 'UNDO' ELSE o.object_name END name
   	      FROM dba_hist_active_sess_history h,
   	           dba_objects o
@@ -808,18 +843,23 @@ BEGIN
   END IF;
 END;
 /
+
 SET LONG 2000000 LONGC 2000 LIN 32767;
 COL tables_list NEW_V tables_list FOR A32767;
 SET HEAD OFF;
 PRO 
 PRO (owner, table) list
 PRO ~~~~~~~~~~~~~~~~~~~
-SELECT :tables_list tables_list FROM DUAL;
+SPO planx_&&sql_id._&&current_time..txt APP;
+SELECT :tables_list tables_list FROM DUAL
+/
 SET HEAD ON;
+
 PRO
 PRO Tables Accessed 
 PRO ~~~~~~~~~~~~~~~
 COL table_name FOR A50;
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT owner||'.'||table_name table_name,
        partitioned,
        degree,
@@ -836,11 +876,13 @@ SELECT owner||'.'||table_name table_name,
        owner,
        table_name
 /
+
 PRO
 PRO Indexes 
 PRO ~~~~~~~
 COL table_and_index_name FOR A70;
 COL degree FOR A6;
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_and_index_name,
        i.partitioned,
        i.degree,
@@ -865,6 +907,7 @@ SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_a
        i.owner,
        i.index_name
 /
+
 -- compute low and high values for each table column
 /*
 SAVEPOINT my_savepoint;
@@ -916,6 +959,7 @@ COL high_value_translated FOR A32;
 PRO
 PRO Index Columns 
 PRO ~~~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_name,
        c.data_type,
        c.nullable,
@@ -993,9 +1037,11 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        i.index_name,
        i.column_position
 /
+
 PRO
 PRO Table Columns 
 PRO ~~~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.data_type,
        c.nullable,
