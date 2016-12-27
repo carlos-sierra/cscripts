@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/11/28
+-- Version:     2016/12/25
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -825,7 +825,9 @@ BEGIN
     IF l_pair IS NULL THEN
       DBMS_LOB.WRITEAPPEND(:tables_list, 1, '(');
     ELSE
-      DBMS_LOB.WRITEAPPEND(:tables_list, 1, ',');
+      IF DBMS_LOB.GETLENGTH(:tables_list) < 2799 THEN
+        DBMS_LOB.WRITEAPPEND(:tables_list, 1, ',');
+      END IF;
     END IF;
     l_pair := '('''||i.owner||''','''||i.table_name||''')';
     -- SP2-0341: line overflow during variable substitution (>3000 characters at line 12)

@@ -9,7 +9,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/11/20
+-- Version:     2016/12/18
 --
 -- Usage:       This script validates state of ASH on AWR 
 --
@@ -432,6 +432,7 @@ PRO References:
 PRO WRH$_ACTIVE_SESSION_HISTORY Does Not Get Purged Based Upon the Retention Policy (Doc ID 387914.1)
 PRO Bug 14084247 - ORA-1555 or ORA-12571 Failed AWR purge can lead to continued SYSAUX space use (Doc ID 14084247.8)
 PRO Manually Purge the Optimizer Statistics and AWR Snaphots to Reduce Space Usage of SYSAUX Tablespace (Doc ID 1965061.1)
+PRO How to Recreate The AWR ( AUTOMATIC WORKLOAD ) Repository (Doc ID 782974.1)
 PRO
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRO
