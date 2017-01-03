@@ -1,6 +1,6 @@
 Carlos Sierra's Shared Scripts 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-last update: 2016/12/18
+last update: 2017/01/02
 
 Feel free to use these scripts. They are mostly useful in the scope of SQL performance
 diagnostics. Keep original names please.
@@ -35,7 +35,7 @@ mon subdirectory            16/02/29 A set of scripts to monitor executions taki
 mystat_reset.sql            13/10/04 Resets snaps credated by mystat.sql
 mystat.sql                  14/01/11 Reports delta of current sessions stats before and after a SQL
 one_sql_time_series.sql     14/10/31 Performance History for one SQL
-planx.sql                   16/11/18 Gets execution plan for given SQL_ID
+planx.sql                   17/01/02 Gets execution plan for given SQL_ID
 plan_prev.sql               16/08/29 Execution Plan for last SQL executed in current session
 prev.sql                    16/06/21 Most recent SQL_ID and CHILD_NUMBER for current SID
 profiler.sql                15/12/28 Generates HTML report out of DBMS_PROFILER data

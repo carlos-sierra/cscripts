@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2016/12/25
+-- Version:     2017/01/02
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -22,29 +22,6 @@
 --             
 ---------------------------------------------------------------------------------------
 --
-/*
-PRO If planx.sql disconnects right after this message it means the user executing it
-PRO owns a table called PLAN_TABLE that is not the Oracle seeded GTT plan table
-PRO owned by SYS (PLAN_TABLE$ table with a PUBLIC synonym PLAN_TABLE).
-PRO planx.sql requires the Oracle seeded PLAN_TABLE, consider dropping the one in this schema.
-WHENEVER SQLERROR EXIT;
-DECLARE
- is_plan_table_in_usr_schema NUMBER; 
-BEGIN
- SELECT COUNT(*)
-   INTO is_plan_table_in_usr_schema
-   FROM user_tables
-  WHERE table_name = 'PLAN_TABLE';
-  -- user has a physical table called PLAN_TABLE, abort
-  IF is_plan_table_in_usr_schema > 0 THEN
-    RAISE_APPLICATION_ERROR(-20100, 'PLAN_TABLE physical table present in user schema. ');
-  END IF;
-
-END;
-/
-WHENEVER SQLERROR CONTINUE;
-*/
---CL COL;
 SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
 PRO
 PRO 1. Enter Oracle Diagnostics Pack License Flag [ Y | N ] (required)
@@ -72,6 +49,10 @@ SELECT '--' is_10g FROM v$instance WHERE version LIKE '10%';
 DEF is_11r1 = '';
 COL is_11r1 NEW_V is_11r1 NOPRI;
 SELECT '--' is_11r1 FROM v$instance WHERE version LIKE '11.1%';
+-- is_11r2
+DEF is_11r2 = '';
+COL is_11r2 NEW_V is_11r2 NOPRI;
+SELECT '--' is_11r2 FROM v$instance WHERE version LIKE '11.2%';
 -- get current time
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -83,9 +64,9 @@ COL x_maximum_snap_id NEW_V x_maximum_snap_id NOPRI;
 SELECT NVL(TO_CHAR(MAX(snap_id)), '&&x_minimum_snap_id.') x_maximum_snap_id FROM dba_hist_snapshot WHERE :license = 'Y';
 SELECT '-1' x_maximum_snap_id FROM DUAL WHERE TRIM('&&x_maximum_snap_id.') IS NULL;
 COL x_minimum_date NEW_V x_minimum_date NOPRI;
-SELECT TO_CHAR(MIN(begin_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_minimum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_minimum_snap_id.;
+SELECT TO_CHAR(MIN(begin_interval_time), 'YYYY-MM-DD"T"HH24:MI:SS') x_minimum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_minimum_snap_id.;
 COL x_maximum_date NEW_V x_maximum_date NOPRI;
-SELECT TO_CHAR(MAX(end_interval_time), 'DD-MON-YYYY HH24:MI:SS') x_maximum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_maximum_snap_id.;
+SELECT TO_CHAR(MAX(end_interval_time), 'YYYY-MM-DD"T"HH24:MI:SS') x_maximum_date FROM dba_hist_snapshot WHERE :license = 'Y' AND snap_id = &&x_maximum_snap_id.;
 -- get sql_text
 VAR sql_id VARCHAR2(13);
 EXEC :sql_id := '&&sql_id.';
@@ -134,8 +115,18 @@ SET PAGES 50000;
 -- columns format
 COL is_shareable FOR A12;
 COL loaded FOR A6;
+COL parse_calls FOR A20;
 COL executions FOR A20;
+COL fetches FOR A20;
 COL rows_processed FOR A20;
+COL loads FOR A6;
+COL version_count FOR A7;
+COL invalidations FOR A6;
+COL loaded_versions FOR A15;
+COL open_versions FOR A15;
+COL users_opening FOR A15;
+COL users_executing FOR A15;
+COL px_servers_executions FOR A20;
 COL buffer_gets FOR A20;
 COL disk_reads FOR A20;
 COL direct_writes FOR A20;
@@ -149,99 +140,116 @@ COL plsql_exec_secs FOR A18;
 COL java_exec_secs FOR A18;
 COL io_cell_offload_eligible_bytes FOR A30;
 COL io_interconnect_bytes FOR A30;
-COL io_saved FOR A8;
+COL io_cell_uncompressed_bytes FOR A30;
+COL io_cell_offload_returned_bytes FOR A30;
+COL io_saved FOR A10;
 COL begin_interval_time FOR A20;
 COL end_interval_time FOR A20;
+COL sorts FOR A20;
+COL sharable_mem FOR A20;
+COL persistent_mem FOR A20;
+COL runtime_mem FOR A20;
+COL total_sharable_mem FOR A20;
+COL first_load_time FOR A20;
+COL last_load_time FOR A20;
+COL last_active_time FOR A20;
+COL service FOR A30;
+COL module FOR A30;
+COL action FOR A30;
+COL sql_profile FOR A30;
 
 PRO
-PRO GV$SQLSTATS (ordered by inst_id)
+PRO GV$SQLSTATS (ordered by inst_id and plan_hash_value)
 PRO ~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT inst_id, 
-       LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
-       LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed, 
-       LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets,
-       LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads, 
-       LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes,
-       LPAD(TO_CHAR(ROUND(elapsed_time/1e6, 3), '999,999,990.000'), 18) elsapsed_secs,
-       LPAD(TO_CHAR(ROUND(cpu_time/1e6, 3), '999,999,990.000'), 18) cpu_secs,
-       LPAD(TO_CHAR(ROUND(user_io_wait_time/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs,
-       LPAD(TO_CHAR(ROUND(cluster_wait_time/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs,
-       LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
-       LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
-       LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
-       &&is_10g.&&is_11r1.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_10g.&&is_11r1.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_10g.&&is_11r1.CASE 
-         &&is_10g.&&is_11r1.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           &&is_10g.&&is_11r1.LPAD(TO_CHAR(ROUND(
-           &&is_10g.&&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           &&is_10g.&&is_11r1., 2), '990.00')||' %', 8) END io_saved
+SELECT   inst_id
+       , plan_hash_value
+       , LPAD(TO_CHAR(parse_calls, '999,999,999,999,990'), 20) parse_calls
+       , LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions
+       , LPAD(TO_CHAR(px_servers_executions, '999,999,999,999,990'), 20) px_servers_executions
+       , LPAD(TO_CHAR(fetches, '999,999,999,999,990'), 20) fetches
+       , LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed
+       , LPAD(TO_CHAR(version_count, '99,990'), 7) version_count
+       , LPAD(TO_CHAR(loads, '9,990'), 6) loads
+       , LPAD(TO_CHAR(invalidations, '9,990'), 6) invalidations
+       , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets
+       , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads
+       , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes
+       , LPAD(TO_CHAR(ROUND(elapsed_time/1e6, 3), '999,999,990.000'), 18) elsapsed_secs
+       , LPAD(TO_CHAR(ROUND(cpu_time/1e6, 3), '999,999,990.000'), 18) cpu_secs
+       , LPAD(TO_CHAR(ROUND(user_io_wait_time/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs
+       , LPAD(TO_CHAR(ROUND(cluster_wait_time/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs
+       , LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs
+       , LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs
+       , LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs
+       , LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs
+       , LPAD(TO_CHAR(sorts, '999,999,999,999,990'), 20) sorts
+       , LPAD(TO_CHAR(sharable_mem, '999,999,999,999,990'), 20) sharable_mem
+       , LPAD(TO_CHAR(total_sharable_mem, '999,999,999,999,990'), 20) total_sharable_mem
+       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_uncompressed_bytes, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_returned_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_bytes
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved
   FROM gv$sqlstats
  WHERE sql_id = :sql_id
- ORDER BY 1
-/
-
-PRO
-PRO GV$SQLSTATS_PLAN_HASH (ordered by inst_id and plan_hash_value)
-PRO ~~~~~~~~~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT inst_id, plan_hash_value,
-       LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
-       LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed, 
-       LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets,
-       LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads, 
-       LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes,
-       LPAD(TO_CHAR(ROUND(elapsed_time/1e6, 3), '999,999,990.000'), 18) elsapsed_secs,
-       LPAD(TO_CHAR(ROUND(cpu_time/1e6, 3), '999,999,990.000'), 18) cpu_secs,
-       LPAD(TO_CHAR(ROUND(user_io_wait_time/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs,
-       LPAD(TO_CHAR(ROUND(cluster_wait_time/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs,
-       LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
-       LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
-       LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_11r1.,
-       &&is_11r1.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_11r1.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_11r1.CASE 
-         &&is_11r1.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           &&is_11r1.LPAD(TO_CHAR(ROUND(
-           &&is_11r1.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           &&is_11r1., 2), '990.00')||' %', 8) END io_saved
-  FROM gv$sqlstats_plan_hash
- WHERE sql_id = :sql_id
- ORDER BY 1, 2
+ ORDER BY inst_id
+       , plan_hash_value
 /
 
 PRO
 PRO GV$SQL (ordered by inst_id and child_number)
 PRO ~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT inst_id, child_number, plan_hash_value, &&is_10g.is_shareable, 
-       DECODE(loaded_versions, 1, 'Y', 'N') loaded, 
-       LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions, 
-       LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed, 
-       LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets,
-       LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads, 
-       LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes,
-       LPAD(TO_CHAR(ROUND(elapsed_time/1e6, 3), '999,999,990.000'), 18) elsapsed_secs,
-       LPAD(TO_CHAR(ROUND(cpu_time/1e6, 3), '999,999,990.000'), 18) cpu_secs,
-       LPAD(TO_CHAR(ROUND(user_io_wait_time/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs,
-       LPAD(TO_CHAR(ROUND(cluster_wait_time/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs,
-       LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
-       LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
-       LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_11r1.&&is_10g.CASE 
-         &&is_11r1.&&is_10g.WHEN io_cell_offload_eligible_bytes > io_interconnect_bytes THEN
-           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_11r1.&&is_10g.(io_cell_offload_eligible_bytes - io_interconnect_bytes) * 100 / io_cell_offload_eligible_bytes
-           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
+SELECT   inst_id
+       , child_number
+       , plan_hash_value
+       , LPAD(TO_CHAR(parse_calls, '999,999,999,999,990'), 20) parse_calls
+       , LPAD(TO_CHAR(executions, '999,999,999,999,990'), 20) executions
+       , LPAD(TO_CHAR(px_servers_executions, '999,999,999,999,990'), 20) px_servers_executions
+       , LPAD(TO_CHAR(fetches, '999,999,999,999,990'), 20) fetches
+       , LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed
+       , LPAD(TO_CHAR(loaded_versions, '999,999,990'), 15) loaded_versions
+       , LPAD(TO_CHAR(open_versions, '999,999,990'), 15) open_versions
+       , LPAD(TO_CHAR(users_opening, '999,999,990'), 15) users_opening
+       , LPAD(TO_CHAR(users_executing, '999,999,990'), 15) users_executing
+       , LPAD(TO_CHAR(loads, '9,990'), 6) loads
+       , LPAD(TO_CHAR(invalidations, '9,990'), 6) invalidations
+       , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets
+       , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads
+       , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes
+       , LPAD(TO_CHAR(ROUND(elapsed_time/1e6, 3), '999,999,990.000'), 18) elsapsed_secs
+       , LPAD(TO_CHAR(ROUND(cpu_time/1e6, 3), '999,999,990.000'), 18) cpu_secs
+       , LPAD(TO_CHAR(ROUND(user_io_wait_time/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs
+       , LPAD(TO_CHAR(ROUND(cluster_wait_time/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs
+       , LPAD(TO_CHAR(ROUND(application_wait_time/1e6, 3), '999,999,990.000'), 18) appl_wait_secs
+       , LPAD(TO_CHAR(ROUND(concurrency_wait_time/1e6, 3), '999,999,990.000'), 18) conc_wait_secs
+       , LPAD(TO_CHAR(ROUND(plsql_exec_time/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs
+       , LPAD(TO_CHAR(ROUND(java_exec_time/1e6, 3), '999,999,990.000'), 18) java_exec_secs
+       , LPAD(TO_CHAR(sorts, '999,999,999,999,990'), 20) sorts
+       , LPAD(TO_CHAR(sharable_mem, '999,999,999,999,990'), 20) sharable_mem
+       , LPAD(TO_CHAR(persistent_mem, '999,999,999,999,990'), 20) persistent_mem
+       , LPAD(TO_CHAR(runtime_mem, '999,999,999,999,990'), 20) runtime_mem
+       , LPAD(first_load_time, 20) first_load_time
+       , LPAD(last_load_time, 20) last_load_time
+       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time
+       , optimizer_cost
+       , optimizer_env_hash_value
+       , parsing_schema_name
+       , service
+       , module
+       , action
+       , sql_profile
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_eligible_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_uncompressed_bytes, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_returned_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_bytes
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved
   FROM gv$sql
  WHERE sql_id = :sql_id
- ORDER BY 1, 2
+ ORDER BY inst_id
+       , child_number
 /
 
 PRO       
@@ -270,31 +278,42 @@ PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_ha
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SET PAGES 50000;
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT s.snap_id, 
-       TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time,
-       TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time,
-       s.instance_number, h.plan_hash_value,
-       DECODE(h.loaded_versions, 1, 'Y', 'N') loaded, 
-       LPAD(TO_CHAR(h.executions_delta, '999,999,999,999,990'), 20) executions, 
-       LPAD(TO_CHAR(h.rows_processed_delta, '999,999,999,999,990'), 20) rows_processed, 
-       LPAD(TO_CHAR(h.buffer_gets_delta, '999,999,999,999,990'), 20) buffer_gets, 
-       LPAD(TO_CHAR(h.disk_reads_delta, '999,999,999,999,990'), 20) disk_reads, 
-       LPAD(TO_CHAR(h.direct_writes_delta, '999,999,999,999,990'), 20) direct_writes,
-       LPAD(TO_CHAR(ROUND(h.elapsed_time_delta/1e6, 3), '999,999,990.000'), 18) elsapsed_secs,
-       LPAD(TO_CHAR(ROUND(h.cpu_time_delta/1e6, 3), '999,999,990.000'), 18) cpu_secs,
-       LPAD(TO_CHAR(ROUND(h.iowait_delta/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.clwait_delta/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.apwait_delta/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.ccwait_delta/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.plsexec_time_delta/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(h.javexec_time_delta/1e6, 3), '999,999,990.000'), 18) java_exec_secs&&is_10g.&&is_11r1.,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_delta, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_11r1.&&is_10g.CASE 
-         &&is_11r1.&&is_10g.WHEN h.io_offload_elig_bytes_delta > h.io_interconnect_bytes_delta THEN
-           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_11r1.&&is_10g.(h.io_offload_elig_bytes_delta - h.io_interconnect_bytes_delta) * 100 / h.io_offload_elig_bytes_delta
-           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
+SELECT   s.snap_id
+       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time
+       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time
+       , s.instance_number
+       , h.plan_hash_value
+       , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded
+       , LPAD(TO_CHAR(h.version_count, '99,990'), 7) version_count
+       , LPAD(TO_CHAR(h.parse_calls_delta, '999,999,999,999,990'), 20) parse_calls
+       , LPAD(TO_CHAR(h.executions_delta, '999,999,999,999,990'), 20) executions
+       , LPAD(TO_CHAR(h.rows_processed_delta, '999,999,999,999,990'), 20) rows_processed
+       , LPAD(TO_CHAR(h.loads_delta, '9,990'), 6) loads
+       , LPAD(TO_CHAR(h.invalidations_delta, '9,990'), 6) invalidations
+       , LPAD(TO_CHAR(h.buffer_gets_delta, '999,999,999,999,990'), 20) buffer_gets
+       , LPAD(TO_CHAR(h.disk_reads_delta, '999,999,999,999,990'), 20) disk_reads
+       , LPAD(TO_CHAR(h.direct_writes_delta, '999,999,999,999,990'), 20) direct_writes
+       , LPAD(TO_CHAR(ROUND(h.elapsed_time_delta/1e6, 3), '999,999,990.000'), 18) elsapsed_secs
+       , LPAD(TO_CHAR(ROUND(h.cpu_time_delta/1e6, 3), '999,999,990.000'), 18) cpu_secs
+       , LPAD(TO_CHAR(ROUND(h.iowait_delta/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.clwait_delta/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.apwait_delta/1e6, 3), '999,999,990.000'), 18) appl_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.ccwait_delta/1e6, 3), '999,999,990.000'), 18) conc_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.plsexec_time_delta/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs
+       , LPAD(TO_CHAR(ROUND(h.javexec_time_delta/1e6, 3), '999,999,990.000'), 18) java_exec_secs
+       , LPAD(TO_CHAR(h.sorts_delta, '999,999,999,999,990'), 20) sorts
+       , LPAD(TO_CHAR(h.sharable_mem, '999,999,999,999,990'), 20) sharable_mem
+       , h.optimizer_cost
+       , h.optimizer_env_hash_value
+       , h.parsing_schema_name
+       , h.module
+       , h.action
+       , h.sql_profile
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_elig_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_interconnect_bytes_delta, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.cell_uncompressed_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_return_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_bytes
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_delta > h.io_offload_return_bytes_delta THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_delta - h.io_offload_return_bytes_delta) * 100 / h.io_offload_elig_bytes_delta, 2), '990.00')||' %', 9) END, 10) io_saved
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
@@ -310,31 +329,42 @@ PRO
 PRO DBA_HIST_SQLSTAT TOTAL (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT s.snap_id, 
-       TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time,
-       TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time,
-       s.instance_number, h.plan_hash_value,
-       DECODE(h.loaded_versions, 1, 'Y', 'N') loaded, 
-       LPAD(TO_CHAR(h.executions_total, '999,999,999,999,990'), 20) executions, 
-       LPAD(TO_CHAR(h.rows_processed_total, '999,999,999,999,990'), 20) rows_processed, 
-       LPAD(TO_CHAR(h.buffer_gets_total, '999,999,999,999,990'), 20) buffer_gets, 
-       LPAD(TO_CHAR(h.disk_reads_total, '999,999,999,999,990'), 20) disk_reads, 
-       LPAD(TO_CHAR(h.direct_writes_total, '999,999,999,999,990'), 20) direct_writes,
-       LPAD(TO_CHAR(ROUND(h.elapsed_time_total/1e6, 3), '999,999,990.000'), 18) elsapsed_secs,
-       LPAD(TO_CHAR(ROUND(h.cpu_time_total/1e6, 3), '999,999,990.000'), 18) cpu_secs,
-       LPAD(TO_CHAR(ROUND(h.iowait_total/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.clwait_total/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.apwait_total/1e6, 3), '999,999,990.000'), 18) appl_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.ccwait_total/1e6, 3), '999,999,990.000'), 18) conc_wait_secs,
-       LPAD(TO_CHAR(ROUND(h.plsexec_time_total/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs,
-       LPAD(TO_CHAR(ROUND(h.javexec_time_total/1e6, 3), '999,999,990.000'), 18) java_exec_secs &&is_10g.&&is_11r1.,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_offload_elig_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes,
-       &&is_11r1.&&is_10g.LPAD(TO_CHAR(h.io_interconnect_bytes_total, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes,
-       &&is_11r1.&&is_10g.CASE 
-         &&is_11r1.&&is_10g.WHEN h.io_offload_elig_bytes_total > h.io_interconnect_bytes_total THEN
-           &&is_11r1.&&is_10g.LPAD(TO_CHAR(ROUND(
-           &&is_11r1.&&is_10g.(h.io_offload_elig_bytes_total - h.io_interconnect_bytes_total) * 100 / h.io_offload_elig_bytes_total
-           &&is_11r1.&&is_10g., 2), '990.00')||' %', 8) END io_saved
+SELECT   s.snap_id
+       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time
+       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time
+       , s.instance_number
+       , h.plan_hash_value
+       , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded
+       , LPAD(TO_CHAR(h.version_count, '99,990'), 7) version_count
+       , LPAD(TO_CHAR(h.parse_calls_total, '999,999,999,999,990'), 20) parse_calls
+       , LPAD(TO_CHAR(h.executions_total, '999,999,999,999,990'), 20) executions
+       , LPAD(TO_CHAR(h.rows_processed_total, '999,999,999,999,990'), 20) rows_processed
+       , LPAD(TO_CHAR(h.loads_total, '9,990'), 6) loads
+       , LPAD(TO_CHAR(h.invalidations_total, '9,990'), 6) invalidations
+       , LPAD(TO_CHAR(h.buffer_gets_total, '999,999,999,999,990'), 20) buffer_gets
+       , LPAD(TO_CHAR(h.disk_reads_total, '999,999,999,999,990'), 20) disk_reads
+       , LPAD(TO_CHAR(h.direct_writes_total, '999,999,999,999,990'), 20) direct_writes
+       , LPAD(TO_CHAR(ROUND(h.elapsed_time_total/1e6, 3), '999,999,990.000'), 18) elsapsed_secs
+       , LPAD(TO_CHAR(ROUND(h.cpu_time_total/1e6, 3), '999,999,990.000'), 18) cpu_secs
+       , LPAD(TO_CHAR(ROUND(h.iowait_total/1e6, 3), '999,999,990.000'), 18) user_io_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.clwait_total/1e6, 3), '999,999,990.000'), 18) cluster_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.apwait_total/1e6, 3), '999,999,990.000'), 18) appl_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.ccwait_total/1e6, 3), '999,999,990.000'), 18) conc_wait_secs
+       , LPAD(TO_CHAR(ROUND(h.plsexec_time_total/1e6, 3), '999,999,990.000'), 18) plsql_exec_secs
+       , LPAD(TO_CHAR(ROUND(h.javexec_time_total/1e6, 3), '999,999,990.000'), 18) java_exec_secs
+       , LPAD(TO_CHAR(h.sorts_total, '999,999,999,999,990'), 20) sorts
+       , LPAD(TO_CHAR(h.sharable_mem, '999,999,999,999,990'), 20) sharable_mem
+       , h.optimizer_cost
+       , h.optimizer_env_hash_value
+       , h.parsing_schema_name
+       , h.module
+       , h.action
+       , h.sql_profile
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_elig_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_eligible_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_interconnect_bytes_total, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.cell_uncompressed_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes
+       &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_return_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_bytes
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_total > h.io_offload_return_bytes_total THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_total - h.io_offload_return_bytes_total) * 100 / io_offload_elig_bytes_total, 2), '990.00')||' %', 9) END, 10) io_saved
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
@@ -430,15 +460,10 @@ SELECT /*+
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM dba_hist_active_sess_history h
-       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   --AND s.snap_id = h.snap_id
-   --AND s.dbid = h.dbid
-   --AND s.instance_number = h.instance_number
-   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
@@ -552,15 +577,10 @@ SELECT /*+
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM dba_hist_active_sess_history h
-       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   --AND s.snap_id = h.snap_id
-   --AND s.dbid = h.dbid
-   --AND s.instance_number = h.instance_number
-   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -692,15 +712,10 @@ SELECT /*+
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
        COUNT(*) samples
   FROM dba_hist_active_sess_history h
-       --dba_hist_snapshot s
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
    AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
-   --AND s.snap_id = h.snap_id
-   --AND s.dbid = h.dbid
-   --AND s.instance_number = h.instance_number
-   --AND CAST(s.end_interval_time AS DATE) BETWEEN SYSDATE - (&&x_days.) AND SYSDATE
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -910,45 +925,6 @@ SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_a
        i.index_name
 /
 
--- compute low and high values for each table column
-/*
-SAVEPOINT my_savepoint;
-DELETE plan_table WHERE statement_id = 'low_high';
-DECLARE
-  l_low VARCHAR2(256);
-  l_high VARCHAR2(256);
-  FUNCTION compute_low_high (p_data_type IN VARCHAR2, p_raw_value IN RAW)
-  RETURN VARCHAR2 AS
-    l_number NUMBER;
-    l_varchar2 VARCHAR2(256);
-    l_date DATE;
-  BEGIN
-    IF p_data_type = 'NUMBER' THEN
-      DBMS_STATS.convert_raw_value(p_raw_value, l_number);
-      RETURN TO_CHAR(l_number);
-    ELSIF p_data_type IN ('VARCHAR2', 'CHAR', 'NVARCHAR2', 'CHAR2') THEN
-      DBMS_STATS.convert_raw_value(p_raw_value, l_varchar2);
-      RETURN l_varchar2;
-    ELSIF SUBSTR(p_data_type, 1, 4) IN ('DATE', 'TIME') THEN
-      DBMS_STATS.convert_raw_value(p_raw_value, l_date);
-      RETURN TO_CHAR(l_date, 'YYYY-MM-DD HH24:MI:SS');
-    ELSE
-      RETURN RAWTOHEX(p_raw_value);
-    END IF;
-  END compute_low_high;
-BEGIN
-  FOR i IN (SELECT owner, table_name, column_name, data_type, low_value, high_value
-              FROM dba_tab_cols
-             WHERE (owner, table_name) IN &&tables_list.)
-  LOOP
-    l_low := compute_low_high(i.data_type, i.low_value);
-    l_high := compute_low_high(i.data_type, i.high_value);
-    INSERT INTO plan_table (statement_id, object_owner, object_name, other_tag, partition_start, partition_stop)
-    VALUES ('low_high', i.owner, i.table_name, i.column_name, l_low, l_high);
-  END LOOP;
-END;
-/
-*/
 SET LONG 200 LONGC 20;
 COL index_and_column_name FOR A70;
 COL table_and_column_name FOR A70;
@@ -967,8 +943,6 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.nullable,
        c.data_default,
        c.num_distinct,
-       --NVL(p.partition_start, c.low_value) low_value,
-       --NVL(p.partition_stop, c.high_value) high_value,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
         WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
         WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
@@ -1011,8 +985,6 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
                     ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00'))||'.'||
                     to_number(substr(c.high_value,15,8),'XXXXXXXX'))
         END high_value_translated,
-       --c.low_value,
-       --c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,
@@ -1028,12 +1000,6 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
    AND c.owner = i.table_owner
    AND c.table_name = i.table_name
    AND c.column_name = i.column_name
-   /*
-   AND p.statement_id(+) = 'low_high'
-   AND p.object_owner(+) = c.owner
-   AND p.object_name(+) = c.table_name
-   AND p.other_tag(+) = c.column_name
-   */
  ORDER BY
        i.index_owner,
        i.index_name,
@@ -1049,8 +1015,6 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.nullable,
        c.data_default,
        c.num_distinct,
-       --NVL(p.partition_start, c.low_value) low_value,
-       --NVL(p.partition_stop, c.high_value) high_value,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
         WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
         WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
@@ -1093,8 +1057,6 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
                     ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00'))||'.'||
                     to_number(substr(c.high_value,15,8),'XXXXXXXX'))
         END high_value_translated,
-       --c.low_value,
-       --c.high_value,
        c.density,
        c.num_nulls,
        c.num_buckets,
@@ -1106,23 +1068,14 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
   FROM dba_tab_cols c/*,
        plan_table p*/
  WHERE (c.owner, c.table_name) IN &&tables_list.
-   /*
-   AND p.statement_id(+) = 'low_high'
-   AND p.object_owner(+) = c.owner
-   AND p.object_name(+) = c.table_name
-   AND p.other_tag(+) = c.column_name
-   */
  ORDER BY
        c.owner,
        c.table_name,
        c.column_name
 /
 -- spool off and cleanup
---ROLLBACK TO my_savepoint;
 PRO
 PRO planx_&&sql_id._&&current_time..txt has been generated
 SET FEED ON VER ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF;
 SPO OFF;
-UNDEF 1 2
--- end
 
