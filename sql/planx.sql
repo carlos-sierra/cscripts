@@ -942,8 +942,8 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.data_default,
        c.num_distinct,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
-        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
-        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN SUBSTR(to_char(utl_raw.cast_to_varchar2(c.low_value)),1,32)
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN SUBSTR(to_char(utl_raw.cast_to_nvarchar2(c.low_value)),1,32)
         WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.low_value))
         WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.low_value))
         WHEN c.data_type = 'DATE' THEN rtrim(
@@ -963,8 +963,8 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
                     to_number(substr(c.low_value,15,8),'XXXXXXXX'))
        END low_value_translated,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.high_value))
-        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.high_value))
-        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.high_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN SUBSTR(to_char(utl_raw.cast_to_varchar2(c.high_value)),1,32)
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN SUBSTR(to_char(utl_raw.cast_to_nvarchar2(c.high_value)),1,32)
         WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.high_value))
         WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.high_value))
         WHEN c.data_type = 'DATE' THEN rtrim(
@@ -1014,8 +1014,8 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.data_default,
        c.num_distinct,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.low_value))
-        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.low_value))
-        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.low_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN SUBSTR(to_char(utl_raw.cast_to_varchar2(c.low_value)),1,32)
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN SUBSTR(to_char(utl_raw.cast_to_nvarchar2(c.low_value)),1,32)
         WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.low_value))
         WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.low_value))
         WHEN c.data_type = 'DATE' THEN rtrim(
@@ -1035,8 +1035,8 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
                     to_number(substr(c.low_value,15,8),'XXXXXXXX'))
        END low_value_translated,
        CASE WHEN c.data_type = 'NUMBER' THEN to_char(utl_raw.cast_to_number(c.high_value))
-        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN to_char(utl_raw.cast_to_varchar2(c.high_value))
-        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN to_char(utl_raw.cast_to_nvarchar2(c.high_value))
+        WHEN c.data_type IN ('VARCHAR2', 'CHAR') THEN SUBSTR(to_char(utl_raw.cast_to_varchar2(c.high_value)),1,32)
+        WHEN c.data_type IN ('NVARCHAR2','NCHAR') THEN SUBSTR(to_char(utl_raw.cast_to_nvarchar2(c.high_value)),1,32)
         WHEN c.data_type = 'BINARY_DOUBLE' THEN to_char(utl_raw.cast_to_binary_double(c.high_value))
         WHEN c.data_type = 'BINARY_FLOAT' THEN to_char(utl_raw.cast_to_binary_float(c.high_value))
         WHEN c.data_type = 'DATE' THEN rtrim(
