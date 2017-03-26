@@ -198,7 +198,7 @@ SELECT   inst_id
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_uncompressed_bytes, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_returned_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_b_ff
-       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved_ff
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes AND io_cell_offload_eligible_bytes > 0 THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved_ff
   FROM gv$sqlstats
  WHERE sql_id = :sql_id
  ORDER BY inst_id
@@ -252,7 +252,7 @@ SELECT   inst_id
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_interconnect_bytes, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_uncompressed_bytes, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(io_cell_offload_returned_bytes, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_b_ff
-       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved_ff
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN io_cell_offload_eligible_bytes > io_cell_offload_returned_bytes AND io_cell_offload_eligible_bytes > 0 THEN LPAD(TO_CHAR(ROUND((io_cell_offload_eligible_bytes - io_cell_offload_returned_bytes) * 100 / io_cell_offload_eligible_bytes, 2), '990.00')||' %', 9) END, 10) io_saved_ff
   FROM gv$sql
  WHERE sql_id = :sql_id
  ORDER BY inst_id
@@ -319,7 +319,7 @@ SELECT   s.snap_id
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_interconnect_bytes_delta, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.cell_uncompressed_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_return_bytes_delta, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_b_ff
-       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_delta > h.io_offload_return_bytes_delta THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_delta - h.io_offload_return_bytes_delta) * 100 / h.io_offload_elig_bytes_delta, 2), '990.00')||' %', 9) END, 10) io_saved_ff
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_delta > h.io_offload_return_bytes_delta AND h.io_offload_elig_bytes_delta > 0 THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_delta - h.io_offload_return_bytes_delta) * 100 / h.io_offload_elig_bytes_delta, 2), '990.00')||' %', 9) END, 10) io_saved_ff
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
@@ -370,7 +370,7 @@ SELECT   s.snap_id
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_interconnect_bytes_total, '999,999,999,999,999,999,990'), 30) io_interconnect_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.cell_uncompressed_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_uncompressed_bytes_ff
        &&is_10g.&&is_11r1., LPAD(TO_CHAR(h.io_offload_return_bytes_total, '999,999,999,999,999,999,990'), 30) io_cell_offload_returned_b_ff
-       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_total > h.io_offload_return_bytes_total THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_total - h.io_offload_return_bytes_total) * 100 / io_offload_elig_bytes_total, 2), '990.00')||' %', 9) END, 10) io_saved_ff
+       &&is_10g.&&is_11r1., LPAD(CASE WHEN h.io_offload_elig_bytes_total > h.io_offload_return_bytes_total AND h.io_offload_elig_bytes_total > 0 THEN LPAD(TO_CHAR(ROUND((h.io_offload_elig_bytes_total - h.io_offload_return_bytes_total) * 100 / h.io_offload_elig_bytes_total, 2), '990.00')||' %', 9) END, 10) io_saved_ff
   FROM dba_hist_sqlstat h,
        dba_hist_snapshot s
  WHERE :license = 'Y'
