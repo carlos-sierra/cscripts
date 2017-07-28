@@ -254,6 +254,7 @@ BEGIN
     FOR i IN (SELECT other_xml
                 FROM gv$sql_plan
                WHERE plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
+               --WHERE full_plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
                  AND other_xml IS NOT NULL
                ORDER BY
                      child_number, id)
@@ -275,6 +276,7 @@ BEGIN
     FOR i IN (SELECT other_xml
                 FROM dba_hist_sql_plan
                WHERE plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
+               --WHERE full_plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
                  AND other_xml IS NOT NULL
                ORDER BY
                      id)

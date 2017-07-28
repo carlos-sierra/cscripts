@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/01/02
+-- Version:     2017/07/11
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -22,7 +22,7 @@
 --             
 ---------------------------------------------------------------------------------------
 --
-SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
+SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
 PRO
 PRO 1. Enter Oracle Diagnostics Pack License Flag [ Y | N ] (required)
 DEF input_license = '&1';
@@ -103,11 +103,21 @@ BEGIN
   END IF;
 END;
 /
+COL x_host_name NEW_V x_host_name;
+SELECT host_name x_host_name FROM v$instance;
+COL x_db_name NEW_V x_db_name;
+SELECT name x_db_name FROM v$database;
+COL x_container NEW_V x_container;
+SELECT 'NONE' x_container FROM DUAL;
+SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 -- spool and sql_text
 SPO planx_&&sql_id._&&current_time..txt;
 PRO SQL_ID: &&sql_id.
 PRO SIGNATURE: &&signature.
 PRO SIGNATUREF: &&signaturef.
+PRO HOST: &&x_host_name.
+PRO DATABASE: &&x_db_name.
+PRO CONTAINER: &&x_container.
 PRO
 SET PAGES 0;
 PRINT :sql_text;
@@ -260,16 +270,18 @@ SELECT   inst_id
 /
 
 PRO
-PRO GV$SQL (ordered by et_secs_per_exec)
+PRO GV$SQL (grouped by PHV and ordered by et_secs_per_exec)
 PRO ~~~~~~
 SELECT   plan_hash_value
        , TO_CHAR(ROUND(SUM(elapsed_time)/SUM(executions)/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(SUM(cpu_time)/SUM(executions)/1e6,6), '999,990.000000') cpu_secs_per_exec
        , SUM(executions) executions
-       , TO_CHAR(ROUND(SUM(elapsed_time)/1e6,6), '999,999,999,990') et_secs_tot
-       , TO_CHAR(ROUND(SUM(cpu_time)/1e6,6), '999,999,999,990') cpu_secs_tot
+       --, TO_CHAR(ROUND(SUM(elapsed_time)/1e6,6), '999,999,999,990') et_secs_tot
+       --, TO_CHAR(ROUND(SUM(cpu_time)/1e6,6), '999,999,999,990') cpu_secs_tot
        , COUNT(DISTINCT child_number) cursors
        , MAX(child_number) max_child
+       , SUM(CASE is_bind_sensitive WHEN 'Y' THEN 1 ELSE 0 END) bind_send
+       , SUM(CASE is_bind_aware WHEN 'Y' THEN 1 ELSE 0 END) bind_aware
        , SUM(CASE is_shareable WHEN 'Y' THEN 1 ELSE 0 END) shareable
        , TO_CHAR(MAX(last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time
        , ROUND(SUM(buffer_gets)/SUM(executions)) buffers_per_exec
@@ -283,13 +295,21 @@ SELECT   plan_hash_value
        2
 /
 
+COL sens FOR A4;
+COL aware FOR A5;
+COL shar FOR A4;
+COL u_exec FOR 999999;
+
 PRO
 PRO GV$SQL (ordered by inst_id and child_number)
 PRO ~~~~~~
 SELECT   inst_id
        , child_number
        , plan_hash_value
-       , is_shareable s
+       , is_bind_sensitive sens
+       , is_bind_aware aware
+       , is_shareable shar
+       , users_executing u_exec
        , TO_CHAR(ROUND(elapsed_time/executions/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(cpu_time/executions/1e6,6), '999,990.000000') cpu_secs_per_exec
        , executions
@@ -324,24 +344,30 @@ SELECT   inst_id
 /
 
 PRO       
-PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by inst_id and child_number)
+--PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by inst_id and child_number)
+PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by child_number)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-BREAK ON inst_child_ff SKIP 2;
+PRO
+--BREAK ON inst_child_ff SKIP 2;
 SET PAGES 0;
 SPO planx_&&sql_id._&&current_time..txt APP;
+/*
 WITH v AS (
-SELECT /*+ MATERIALIZE */
+SELECT /*+ MATERIALIZE * /
        DISTINCT sql_id, inst_id, child_number
   FROM gv$sql
  WHERE sql_id = :sql_id
    AND loaded_versions > 0
  ORDER BY 1, 2, 3 )
-SELECT /*+ ORDERED USE_NL(t) */
+SELECT /*+ ORDERED USE_NL(t) * /
        RPAD('Inst: '||v.inst_id, 9)||' '||RPAD('Child: '||v.child_number, 11) inst_child_ff, 
        t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY('gv$sql_plan_statistics_all', NULL, 'ADVANCED ALLSTATS LAST', 
        'inst_id = '||v.inst_id||' AND sql_id = '''||v.sql_id||''' AND child_number = '||v.child_number)) t
 /
+*/
+SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ADVANCED ALLSTATS LAST'));
+
 
 PRO
 PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_hash_value)
@@ -958,6 +984,7 @@ PRO
 PRO Tables Accessed 
 PRO ~~~~~~~~~~~~~~~
 COL table_name FOR A50;
+COL degree FOR A10;
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT owner||'.'||table_name table_name,
        partitioned,
@@ -980,7 +1007,6 @@ PRO
 PRO Indexes 
 PRO ~~~~~~~
 COL table_and_index_name FOR A70;
-COL degree FOR A6;
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_and_index_name,
        i.partitioned,
@@ -1076,8 +1102,7 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.global_stats,
        c.avg_col_len
   FROM dba_ind_columns i,
-       dba_tab_cols c/*,
-       plan_table p*/
+       dba_tab_cols c
  WHERE (i.table_owner, i.table_name) IN &&tables_list.
    AND c.owner = i.table_owner
    AND c.table_name = i.table_name
@@ -1147,8 +1172,7 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
        c.global_stats,
        c.avg_col_len
-  FROM dba_tab_cols c/*,
-       plan_table p*/
+  FROM dba_tab_cols c
  WHERE (c.owner, c.table_name) IN &&tables_list.
  ORDER BY
        c.owner,
