@@ -116,7 +116,7 @@ BEGIN
                FROM v$sql_plan
               WHERE :only_if_on_recent_full_scans = 'Y'
                 AND operation = 'INDEX'
-                AND options IN ('FULL SCAN', 'FAST FULL SCAN', 'SAMPLE FAST FULL SCAN')
+                AND options IN ('FULL SCAN', 'FAST FULL SCAN')
                 AND object_owner <> 'SYS'
               GROUP BY
                     object_owner, object_name
@@ -130,7 +130,7 @@ BEGIN
                 AND p.sql_id = h.sql_id
                 AND p.plan_hash_value = h.plan_hash_value
                 AND p.operation = 'INDEX'
-                AND p.options IN ('FULL SCAN', 'FAST FULL SCAN', 'SAMPLE FAST FULL SCAN')
+                AND p.options IN ('FULL SCAN', 'FAST FULL SCAN')
                 AND p.object_owner <> 'SYS'
               GROUP BY
                     p.object_owner, p.object_name

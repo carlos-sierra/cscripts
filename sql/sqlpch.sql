@@ -6,15 +6,17 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2015/01/28
+-- Version:     2017/07/28
 --
 -- Usage:       This script inputs two parameters. Parameter 1 the SQL_ID and Parameter 2
 --              the set of Hints for the SQL Patch (default to GATHER_PLAN_STATISTICS 
 --              MONITOR BIND_AWARE).
 --
 -- Example:     @sqlpch.sql f995z9antmhxn BIND_AWARE
+--              @sqlpch.sql 1xt0ygwgrgdpb OPT_PARAM("_fix_control","13430622:OFF")
 --
 --  Notes:      Developed and tested on 11.2.0.3 and 12.0.1.0
+--              valid hint parameter: OPT_PARAM("_fix_control","13430622:OFF")
 --             
 ---------------------------------------------------------------------------------------
 SPO sqlpch.txt;
@@ -41,7 +43,8 @@ PRO SQL_ID   : "&&sql_id_1."
 PRO HINT_TEXT: "&&hint_text_2." (default: "&&def_hint_text.")
 PRO
 SET TERM OFF ECHO ON;
-SELECT TRIM(NVL(REPLACE('&&hint_text_2.', '"', ''''''), '&&def_hint_text.')) hint_text FROM dual;
+--SELECT TRIM(NVL(REPLACE(q'[&&hint_text_2.]', '"', ''''''), '&&def_hint_text.')) hint_text FROM dual;
+SELECT TRIM(NVL(REPLACE(q'[&&hint_text_2.]', '"', ''''), '&&def_hint_text.')) hint_text FROM dual;
 WHENEVER SQLERROR EXIT SQL.SQLCODE;
 
 -- trim sql_id parameter
@@ -150,9 +153,9 @@ PRO you have to connect as SYS
 BEGIN
   SYS.DBMS_SQLDIAG_INTERNAL.I_CREATE_PATCH (
     sql_text    => :sql_text,
-    hint_text   => '&&hint_text.',
+    hint_text   => q'[&&hint_text.]',
     name        => 'sqlpch_&&sql_id.',
-    description => '/*+ &&hint_text. */',
+    description => q'[/*+ &&hint_text. */]',
     category    => 'DEFAULT',
     validate    => TRUE
   );

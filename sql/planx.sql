@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/07/11
+-- Version:     2017/08/21
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -81,7 +81,7 @@ BEGIN
 END;
 /
 BEGIN
-  IF :sql_text IS NULL OR NVL(DBMS_LOB.GETLENGTH(:sql_text), 0) = 0 THEN
+  IF :license = 'Y' AND (:sql_text IS NULL OR NVL(DBMS_LOB.GETLENGTH(:sql_text), 0) = 0) THEN
     SELECT sql_text
       INTO :sql_text
       FROM dba_hist_sqltext
@@ -283,6 +283,8 @@ SELECT   plan_hash_value
        , SUM(CASE is_bind_sensitive WHEN 'Y' THEN 1 ELSE 0 END) bind_send
        , SUM(CASE is_bind_aware WHEN 'Y' THEN 1 ELSE 0 END) bind_aware
        , SUM(CASE is_shareable WHEN 'Y' THEN 1 ELSE 0 END) shareable
+       , SUM(CASE object_status WHEN 'VALID' THEN 1 ELSE 0 END) valid
+       , SUM(CASE object_status WHEN 'INVALID_UNAUTH' THEN 1 ELSE 0 END) invalid     
        , TO_CHAR(MAX(last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time
        , ROUND(SUM(buffer_gets)/SUM(executions)) buffers_per_exec
        , TO_CHAR(ROUND(SUM(rows_processed)/SUM(executions), 3), '999,999,999,990.000') rows_per_exec
@@ -299,6 +301,7 @@ COL sens FOR A4;
 COL aware FOR A5;
 COL shar FOR A4;
 COL u_exec FOR 999999;
+COL obj_sta FOR A7;
 
 PRO
 PRO GV$SQL (ordered by inst_id and child_number)
@@ -309,6 +312,7 @@ SELECT   inst_id
        , is_bind_sensitive sens
        , is_bind_aware aware
        , is_shareable shar
+       , SUBSTR(object_status, 1, 7) obj_sta 
        , users_executing u_exec
        , TO_CHAR(ROUND(elapsed_time/executions/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(cpu_time/executions/1e6,6), '999,990.000000') cpu_secs_per_exec
@@ -332,6 +336,8 @@ PRO ~~~~~~
 SELECT   inst_id
        , child_number
        , plan_hash_value
+       , is_shareable shar
+       , SUBSTR(object_status, 1, 7) obj_sta
        , sql_profile
        &&is_10g., sql_plan_baseline
        &&is_10g., sql_patch
@@ -368,15 +374,14 @@ SELECT /*+ ORDERED USE_NL(t) * /
 */
 SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ADVANCED ALLSTATS LAST'));
 
-
 PRO
 PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SET PAGES 50000;
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   s.snap_id
-       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time_ff
-       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time_ff
+       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time_ff
+       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time_ff
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
@@ -426,8 +431,8 @@ PRO DBA_HIST_SQLSTAT TOTAL (ordered by snap_id DESC, instance_number and plan_ha
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   s.snap_id
-       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD HH24:MI:SS') begin_interval_time_ff
-       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI:SS') end_interval_time_ff
+       , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time_ff
+       , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time_ff
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
@@ -484,7 +489,8 @@ SELECT   plan_hash_value
        , ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) buffers_per_exec
        , TO_CHAR(ROUND(SUM(rows_processed_delta)/SUM(executions_delta), 3), '999,999,999,990.000') rows_per_exec
   FROM dba_hist_sqlstat
- WHERE sql_id = :sql_id
+ WHERE :license = 'Y'
+   AND sql_id = :sql_id
    AND executions_delta > 0
  GROUP BY
        plan_hash_value
@@ -507,7 +513,7 @@ SELECT /*+ MATERIALIZE */
    AND sql_id = :sql_id
  ORDER BY 1, 2, 3 )
 SELECT /*+ ORDERED USE_NL(t) */ 
-       TO_CHAR(v.timestamp, 'YYYY-MM-DD HH24:MI:SS') plan_timestamp_ff,
+       TO_CHAR(v.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS') plan_timestamp_ff,
        t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
@@ -992,8 +998,9 @@ SELECT owner||'.'||table_name table_name,
        temporary,
        blocks,
        num_rows,
+       avg_row_len,
        sample_size,
-       TO_CHAR(last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
+       TO_CHAR(last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
        global_stats,
        compression
   FROM dba_tables
@@ -1022,7 +1029,7 @@ SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_a
        i.clustering_factor,
        i.num_rows,
        i.sample_size,
-       TO_CHAR(i.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
+       TO_CHAR(i.last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
        i.global_stats
   FROM dba_indexes i
  WHERE (i.table_owner, i.table_name) IN &&tables_list.
@@ -1098,7 +1105,7 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
        c.num_buckets,
        c.histogram,
        c.sample_size,
-       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
+       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
        c.global_stats,
        c.avg_col_len
   FROM dba_ind_columns i,
@@ -1169,7 +1176,7 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.num_buckets,
        c.histogram,
        c.sample_size,
-       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') last_analyzed,
+       TO_CHAR(c.last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
        c.global_stats,
        c.avg_col_len
   FROM dba_tab_cols c

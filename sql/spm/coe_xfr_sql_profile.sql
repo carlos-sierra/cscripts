@@ -2,7 +2,7 @@ SPO coe_xfr_sql_profile.log;
 SET DEF ON TERM OFF ECHO ON FEED OFF VER OFF HEA ON LIN 2000 PAGES 100 LONG 8000000 LONGC 800000 TRIMS ON TI OFF TIMI OFF SERVEROUT ON SIZE 1000000 NUMF "" SQLP SQL>;
 SET SERVEROUT ON SIZE UNL;
 REM
-REM $Header: 215187.1 coe_xfr_sql_profile.sql 11.4.5.5 2013/03/01 carlos.sierra $
+REM $Header: 215187.1 coe_xfr_sql_profile.sql 17.8.15 2017/08/15 carlos.sierra $
 REM
 REM Copyright (c) 2000-2013, Oracle Corporation. All rights reserved.
 REM
@@ -75,7 +75,8 @@ SELECT plan_hash_value
    AND other_xml IS NOT NULL ),
 m AS (
 SELECT plan_hash_value,
-       SUM(elapsed_time)/SUM(executions) avg_et_secs
+       SUM(elapsed_time)/SUM(executions) avg_et_secs,
+       SUM(executions) executions
   FROM gv$sql
  WHERE sql_id = TRIM('&&sql_id.')
    AND executions > 0
@@ -83,19 +84,25 @@ SELECT plan_hash_value,
        plan_hash_value ),
 a AS (
 SELECT plan_hash_value,
-       SUM(elapsed_time_total)/SUM(executions_total) avg_et_secs
+       SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_secs,
+       SUM(executions_delta) executions
   FROM dba_hist_sqlstat
  WHERE sql_id = TRIM('&&sql_id.')
-   AND executions_total > 0
+   AND executions_delta > 0
  GROUP BY
        plan_hash_value )
-SELECT p.plan_hash_value,
-       ROUND(NVL(m.avg_et_secs, a.avg_et_secs)/1e6, 3) avg_et_secs
+SELECT 
+       TO_CHAR(ROUND(m.avg_et_secs/1e6, 6), '999,990.000000') avg_et_secs_mem,
+       TO_CHAR(ROUND(a.avg_et_secs/1e6, 6), '999,990.000000') avg_et_secs_awr,
+       p.plan_hash_value,
+       m.executions executions_mem,
+       a.executions executions_awr
+       --TO_CHAR(ROUND(NVL(m.avg_et_secs, a.avg_et_secs)/1e6, 6), '999,990.000000') avg_et_secs
   FROM p, m, a
  WHERE p.plan_hash_value = m.plan_hash_value(+)
    AND p.plan_hash_value = a.plan_hash_value(+)
  ORDER BY
-       avg_et_secs NULLS LAST;
+       NVL(m.avg_et_secs, a.avg_et_secs) NULLS LAST, a.avg_et_secs;
 PRO
 PRO Parameter 2:
 PRO PLAN_HASH_VALUE (required)
