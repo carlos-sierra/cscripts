@@ -48,14 +48,15 @@ COL lag_elapsed_secs_per_exec FOR 99,990.000000 HEA 'Seconds|per Execution|Befor
 COL change FOR A7 HEA 'Change';
 COL bg_per_exec FOR 999999999999 HEA 'Buffer Gets|per Execution|After Change';
 COL lag_bg_per_exec FOR 999999999999 HEA 'Buffer Gets|per Execution|Before Change';
-COL rows_per_exec FOR 999,990.000 HEA 'Rows Returned|per Execution|After Change';
-COL lag_rows_per_exec FOR 999,990.000 HEA 'Rows Returned|per Execution|Before Change';
+COL rows_per_exec FOR 999,999,990.000 HEA 'Rows Returned|per Execution|After Change';
+COL lag_rows_per_exec FOR 999,999,990.000 HEA 'Rows Returned|per Execution|Before Change';
 COL execs_per_sec FOR 999,990.000 HEA 'Executions|per Second|After Change';
 COL lag_execs_per_sec FOR 999,990.000 HEA 'Executions|per Second|Before Change';
 COL new_plan_hash_value FOR A15 HEA 'Plan Hash Value|After Change';
 COL lag_plan_hash_value FOR A15 HEA 'Plan Hash Value|Before Change';
 COL sql_text_100_only FOR A100 HEA 'SQL Text';
 COL container_id FOR 999999 HEA 'CON_ID';
+COL parsing_schema_name FOR A30 HEA 'Parsing Schema Name';
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -101,7 +102,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        SUM(buffer_gets_delta) buffer_gets_delta,
        SUM(rows_processed_delta) rows_processed_delta
   FROM dba_hist_sqlstat
- WHERE dbid = &&this_dbid. 
+ WHERE dbid = &&this_dbid.
    AND executions_delta > 0
    AND con_id > 2
  GROUP BY
@@ -168,15 +169,15 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        dba_hist_snapshot s1,
        dba_hist_snapshot s2
  WHERE h.elapsed_secs_per_exec > 0
-   AND h.lag_elapsed_secs_per_exec > 0
+   AND (h.lag_elapsed_secs_per_exec > 0 OR h.lag_elapsed_secs_per_exec IS NULL)
    AND ((h.elapsed_secs_per_exec/h.lag_elapsed_secs_per_exec) > &&change_factor. OR (h.lag_elapsed_secs_per_exec/h.elapsed_secs_per_exec) > &&change_factor. OR h.lag_elapsed_secs_per_exec IS NULL)
    AND s1.snap_id = h.snap_id 
    AND s1.dbid = h.dbid 
    AND s1.instance_number = h.instance_number
    AND CAST(s1.end_interval_time AS DATE) > SYSDATE - &&days_of_history.
-   AND s2.snap_id = h.lag_snap_id 
-   AND s2.dbid = h.dbid 
-   AND s2.instance_number = h.instance_number
+   AND s2.snap_id(+) = h.lag_snap_id 
+   AND s2.dbid(+) = h.dbid 
+   AND s2.instance_number(+) = h.instance_number
 )
 SELECT 
        -- computes buffer gets and rows per Executionution.
@@ -202,6 +203,7 @@ SELECT
        ROUND(h.executions_delta/h.after_secs,3) execs_per_sec,
        h.lag_plan_hash_value,
        h.plan_hash_value new_plan_hash_value,
+       (SELECT SUBSTR(q.parsing_schema_name, 1, 30) FROM v$sql q WHERE q.sql_id = h.sql_id AND q.con_id = h.con_id AND ROWNUM = 1) parsing_schema_name,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sql q WHERE q.sql_id = h.sql_id AND q.con_id = h.con_id AND ROWNUM = 1) sql_text_100_only
   FROM hist_sqlstat_extended_plus h
  WHERE h.con_id > 2

@@ -5,13 +5,13 @@
 -- Purpose:     Resets all 3 Automated Maintenance Tasks. It does:
 --              1. Enable CBO stats gathering and tuning advisor
 --              2. Disables space advisor 
---              3. Disables the automatic creation of SQL Profiles
+--              3. Disables the automatic creation of SQL Profiles and SPB
 --              4. Sets shares to 4 and resource utilization to 10 percent for KIEV plan
 --              
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/07/25
+-- Version:     2017/10/01
 --
 -- Usage:       Execute on CDB$ROOT
 --
@@ -49,6 +49,7 @@ BEGIN
   DBMS_AUTO_TASK_ADMIN.ENABLE(client_name => 'auto optimizer stats collection', operation => NULL, window_name => NULL);
   DBMS_AUTO_TASK_ADMIN.ENABLE(client_name => 'sql tuning advisor', operation => NULL, window_name => NULL);
   DBMS_AUTO_TASK_ADMIN.DISABLE(client_name => 'auto space advisor', operation => NULL, window_name => NULL);
+  DBMS_SPM.SET_EVOLVE_TASK_PARAMETER(task_name => 'SYS_AUTO_SPM_EVOLVE_TASK', parameter => 'ACCEPT_PLANS', value => 'FALSE');
   COMMIT;
 END;
   ]';

@@ -72,12 +72,20 @@ VAR sql_id VARCHAR2(13);
 EXEC :sql_id := '&&sql_id.';
 VAR sql_text CLOB;
 EXEC :sql_text := NULL;
+VAR signature NUMBER;
+VAR signaturef NUMBER;
 BEGIN
-  SELECT sql_fulltext 
-    INTO :sql_text
-    FROM gv$sqlstats 
-   WHERE sql_id = :sql_id 
-     AND ROWNUM = 1;
+  SELECT exact_matching_signature, sql_text INTO :signature, :sql_text FROM gv$sql WHERE sql_id = '&&sql_id.' AND ROWNUM = 1;
+END;
+/
+BEGIN
+  IF :sql_text IS NULL OR NVL(DBMS_LOB.GETLENGTH(:sql_text), 0) = 0 THEN
+    SELECT sql_fulltext 
+      INTO :sql_text
+      FROM gv$sqlstats 
+     WHERE sql_id = :sql_id 
+       AND ROWNUM = 1;
+  END IF;
 END;
 /
 BEGIN
@@ -90,9 +98,12 @@ BEGIN
   END IF;
 END;
 /
-VAR signature NUMBER;
-VAR signaturef NUMBER;
-EXEC :signature := NVL(DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text), -1);
+BEGIN
+  IF :signature IS NULL THEN
+    :signature := NVL(DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text), -1);
+  END IF;
+END;
+/
 EXEC :signaturef := NVL(DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:sql_text, TRUE), -1);
 COL signature NEW_V signature FOR A20;
 COL signaturef NEW_V signaturef FOR A20;
@@ -110,18 +121,23 @@ SELECT name x_db_name FROM v$database;
 COL x_container NEW_V x_container;
 SELECT 'NONE' x_container FROM DUAL;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
+DEF sql_handle = '';
+COL sql_handle NEW_V sql_handle;
+SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = &&signature. AND ROWNUM = 1;
+
 -- spool and sql_text
 SPO planx_&&sql_id._&&current_time..txt;
 PRO SQL_ID: &&sql_id.
 PRO SIGNATURE: &&signature.
 PRO SIGNATUREF: &&signaturef.
+PRO SQL_HANDLE: &&sql_handle.
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
 PRO
 SET PAGES 0;
 PRINT :sql_text;
-SET PAGES 50000;
+SET PAGES 50;
 -- columns funky format
 COL action_ff                       FOR A30 HEA "Action";
 COL appl_wait_secs_ff               FOR A18 HEA "Appl wait secs";
@@ -174,6 +190,132 @@ COL user_io_wait_secs_ff            FOR A18 HEA "User IO wait secs";
 COL users_executing_ff              FOR A15 HEA "Users executing";
 COL users_opening_ff                FOR A15 HEA "Users opening";
 COL version_count_ff                FOR A7  HEA "Version count";
+
+COL nl FOR 99;
+COL hj FOR 99;
+COL mj FOR 99;
+PRO
+PRO PLANS PERFORMANCE
+PRO ~~~~~~~~~~~~~~~~~
+WITH
+pm AS (
+SELECT plan_hash_value, operation,
+       CASE operation WHEN 'NESTED LOOPS' THEN COUNT(DISTINCT id) ELSE 0 END nl,
+       CASE operation WHEN 'HASH JOIN' THEN COUNT(DISTINCT id) ELSE 0 END hj,
+       CASE operation WHEN 'MERGE JOIN' THEN COUNT(DISTINCT id) ELSE 0 END mj
+  FROM gv$sql_plan
+ WHERE sql_id = TRIM('&&sql_id.')
+ GROUP BY
+       plan_hash_value,
+       operation ),
+pa AS (
+SELECT plan_hash_value, operation,
+       CASE operation WHEN 'NESTED LOOPS' THEN COUNT(DISTINCT id) ELSE 0 END nl,
+       CASE operation WHEN 'HASH JOIN' THEN COUNT(DISTINCT id) ELSE 0 END hj,
+       CASE operation WHEN 'MERGE JOIN' THEN COUNT(DISTINCT id) ELSE 0 END mj
+  FROM dba_hist_sql_plan
+ WHERE sql_id = TRIM('&&sql_id.')
+ GROUP BY
+       plan_hash_value,
+       operation ),
+pm_pa AS (
+SELECT plan_hash_value, MAX(nl) nl, MAX(hj) hj, MAX(mj) mj
+  FROM pm
+ GROUP BY
+       plan_hash_value
+ UNION
+SELECT plan_hash_value, MAX(nl) nl, MAX(hj) hj, MAX(mj) mj
+  FROM pa
+ GROUP BY
+       plan_hash_value ),
+p AS (
+SELECT plan_hash_value, MAX(nl) nl, MAX(hj) hj, MAX(mj) mj
+  FROM pm_pa
+ GROUP BY
+       plan_hash_value ),
+phv_perf AS (       
+SELECT plan_hash_value,
+       snap_id,
+       SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
+       SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us
+  FROM dba_hist_sqlstat
+ WHERE sql_id = TRIM('&&sql_id.')
+   AND executions_delta > 0
+   AND optimizer_cost > 0
+ GROUP BY
+       plan_hash_value,
+       snap_id ),
+phv_stats AS (
+SELECT plan_hash_value,
+       MAX(avg_et_us) p100_et_us,
+       PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY avg_et_us) p99_et_us,
+       PERCENTILE_DISC(0.97) WITHIN GROUP (ORDER BY avg_et_us) p97_et_us,
+       PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY avg_et_us) p95_et_us,
+       MAX(avg_cpu_us) p100_cpu_us,
+       PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY avg_cpu_us) p99_cpu_us,
+       PERCENTILE_DISC(0.97) WITHIN GROUP (ORDER BY avg_cpu_us) p97_cpu_us,
+       PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY avg_cpu_us) p95_cpu_us
+  FROM phv_perf
+ GROUP BY
+       plan_hash_value ),
+m AS (
+SELECT plan_hash_value,
+       SUM(elapsed_time)/SUM(executions) avg_et_us,
+       SUM(cpu_time)/SUM(executions) avg_cpu_us,
+       ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
+       SUM(executions) executions,
+       MIN(optimizer_cost) min_cost,
+       MAX(optimizer_cost) max_cost
+  FROM gv$sql
+ WHERE sql_id = TRIM('&&sql_id.')
+   AND executions > 0
+   AND optimizer_cost > 0
+ GROUP BY
+       plan_hash_value ),
+a AS (
+SELECT plan_hash_value,
+       SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
+       SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us,
+       ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) avg_buffer_gets,
+       SUM(executions_delta) executions,
+       MIN(optimizer_cost) min_cost,
+       MAX(optimizer_cost) max_cost
+  FROM dba_hist_sqlstat
+ WHERE sql_id = TRIM('&&sql_id.')
+   AND executions_delta > 0
+   AND optimizer_cost > 0
+ GROUP BY
+       plan_hash_value )
+SELECT 
+       TO_CHAR(ROUND(a.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_awr,
+       TO_CHAR(ROUND(m.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_mem,
+       TO_CHAR(ROUND(a.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_awr,
+       TO_CHAR(ROUND(m.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_mem,
+       a.avg_buffer_gets avg_bg_awr,
+       m.avg_buffer_gets avg_bg_mem,
+       p.plan_hash_value,
+       a.executions executions_awr,
+       m.executions executions_mem,
+       LEAST(NVL(m.min_cost, a.min_cost), NVL(a.min_cost, m.min_cost)) min_cost,
+       GREATEST(NVL(m.max_cost, a.max_cost), NVL(a.max_cost, m.max_cost)) max_cost,
+       p.nl,
+       p.hj,
+       p.mj,
+       TO_CHAR(ROUND(s.p100_et_us/1e6, 6), '999,990.000000') p100_et_secs,
+       TO_CHAR(ROUND(s.p99_et_us/1e6, 6), '999,990.000000') p99_et_secs,
+       TO_CHAR(ROUND(s.p97_et_us/1e6, 6), '999,990.000000') p97_et_secs,
+       TO_CHAR(ROUND(s.p95_et_us/1e6, 6), '999,990.000000') p95_et_secs,
+       TO_CHAR(ROUND(s.p100_cpu_us/1e6, 6), '999,990.000000') p100_cpu_secs,
+       TO_CHAR(ROUND(s.p99_cpu_us/1e6, 6), '999,990.000000') p99_cpu_secs,
+       TO_CHAR(ROUND(s.p97_cpu_us/1e6, 6), '999,990.000000') p97_cpu_secs,
+       TO_CHAR(ROUND(s.p95_cpu_us/1e6, 6), '999,990.000000') p95_cpu_secs
+       --TO_CHAR(ROUND(NVL(m.avg_et_secs, a.avg_et_secs)/1e6, 6), '999,990.000000') avg_et_secs
+  FROM p, m, a, phv_stats s
+ WHERE p.plan_hash_value = m.plan_hash_value(+)
+   AND p.plan_hash_value = a.plan_hash_value(+)
+   AND p.plan_hash_value = s.plan_hash_value(+)
+ ORDER BY
+       NVL(a.avg_et_us, m.avg_et_us), m.avg_et_us;
 
 PRO
 PRO GV$SQLSTATS (ordered by inst_id and plan_hash_value)
@@ -377,7 +519,7 @@ SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'AD
 PRO
 PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
-SET PAGES 50000;
+SET PAGES 50;
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   s.snap_id
        , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time_ff
@@ -522,7 +664,7 @@ PRO
 PRO GV$ACTIVE_SESSION_HISTORY 
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_slices = '10';
-SET PAGES 50000;
+SET PAGES 50;
 SPO planx_&&sql_id._&&current_time..txt APP;
 WITH
 events AS (
@@ -881,6 +1023,22 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 DEF x_days = '31';
 SPO planx_&&sql_id._&&current_time..txt APP;
 /
+
+COL plan_name FOR A30;
+COL created FOR A30;
+COL last_executed FOR A30;
+PRO
+PRO SQL Plan Baselines
+PRO ~~~~~~~~~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+FROM dba_sql_plan_baselines WHERE signature = :signature
+ORDER BY created, plan_name
+/
+SET HEA OFF PAGES 0
+SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'))
+/
+SET HEA ON PAGES 50
 
 SPO planx_&&sql_id._&&current_time..txt APP;
 PRO get list of tables from execution plan

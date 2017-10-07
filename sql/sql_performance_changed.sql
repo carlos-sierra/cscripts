@@ -122,7 +122,7 @@ SELECT LPAD(ROWNUM, 2) row_n,
        TO_CHAR(r.min_secs_per_exec, '999,990.000') min_secs_per_exec,
        TO_CHAR(r.max_secs_per_exec, '999,990.000') max_secs_per_exec,
        (SELECT COUNT(DISTINCT p.plan_hash_value) FROM dba_hist_sql_plan p WHERE p.dbid = r.dbid AND p.sql_id = r.sql_id) plans,
-       REPLACE((SELECT DBMS_LOB.SUBSTR(s.sql_text, 80) FROM dba_hist_sqltext s WHERE s.dbid = r.dbid AND s.sql_id = r.sql_id), CHR(10)) sql_text_80
+       REPLACE((SELECT DBMS_LOB.SUBSTR(s.sql_text, 80) FROM dba_hist_sqltext s WHERE s.dbid = r.dbid AND s.sql_id = r.sql_id AND ROWNUM = 1), CHR(10)) sql_text_80
   FROM ranked r
  WHERE r.rank_num <= &&max_num_rows.
  ORDER BY

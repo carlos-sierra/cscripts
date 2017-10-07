@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------------------
 --
--- File name:   reset_automated_maintenance_windows.sql
+-- File name:   iod_reset_automated_maintenance_windows.sql
 --
 -- Purpose:     Sets staggered maintenance windows for all PDBs in order to avoid CPU
 --              spikes caused by all PDBs starting their maintenance window at the same
@@ -8,7 +8,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/07/25
+-- Version:     2017/10/01
 --
 -- Usage:       Execute as SYS on CDB
 --
@@ -38,9 +38,9 @@ SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24-MI-SS') report_date FROM DUAL;
 SPO /tmp/pdb_window_&&report_date..txt;
 
 -- hour of the day (military format) when first maintenance window for a PDB may open during week days
--- i.e. if dbtimezone is UCT and we want to open 1st at 8AM PST we set to 15
+-- i.e. if dbtimezone is UCT and we want to open 1st at 6AM PST we set to 13
 VAR weekday_start_hh24 NUMBER; 
-EXEC :weekday_start_hh24 := 15;
+EXEC :weekday_start_hh24 := 13;
 -- for how many hours we want to open maintenance windows for PDBs during week days
 -- i.e. if we want to open windows during a 2 hours interval we set to 2
 VAR weekday_hours NUMBER;
@@ -51,9 +51,9 @@ VAR weekday_duration NUMBER;
 EXEC :weekday_duration := 4;
 
 -- hour of the day (military format) when first maintenance window for a PDB may open during weekends
--- i.e. if dbtimezone is UCT and we want to open 1st at 8AM PST we set to 15
+-- i.e. if dbtimezone is UCT and we want to open 1st at 6AM PST we set to 13
 VAR weekend_start_hh24 NUMBER; 
-EXEC :weekend_start_hh24 := 15;
+EXEC :weekend_start_hh24 := 13;
 -- for how many hours we want to open maintenance windows for PDBs during weekends
 -- i.e. if we want to open windows for 2 hours interval we set to 2
 VAR weekend_hours NUMBER;

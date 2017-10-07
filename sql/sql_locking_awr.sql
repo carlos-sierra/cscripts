@@ -124,6 +124,7 @@ SELECT h.instance_number inst,
    AND h.con_id(+) > 2
    AND h.current_obj#(+) > -1
    AND h.sample_time(+) BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id(+) > 0 -- excludes sys
    -- outer join (+) into cdb_objects is because we could have a dropped object
    AND o.object_id(+) = h.current_obj#
    AND o.con_id(+) = h.con_id
@@ -199,6 +200,7 @@ SELECT h.snap_id,
    AND h.con_id(+) > 2
    AND h.current_obj#(+) > -1
    AND h.sample_time(+) BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id(+) > 0 -- excludes sys
    -- outer join (+) into cdb_objects is because we could have a dropped object
    AND o.object_id(+) = h.current_obj#
    AND o.con_id(+) = h.con_id
@@ -251,6 +253,7 @@ SELECT w.instance_number inst,
    AND h.dbid(+) = &&this_dbid.
    AND h.snap_id(+) BETWEEN &&snap_id_from. AND &&snap_id_to.
    AND h.sample_time(+) BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id(+) > 0 -- excludes sys
  GROUP BY
        w.snap_id,
        w.dbid,

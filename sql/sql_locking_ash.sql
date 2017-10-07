@@ -104,6 +104,7 @@ SELECT COUNT(*) samples_count,
    AND h.con_id > 2
    AND h.current_obj# > -1
    AND h.sample_time BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id > 0 -- excludes sys
    -- outer join (+) into cdb_objects is because we could have a dropped object
    AND o.object_id(+) = h.current_obj#
    AND o.con_id(+) = h.con_id
@@ -157,6 +158,7 @@ SELECT h.session_id,
    AND h.con_id > 2
    AND h.current_obj# > -1
    AND h.sample_time BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id > 0 -- excludes sys
    -- outer join (+) into cdb_objects is because we could have a dropped object
    AND o.object_id(+) = h.current_obj#
    AND o.con_id(+) = h.con_id
@@ -194,6 +196,7 @@ SELECT COUNT(*) samples_count,
    AND h.sample_id(+) = w.sample_id -- non RAC
    AND h.sample_time(+) = w.sample_time -- non RAC
    AND h.sample_time(+) BETWEEN TO_DATE('&&date_time_from.', 'YYYY-MM-DD"T"HH24:MI:SS') AND TO_DATE('&&date_time_to.', 'YYYY-MM-DD"T"HH24:MI:SS')
+   AND h.user_id(+) > 0 -- excludes sys
  GROUP BY
        CASE WHEN h.sql_id IS NULL THEN w.blocking_session||','||w.blocking_session_serial# END,
        h.sql_id,

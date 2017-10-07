@@ -45,7 +45,8 @@ COL object_owner_and_name FOR A60 HEA 'Object Owner.Name(Type)';
 COL sql_text_100_only FOR A101 HEA 'SQL Text';
 COL waiter_or_blocker FOR A7 HEA 'Type';
 COL wb_session_serial FOR A16 HEA 'Session,Serial';
-COL wb_sql_id FOR A14 HEA 'SQL_ID';
+COL wb_spid FOR A6 HEA 'SPID';
+COL wb_sql_id FOR A17 HEA 'SQL_ID';
 COL wb_con_id FOR A6 HEA 'CON_ID';
 
 COL current_time NEW_V current_time FOR A15;
@@ -64,12 +65,15 @@ PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
 
 PRO
-PRO SQL statements from sessions waiting on locks held by other sessions (blockers).
+PRO SQL statements (C)urrent or (P)revious from sessions waiting on locks held by other sessions (blockers).
 PRO
-
+  
 SELECT 'Wait:'||CHR(10)||'Block:' waiter_or_blocker,
-       w.sid||','||w.serial#||CHR(10)||w.blocking_session||','||b.serial# wb_session_serial,
-       NVL(w.sql_id, w.prev_sql_id)||CHR(10)||NVL(b.sql_id, b.prev_sql_id) wb_sql_id,
+       w.sid||','||w.serial#||CHR(10)||
+       w.blocking_session||','||b.serial# wb_session_serial,
+       wp.spid||CHR(10)||bp.spid wb_spid,
+       CASE WHEN w.sql_id IS NULL THEN w.prev_sql_id||'(P)' ELSE w.sql_id||'(C)' END||CHR(10)||
+       CASE WHEN b.sql_id IS NULL THEN b.prev_sql_id||'(P)' ELSE b.sql_id||'(C)' END wb_sql_id,
        w.con_id||CHR(10)||b.con_id wb_con_id,
        w.row_wait_obj# object_number,
        CASE 
@@ -80,19 +84,32 @@ SELECT 'Wait:'||CHR(10)||'Block:' waiter_or_blocker,
        (SELECT SUBSTR(q2.sql_text, 1, 100) FROM v$sql q2 WHERE q2.sql_id = NVL(b.sql_id, b.prev_sql_id) AND q2.con_id = b.con_id AND ROWNUM = 1) sql_text_100_only
   FROM v$session w,
        v$session b,
+       v$process wp,
+       v$process bp,
        cdb_objects o
  WHERE w.state = 'WAITING'
    AND w.blocking_session_status = 'VALID'
    AND NVL(w.sql_id, w.prev_sql_id) IS NOT NULL
    AND w.con_id > 2
    AND w.row_wait_obj# > -1
+   AND w.user# > 0 -- excludes sys
    -- blocking session should be there, but if not still display waiter
    AND b.sid(+) = w.blocking_session
    AND b.con_id(+) = w.con_id
+   --AND b.user#(+) > 0 -- excludes sys
+   -- waiting process
+   AND wp.addr = w.paddr
+   -- blocker process
+   AND bp.addr = b.paddr
    -- object should be there, but if not still display waiter
    AND o.object_id(+) = w.row_wait_obj#
    AND o.con_id(+) = w.con_id
--- first 25 out of 100
+ ORDER BY
+       w.blocking_session,
+       b.serial# NULLS FIRST,
+       w.sid,
+       w.serial#
+-- first 25 out of 200
 /
 /
 /
@@ -123,7 +140,7 @@ SELECT 'Wait:'||CHR(10)||'Block:' waiter_or_blocker,
 /
 /
 
--- next 25 out of 100
+-- next 25 out of 200
 /
 /
 /
@@ -154,7 +171,7 @@ SELECT 'Wait:'||CHR(10)||'Block:' waiter_or_blocker,
 /
 /
 
--- next 25 out of 100
+-- next 25 out of 200
 /
 /
 /
@@ -185,7 +202,131 @@ SELECT 'Wait:'||CHR(10)||'Block:' waiter_or_blocker,
 /
 /
 
--- last 25 out of 100
+-- last 25 out of first 100
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+-- next 25 out of 200
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+-- next 25 out of 200
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+-- next 25 out of 200
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+/
+/
+/
+/
+/
+
+-- last 25 out of 200
 /
 /
 /

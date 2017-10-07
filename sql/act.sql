@@ -20,7 +20,6 @@ COL sql_id_and_child FOR A16;
 COL serv_mod_act_client_info FOR A50;
 COL sql_text FOR A80;
 
--- execute 10 consecutive times
 SELECT /* exclude_me */
        s.sid||','||s.serial# sid_serial,
        s.sql_id||','||s.sql_child_number sql_id_and_child,
@@ -39,16 +38,6 @@ SELECT /* exclude_me */
    AND q.sql_text(+) NOT LIKE '%/* exclude_me */%'
  ORDER BY
        1,2
-/
-/
-/
-/
-/
-
-/
-/
-/
-/
 /
 
 SPO OFF;
