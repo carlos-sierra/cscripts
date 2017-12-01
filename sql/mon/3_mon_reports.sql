@@ -4,12 +4,12 @@ SET ECHO OFF FEED OFF VER OFF SHOW OFF HEA OFF LIN 2000 NUM 20 NEWP NONE PAGES 0
 SPO reports_driver.sql;
 PRO SET ECHO OFF FEED OFF VER OFF SHOW OFF HEA OFF LIN 2000 NUM 20 NEWP NONE PAGES 0 LONG 2000000 LONGC 2000 SQLC MIX TAB ON TRIMS ON TI OFF TIMI OFF ARRAY 100 NUMF "" SQLP SQL> SUF sql BLO . RECSEP OFF APPI OFF AUTOT OFF SERVEROUT ON SIZE UNL;;
 BEGIN
-  FOR i IN (SELECT t.sql_id, t.key, t.ROWID row_id FROM v_sql_monitor t WHERE t.report_date IS NULL)
+  FOR i IN (SELECT t.sql_id, t.key, t.ROWID row_id FROM system.v_sql_monitor t WHERE t.report_date IS NULL)
   LOOP
     DBMS_OUTPUT.PUT_LINE('SPO sql_id_'||i.sql_id||'_key_'||i.key||'.html;');
-    DBMS_OUTPUT.PUT_LINE('SELECT mon_report FROM v_sql_monitor WHERE sql_id = '''||i.sql_id||''' AND key = '||i.key||';');
+    DBMS_OUTPUT.PUT_LINE('SELECT mon_report FROM system.v_sql_monitor WHERE sql_id = '''||i.sql_id||''' AND key = '||i.key||';');
     DBMS_OUTPUT.PUT_LINE('SPO OFF;');
-    DBMS_OUTPUT.PUT_LINE('UPDATE v_sql_monitor SET report_date = SYSDATE WHERE ROWID = '''||i.row_id||''';');
+    DBMS_OUTPUT.PUT_LINE('UPDATE system.v_sql_monitor SET report_date = SYSDATE WHERE ROWID = '''||i.row_id||''';');
     DBMS_OUTPUT.PUT_LINE('HOS zip -m mon_reports sql_id_'||i.sql_id||'_key_'||i.key||'.html');
   END LOOP;
 END;
@@ -69,7 +69,7 @@ SELECT TO_CHAR(sql_exec_start, 'YYYY-MM-DD HH24:MI:SS') sql_exec_start,
        sql_id,
        '<a href="sql_id_'||sql_id||'_key_'||key||'.html">'||key||'</a>' key,
        sql_text
-  FROM v_sql_monitor
+  FROM system.v_sql_monitor
  ORDER BY
        sql_exec_start DESC ) v;
 

@@ -1,4 +1,4 @@
-SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
+SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF SERVEROUT OFF;
 
 ACC sql_id PROMPT 'SQL_ID: ';
 
@@ -24,7 +24,7 @@ SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = :signature AND R
 COL plan_name FOR A30;
 COL created FOR A30;
 COL last_executed FOR A30;
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 
@@ -32,7 +32,7 @@ SET HEA OFF PAGES 0
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'));
 SET HEA ON PAGES 25
 
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 

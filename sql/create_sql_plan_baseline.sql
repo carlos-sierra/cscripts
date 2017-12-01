@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/09/27
+-- Version:     2017/12/01
 --
 -- Usage:       Execute connected into the PDB of interest.
 --
@@ -67,15 +67,35 @@ SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = :signature AND R
 COL plan_name FOR A30;
 COL created FOR A30;
 COL last_executed FOR A30;
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 
 ---------------------------------------------------------------------------------------
 
+COL avg_et_ms_awr FOR A11 HEA 'ET Avg|AWR (ms)';
+COL avg_et_ms_mem FOR A11 HEA 'ET Avg|MEM (ms)';
+COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
+COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
+COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
+COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
+COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
+COL executions_awr FOR 999,999,999 HEA 'Executions|AWR';
+COL executions_mem FOR 999,999,999 HEA 'Executions|MEM';
+COL min_cost FOR 9,999,999 HEA 'MIN Cost';
+COL max_cost FOR 9,999,999 HEA 'MAX Cost';
 COL nl FOR 99;
 COL hj FOR 99;
 COL mj FOR 99;
+COL p100_et_ms FOR A11 HEA 'ET 100th|Pctl (ms)';
+COL p99_et_ms FOR A11 HEA 'ET 99th|Pctl (ms)';
+COL p97_et_ms FOR A11 HEA 'ET 97th|Pctl (ms)';
+COL p95_et_ms FOR A11 HEA 'ET 95th|Pctl (ms)';
+COL p100_cpu_ms FOR A11 HEA 'CPU 100th|Pctl (ms)';
+COL p99_cpu_ms FOR A11 HEA 'CPU 99th|Pctl (ms)';
+COL p97_cpu_ms FOR A11 HEA 'CPU 97th|Pctl (ms)';
+COL p95_cpu_ms FOR A11 HEA 'CPU 95th|Pctl (ms)';
+
 PRO
 PRO PLANS PERFORMANCE
 PRO ~~~~~~~~~~~~~~~~~
@@ -169,13 +189,13 @@ SELECT plan_hash_value,
  GROUP BY
        plan_hash_value )
 SELECT 
-       TO_CHAR(ROUND(a.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_awr,
-       TO_CHAR(ROUND(m.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_mem,
-       TO_CHAR(ROUND(a.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_awr,
-       TO_CHAR(ROUND(m.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_mem,
+       p.plan_hash_value,
+       LPAD(TRIM(TO_CHAR(ROUND(a.avg_et_us/1e3, 6), '9999,990.000')), 11) avg_et_ms_awr,
+       LPAD(TRIM(TO_CHAR(ROUND(m.avg_et_us/1e3, 6), '9999,990.000')), 11) avg_et_ms_mem,
+       LPAD(TRIM(TO_CHAR(ROUND(a.avg_cpu_us/1e3, 6), '9999,990.000')), 11) avg_cpu_ms_awr,
+       LPAD(TRIM(TO_CHAR(ROUND(m.avg_cpu_us/1e3, 6), '9999,990.000')), 11) avg_cpu_ms_mem,
        a.avg_buffer_gets avg_bg_awr,
        m.avg_buffer_gets avg_bg_mem,
-       p.plan_hash_value,
        a.executions executions_awr,
        m.executions executions_mem,
        LEAST(NVL(m.min_cost, a.min_cost), NVL(a.min_cost, m.min_cost)) min_cost,
@@ -183,15 +203,14 @@ SELECT
        p.nl,
        p.hj,
        p.mj,
-       TO_CHAR(ROUND(s.p100_et_us/1e6, 6), '999,990.000000') p100_et_secs,
-       TO_CHAR(ROUND(s.p99_et_us/1e6, 6), '999,990.000000') p99_et_secs,
-       TO_CHAR(ROUND(s.p97_et_us/1e6, 6), '999,990.000000') p97_et_secs,
-       TO_CHAR(ROUND(s.p95_et_us/1e6, 6), '999,990.000000') p95_et_secs,
-       TO_CHAR(ROUND(s.p100_cpu_us/1e6, 6), '999,990.000000') p100_cpu_secs,
-       TO_CHAR(ROUND(s.p99_cpu_us/1e6, 6), '999,990.000000') p99_cpu_secs,
-       TO_CHAR(ROUND(s.p97_cpu_us/1e6, 6), '999,990.000000') p97_cpu_secs,
-       TO_CHAR(ROUND(s.p95_cpu_us/1e6, 6), '999,990.000000') p95_cpu_secs
-       --TO_CHAR(ROUND(NVL(m.avg_et_secs, a.avg_et_secs)/1e6, 6), '999,990.000000') avg_et_secs
+       LPAD(TRIM(TO_CHAR(ROUND(s.p100_et_us/1e3, 6), '9999,990.000')), 11) p100_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p99_et_us/1e3, 6), '9999,990.000')), 11) p99_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p97_et_us/1e3, 6), '9999,990.000')), 11) p97_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p95_et_us/1e3, 6), '9999,990.000')), 11) p95_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p100_cpu_us/1e3, 6), '9999,990.000')), 11) p100_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p99_cpu_us/1e3, 6), '9999,990.000')), 11) p99_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p97_cpu_us/1e3, 6), '9999,990.000')), 11) p97_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p95_cpu_us/1e3, 6), '9999,990.000')), 11) p95_cpu_ms
   FROM p, m, a, phv_stats s
  WHERE p.plan_hash_value = m.plan_hash_value(+)
    AND p.plan_hash_value = a.plan_hash_value(+)
@@ -319,7 +338,7 @@ PRINT plans
 COL sql_handle NEW_V sql_handle;
 SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = :signature AND ROWNUM = 1;
 
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 
@@ -327,7 +346,7 @@ SET HEA OFF PAGES 0
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'));
 SET HEA ON PAGES 25
 
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 

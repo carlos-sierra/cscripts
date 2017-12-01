@@ -2,12 +2,10 @@ SPO coe_xfr_sql_profile.log;
 SET DEF ON TERM OFF ECHO ON FEED OFF VER OFF HEA ON LIN 2000 PAGES 100 LONG 8000000 LONGC 800000 TRIMS ON TI OFF TIMI OFF SERVEROUT ON SIZE 1000000 NUMF "" SQLP SQL>;
 SET SERVEROUT ON SIZE UNL;
 REM
-REM $Header: 215187.1 coe_xfr_sql_profile.sql 17.8.15 2017/08/15 carlos.sierra $
-REM
-REM Copyright (c) 2000-2013, Oracle Corporation. All rights reserved.
+REM $Header: coe_xfr_sql_profile.sql 2017/12/01 carlos.sierra $
 REM
 REM AUTHOR
-REM   carlos.sierra@oracle.com
+REM   Carlos Sierra
 REM
 REM SCRIPT
 REM   coe_xfr_sql_profile.sql

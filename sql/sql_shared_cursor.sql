@@ -13,6 +13,7 @@ GET all_reasons.sql
 I )
 I )
 I WHERE value = 'Y'
+I AND sql_id = NVL('&sql_id.', sql_id)
 I GROUP BY reason_not_shared
 I ORDER BY cursors DESC, sql_ids DESC, reason_not_shared
 0 ( value FOR reason_not_shared IN 

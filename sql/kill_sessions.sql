@@ -1,0 +1,1 @@
+select ‘alter system kill session ‘’'||sid||',‘||serial#||'‘’ immediate;' from v$session where sql_id=‘6hwh941atwk44’ and sql_child_number=99 and LAST_CALL_ET>1000;

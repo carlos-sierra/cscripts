@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/08/21
+-- Version:     2017/12/01
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -18,17 +18,18 @@
 -- Example:     @planx.sql Y f995z9antmhxn
 --
 -- Notes:       Developed and tested on 11.2.0.3 and 12.0.1.0
+--
 --              For a more robust tool use SQLd360
 --             
 ---------------------------------------------------------------------------------------
 --
-SET FEED OFF VER OFF HEA ON LIN 2000 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON AUTOT OFF;
+SET FEED OFF VER OFF ECHO OFF HEA ON LIN 2000 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON;
 PRO
 PRO 1. Enter Oracle Diagnostics Pack License Flag [ Y | N ] (required)
-DEF input_license = '&1';
+DEF input_license = '&1.';
 PRO
 PRO 2. Enter SQL_ID (required)
-DEF sql_id = '&2';
+DEF sql_id = '&2.';
 -- set license
 VAR license CHAR(1);
 BEGIN
@@ -148,14 +149,14 @@ COL conc_wait_secs_ff               FOR A18 HEA "Conc wait secs";
 COL cpu_secs_ff                     FOR A18 HEA "CPU secs";
 COL current_object_ff               FOR A60 HEA "Current object";
 COL direct_writes_ff                FOR A20 HEA "Direct Writes";
-COL disk_reads_ff                   FOR A20 HEA "Direct Reads";
+COL disk_reads_ff                   FOR A20 HEA "Disk Reads";
 COL elsapsed_secs_ff                FOR A18 HEA "Elapsed secs";
 COL end_interval_time_ff            FOR A20 HEA "End interval time";
 COL executions_ff                   FOR A20 HEA "Executions";
 COL fetches_ff                      FOR A20 HEA "Fetches";
 COL first_load_time_ff              FOR A20 HEA "First load time";
 COL inst_child_ff                   FOR A21 HEA "Inst child";
-COL invalidations_ff                FOR A7  HEA "Invalidations";
+COL invalidations_ff                FOR A8  HEA "Invalidations";
 COL io_cell_offload_eligible_b_ff   FOR A30 HEA "IO cell offload eligible bytes";
 COL io_cell_offload_returned_b_ff   FOR A30 HEA "IO cell offload returned bytes";
 COL io_cell_uncompressed_bytes_ff   FOR A30 HEA "IO cell uncompressed bytes";
@@ -167,7 +168,7 @@ COL last_load_time_ff               FOR A20 HEA "Last load time";
 COL line_id_ff                      FOR 9999999 HEA "Line id";
 COL loaded_ff                       FOR A6  HEA "Loaded";
 COL loaded_versions_ff              FOR A15 HEA "Loaded versions";
-COL loads_ff                        FOR A7  HEA "Loads";
+COL loads_ff                        FOR A8  HEA "Loads";
 COL module_ff                       FOR A30 HEA "Module";
 COL open_versions_ff                FOR A15 HEA "Open versions";
 COL operation_ff                    FOR A50 HEA "Operation";
@@ -189,11 +190,31 @@ COL total_sharable_mem_ff           FOR A20 HEA "Total sharable mem";
 COL user_io_wait_secs_ff            FOR A18 HEA "User IO wait secs";
 COL users_executing_ff              FOR A15 HEA "Users executing";
 COL users_opening_ff                FOR A15 HEA "Users opening";
-COL version_count_ff                FOR A7  HEA "Version count";
+COL version_count_ff                FOR A8  HEA "Version count";
 
+COL avg_et_ms_awr FOR A11 HEA 'ET Avg|AWR (ms)';
+COL avg_et_ms_mem FOR A11 HEA 'ET Avg|MEM (ms)';
+COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
+COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
+COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
+COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
+COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
+COL executions_awr FOR 999,999,999 HEA 'Executions|AWR';
+COL executions_mem FOR 999,999,999 HEA 'Executions|MEM';
+COL min_cost FOR 9,999,999 HEA 'MIN Cost';
+COL max_cost FOR 9,999,999 HEA 'MAX Cost';
 COL nl FOR 99;
 COL hj FOR 99;
 COL mj FOR 99;
+COL p100_et_ms FOR A11 HEA 'ET 100th|Pctl (ms)';
+COL p99_et_ms FOR A11 HEA 'ET 99th|Pctl (ms)';
+COL p97_et_ms FOR A11 HEA 'ET 97th|Pctl (ms)';
+COL p95_et_ms FOR A11 HEA 'ET 95th|Pctl (ms)';
+COL p100_cpu_ms FOR A11 HEA 'CPU 100th|Pctl (ms)';
+COL p99_cpu_ms FOR A11 HEA 'CPU 99th|Pctl (ms)';
+COL p97_cpu_ms FOR A11 HEA 'CPU 97th|Pctl (ms)';
+COL p95_cpu_ms FOR A11 HEA 'CPU 95th|Pctl (ms)';
+
 PRO
 PRO PLANS PERFORMANCE
 PRO ~~~~~~~~~~~~~~~~~
@@ -215,6 +236,7 @@ SELECT plan_hash_value, operation,
        CASE operation WHEN 'MERGE JOIN' THEN COUNT(DISTINCT id) ELSE 0 END mj
   FROM dba_hist_sql_plan
  WHERE sql_id = TRIM('&&sql_id.')
+   AND :license = 'Y'
  GROUP BY
        plan_hash_value,
        operation ),
@@ -242,6 +264,7 @@ SELECT plan_hash_value,
  WHERE sql_id = TRIM('&&sql_id.')
    AND executions_delta > 0
    AND optimizer_cost > 0
+   AND :license = 'Y'
  GROUP BY
        plan_hash_value,
        snap_id ),
@@ -284,16 +307,17 @@ SELECT plan_hash_value,
  WHERE sql_id = TRIM('&&sql_id.')
    AND executions_delta > 0
    AND optimizer_cost > 0
+   AND :license = 'Y'
  GROUP BY
        plan_hash_value )
 SELECT 
-       TO_CHAR(ROUND(a.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_awr,
-       TO_CHAR(ROUND(m.avg_et_us/1e6, 6), '999,990.000000') avg_et_secs_mem,
-       TO_CHAR(ROUND(a.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_awr,
-       TO_CHAR(ROUND(m.avg_cpu_us/1e6, 6), '999,990.000000') avg_cpu_secs_mem,
+       p.plan_hash_value,
+       LPAD(TRIM(TO_CHAR(ROUND(a.avg_et_us/1e3, 6), '9999,990.000')), 11) avg_et_ms_awr,
+       LPAD(TRIM(TO_CHAR(ROUND(m.avg_et_us/1e3, 6), '9999,990.000')), 11) avg_et_ms_mem,
+       LPAD(TRIM(TO_CHAR(ROUND(a.avg_cpu_us/1e3, 6), '9999,990.000')), 11) avg_cpu_ms_awr,
+       LPAD(TRIM(TO_CHAR(ROUND(m.avg_cpu_us/1e3, 6), '9999,990.000')), 11) avg_cpu_ms_mem,
        a.avg_buffer_gets avg_bg_awr,
        m.avg_buffer_gets avg_bg_mem,
-       p.plan_hash_value,
        a.executions executions_awr,
        m.executions executions_mem,
        LEAST(NVL(m.min_cost, a.min_cost), NVL(a.min_cost, m.min_cost)) min_cost,
@@ -301,15 +325,14 @@ SELECT
        p.nl,
        p.hj,
        p.mj,
-       TO_CHAR(ROUND(s.p100_et_us/1e6, 6), '999,990.000000') p100_et_secs,
-       TO_CHAR(ROUND(s.p99_et_us/1e6, 6), '999,990.000000') p99_et_secs,
-       TO_CHAR(ROUND(s.p97_et_us/1e6, 6), '999,990.000000') p97_et_secs,
-       TO_CHAR(ROUND(s.p95_et_us/1e6, 6), '999,990.000000') p95_et_secs,
-       TO_CHAR(ROUND(s.p100_cpu_us/1e6, 6), '999,990.000000') p100_cpu_secs,
-       TO_CHAR(ROUND(s.p99_cpu_us/1e6, 6), '999,990.000000') p99_cpu_secs,
-       TO_CHAR(ROUND(s.p97_cpu_us/1e6, 6), '999,990.000000') p97_cpu_secs,
-       TO_CHAR(ROUND(s.p95_cpu_us/1e6, 6), '999,990.000000') p95_cpu_secs
-       --TO_CHAR(ROUND(NVL(m.avg_et_secs, a.avg_et_secs)/1e6, 6), '999,990.000000') avg_et_secs
+       LPAD(TRIM(TO_CHAR(ROUND(s.p100_et_us/1e3, 6), '9999,990.000')), 11) p100_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p99_et_us/1e3, 6), '9999,990.000')), 11) p99_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p97_et_us/1e3, 6), '9999,990.000')), 11) p97_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p95_et_us/1e3, 6), '9999,990.000')), 11) p95_et_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p100_cpu_us/1e3, 6), '9999,990.000')), 11) p100_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p99_cpu_us/1e3, 6), '9999,990.000')), 11) p99_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p97_cpu_us/1e3, 6), '9999,990.000')), 11) p97_cpu_ms,
+       LPAD(TRIM(TO_CHAR(ROUND(s.p95_cpu_us/1e3, 6), '9999,990.000')), 11) p95_cpu_ms
   FROM p, m, a, phv_stats s
  WHERE p.plan_hash_value = m.plan_hash_value(+)
    AND p.plan_hash_value = a.plan_hash_value(+)
@@ -318,7 +341,7 @@ SELECT
        NVL(a.avg_et_us, m.avg_et_us), m.avg_et_us;
 
 PRO
-PRO GV$SQLSTATS (ordered by inst_id and plan_hash_value)
+PRO GV$SQLSTATS (it shows only one row for SQL, with most recent info)
 PRO ~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   inst_id
@@ -328,9 +351,9 @@ SELECT   inst_id
        , LPAD(TO_CHAR(px_servers_executions, '999,999,999,999,990'), 20) px_servers_executions_ff
        , LPAD(TO_CHAR(fetches, '999,999,999,999,990'), 20) fetches_ff
        , LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed_ff
-       , LPAD(TO_CHAR(version_count, '99,990'), 7) version_count_ff
-       , LPAD(TO_CHAR(loads, '99,990'), 7) loads_ff
-       , LPAD(TO_CHAR(invalidations, '99,990'), 7) invalidations_ff
+       , LPAD(TO_CHAR(version_count, '999,990'), 8) version_count_ff
+       , LPAD(TO_CHAR(loads, '999,990'), 8) loads_ff
+       , LPAD(TO_CHAR(invalidations, '999,990'), 8) invalidations_ff
        , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes_ff
@@ -354,14 +377,16 @@ SELECT   inst_id
   FROM gv$sqlstats
  WHERE sql_id = :sql_id
  ORDER BY inst_id
-       , plan_hash_value
 /
 
+COL obsl FOR A4;
 PRO
-PRO GV$SQL (ordered by inst_id and child_number)
+PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
 PRO ~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   inst_id
+       , is_obsolete obsl
+       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
        , LPAD(TO_CHAR(parse_calls, '999,999,999,999,990'), 20) parse_calls_ff
@@ -373,8 +398,8 @@ SELECT   inst_id
        , LPAD(TO_CHAR(open_versions, '999,999,990'), 15) open_versions_ff
        , LPAD(TO_CHAR(users_opening, '999,999,990'), 15) users_opening_ff
        , LPAD(TO_CHAR(users_executing, '999,999,990'), 15) users_executing_ff
-       , LPAD(TO_CHAR(loads, '99,990'), 7) loads_ff
-       , LPAD(TO_CHAR(invalidations, '99,990'), 7) invalidations_ff
+       , LPAD(TO_CHAR(loads, '999,990'), 8) loads_ff
+       , LPAD(TO_CHAR(invalidations, '999,990'), 8) invalidations_ff
        , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes_ff
@@ -392,7 +417,6 @@ SELECT   inst_id
        , LPAD(TO_CHAR(runtime_mem, '999,999,999,999,990'), 20) runtime_mem_ff
        , LPAD(first_load_time, 20) first_load_time_ff
        , LPAD(last_load_time, 20) last_load_time_ff
-       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , optimizer_cost
        , optimizer_env_hash_value
        , parsing_schema_name
@@ -408,7 +432,9 @@ SELECT   inst_id
   FROM gv$sql
  WHERE sql_id = :sql_id
  ORDER BY inst_id
-       , child_number
+       , is_obsolete
+       , last_active_time DESC
+       , child_number DESC
 /
 
 PRO
@@ -446,9 +472,11 @@ COL u_exec FOR 999999;
 COL obj_sta FOR A7;
 
 PRO
-PRO GV$SQL (ordered by inst_id and child_number)
+PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
 PRO ~~~~~~
 SELECT   inst_id
+       , is_obsolete obsl
+       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
        , is_bind_sensitive sens
@@ -467,28 +495,32 @@ SELECT   inst_id
   FROM gv$sql
  WHERE sql_id = :sql_id
    AND executions > 0
- ORDER BY
-       inst_id,
-       child_number
+ ORDER BY inst_id
+       , is_obsolete
+       , last_active_time DESC
+       , child_number DESC
 /
 
 PRO
-PRO GV$SQL (ordered by inst_id and child_number)
+PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
 PRO ~~~~~~
 SELECT   inst_id
+       , is_obsolete obsl
+       , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
        , is_shareable shar
        , SUBSTR(object_status, 1, 7) obj_sta
-       , sql_profile
        &&is_10g., sql_plan_baseline
+       , sql_profile
        &&is_10g., sql_patch
   FROM gv$sql
  WHERE sql_id = :sql_id
    AND executions > 0
- ORDER BY
-       inst_id,
-       child_number
+ ORDER BY inst_id
+       , is_obsolete
+       , last_active_time DESC
+       , child_number DESC
 /
 
 PRO       
@@ -527,12 +559,12 @@ SELECT   s.snap_id
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
-       , LPAD(TO_CHAR(h.version_count, '99,990'), 7) version_count_ff
+       , LPAD(TO_CHAR(h.version_count, '999,990'), 8) version_count_ff
        , LPAD(TO_CHAR(h.parse_calls_delta, '999,999,999,999,990'), 20) parse_calls_ff
        , LPAD(TO_CHAR(h.executions_delta, '999,999,999,999,990'), 20) executions_ff
        , LPAD(TO_CHAR(h.rows_processed_delta, '999,999,999,999,990'), 20) rows_processed_ff
-       , LPAD(TO_CHAR(h.loads_delta, '99,990'), 7) loads_ff
-       , LPAD(TO_CHAR(h.invalidations_delta, '99,990'), 7) invalidations_ff
+       , LPAD(TO_CHAR(h.loads_delta, '999,990'), 8) loads_ff
+       , LPAD(TO_CHAR(h.invalidations_delta, '999,990'), 8) invalidations_ff
        , LPAD(TO_CHAR(h.buffer_gets_delta, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(h.disk_reads_delta, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(h.direct_writes_delta, '999,999,999,999,990'), 20) direct_writes_ff
@@ -578,12 +610,12 @@ SELECT   s.snap_id
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
-       , LPAD(TO_CHAR(h.version_count, '99,990'), 7) version_count_ff
+       , LPAD(TO_CHAR(h.version_count, '999,990'), 8) version_count_ff
        , LPAD(TO_CHAR(h.parse_calls_total, '999,999,999,999,990'), 20) parse_calls_ff
        , LPAD(TO_CHAR(h.executions_total, '999,999,999,999,990'), 20) executions_ff
        , LPAD(TO_CHAR(h.rows_processed_total, '999,999,999,999,990'), 20) rows_processed_ff
-       , LPAD(TO_CHAR(h.loads_total, '99,990'), 7) loads_ff
-       , LPAD(TO_CHAR(h.invalidations_total, '99,990'), 7) invalidations_ff
+       , LPAD(TO_CHAR(h.loads_total, '999,990'), 8) loads_ff
+       , LPAD(TO_CHAR(h.invalidations_total, '999,990'), 8) invalidations_ff
        , LPAD(TO_CHAR(h.buffer_gets_total, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(h.disk_reads_total, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(h.direct_writes_total, '999,999,999,999,990'), 20) direct_writes_ff
@@ -1031,14 +1063,14 @@ PRO
 PRO SQL Plan Baselines
 PRO ~~~~~~~~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name
 /
-SET HEA OFF PAGES 0
+SET HEA OFF PAGES 0;
 SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'))
 /
-SET HEA ON PAGES 50
+SET HEA ON PAGES 50;
 
 SPO planx_&&sql_id._&&current_time..txt APP;
 PRO get list of tables from execution plan
@@ -1347,6 +1379,6 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
 -- spool off and cleanup
 PRO
 PRO planx_&&sql_id._&&current_time..txt has been generated
-SET FEED ON VER ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF;
+SET FEED ON VER ON HEA ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF;
 SPO OFF;
 
