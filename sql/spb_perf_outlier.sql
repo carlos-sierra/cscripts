@@ -1,4 +1,4 @@
-SET LIN 300 PAGES 100 HEA ON TAB OFF VER OFF FEED OFF ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -57,21 +57,18 @@ SELECT c.con_id,
        ROUND(c.elapsed_time/c.executions/1e3, 1) c_ms_per_exec,
        ROUND(b.elapsed_time/b.executions/1e3, 1) b_ms_per_exec,
        ROUND((c.elapsed_time/c.executions)/(b.elapsed_time/b.executions), 1) ratio,
-       --c.elapsed_time c_elapsed_time,
        c.executions c_executions,
-       --b.elapsed_time b_elapsed_time,
-       --b.executions b_executions,
        c.sql_id,
        c.plan_hash_value phv,
        b.plan_name,
        TO_CHAR(b.created, 'YYYY-MM-DD"T"HH24:MI:SS') created,
-       --c.sql_text_100
        SUBSTR(c.sql_text_100, 1, INSTR(c.sql_text_100, '*/') + 1) kiev_api
   FROM cached_plans_with_spb c,
        cdb_sql_plan_baselines b
  WHERE b.con_id = c.con_id
    AND b.signature = c.exact_matching_signature
    AND b.plan_name = c.sql_plan_baseline
+   AND b.executions > 0
    -- outlier predicates
    AND c.elapsed_time/c.executions/1e3 > 5 -- cursor elapsed time per exec > 5ms
    AND (c.elapsed_time/c.executions)/(b.elapsed_time/b.executions) > 10 -- radio between cursor and pdb perf > 10x
@@ -86,4 +83,3 @@ SELECT c.con_id,
 /
 
 SPO OFF;
-SET LIN 80 PAGES 14 VER ON FEED ON ECHO ON;

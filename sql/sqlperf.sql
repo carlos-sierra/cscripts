@@ -27,7 +27,7 @@
 --
 ---------------------------------------------------------------------------------------
 --
-SET TERM ON FEED OFF VER OFF ECHO OFF HEA ON LIN 400 PAGES 50 TAB OFF TIMI OFF LONG 80000 LONGC 2000 TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 PRO
 PRO 1. Enter SQL_ID (required)
@@ -59,8 +59,8 @@ COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
 COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
 COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
-COL executions_awr FOR 999,999,999 HEA 'Executions|AWR';
-COL executions_mem FOR 999,999,999 HEA 'Executions|MEM';
+COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
+COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
 COL min_cost FOR 9,999,999 HEA 'MIN Cost';
 COL max_cost FOR 9,999,999 HEA 'MAX Cost';
 COL nl FOR 99;
@@ -379,4 +379,3 @@ SELECT TO_CHAR(MAX(last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_tim
        1 DESC, 2;
 
 SPO OFF;
-SET FEED ON VER ON HEA ON LIN 200 PAGES 30 LONG 80 LONGC 80 TRIMS OFF;

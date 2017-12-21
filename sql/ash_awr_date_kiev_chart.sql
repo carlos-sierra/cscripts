@@ -3,7 +3,9 @@ PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+begin
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 ACC sql_id PROMPT 'SQL_ID (opt): ';
 
-SET TERM OFF HEA OFF LIN 32767 NEWP NONE PAGES 0 TAB OFF FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET HEA OFF PAGES 0;
+
 COL query_date NEW_V query_date;
 SELECT NVL('&&date.', TO_CHAR(SYSDATE, 'YYYY-MM-DD')) query_date FROM DUAL;
 COL current_time NEW_V current_time FOR A15;
@@ -115,6 +117,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -231,4 +234,5 @@ PRO <font class="f">&&report_foot_note.</font>
 PRO </body>
 PRO </html>
 SPO OFF;
-SET TERM ON HEA ON LIN 80 NEWP 1 PAGES 14 FEED ON ECHO OFF VER ON LONG 80 LONGC 80 WRA ON TRIMS OFF TRIM OFF TI OFF TIMI OFF ARRAY 15 NUM 10 NUMF "" SQLBL OFF BLO ON RECSEP WR;
+
+SET HEA ON PAGES 100;

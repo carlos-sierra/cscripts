@@ -1,4 +1,4 @@
-SET LIN 200 PAGES 50 TAB OFF HEA ON VER OFF FEED ON ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 CL col;
 CL bre;
 COL current_time NEW_V current_time FOR A15;
@@ -82,4 +82,3 @@ SELECT TO_CHAR(analyzetime, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
 /
 /****************************************************************************************/
 SPO OFF;
-SET LIN 80 PAGES 14 VER ON FEED ON ECHO ON;

@@ -1,6 +1,6 @@
-PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
+PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | O=Other | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
-SET LIN 350 PAGES 100 TAB OFF HEA ON VER OFF FEED ON ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
 COL x_host_name NEW_V x_host_name;
@@ -65,7 +65,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
+         ELSE 'OTHER'
         END application_module
   FROM all_sql
 ),
@@ -75,10 +77,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
   FROM all_sql_with_type
  WHERE application_module IS NOT NULL
   AND (  
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%C%' AND application_module = 'COMMIT') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%B%' AND application_module = 'BEGIN') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%R%' AND application_module = 'READ') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%G%' AND application_module = 'GC')
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%C%' AND application_module = 'COMMIT') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%B%' AND application_module = 'BEGIN') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%R%' AND application_module = 'READ') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%G%' AND application_module = 'GC') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%O%' AND application_module = 'OTHER')
       )
  GROUP BY
        sql_id
@@ -135,4 +138,3 @@ SELECT q.kiev_tx,
 /
 /****************************************************************************************/
 SPO OFF;
-SET LIN 80 PAGES 14 VER ON FEED ON ECHO ON;

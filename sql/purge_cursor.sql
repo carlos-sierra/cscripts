@@ -7,7 +7,8 @@ BEGIN
   SELECT address||','||hash_value, sql_fulltext 
     INTO l_name, l_sql_text 
     FROM v$sqlarea 
-   WHERE sql_id = '&&sql_id.';
+   WHERE sql_id = '&&sql_id.'
+     AND ROWNUM = 1; -- there are cases where it comes back with > 1 row!!!
   -- not always does the job
   SYS.DBMS_SHARED_POOL.PURGE (
     name  => l_name,

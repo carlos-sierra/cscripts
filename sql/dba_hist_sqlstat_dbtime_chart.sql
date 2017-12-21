@@ -1,18 +1,27 @@
-PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
-ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
-
-SET TERM OFF HEA OFF LIN 32767 NEWP NONE PAGES 0 FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+PRO 1. Enter KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | O=Other | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC+Other (default null)
+DEF kiev_tx = '&1.';
+PRO 2. SQL with a Plan Baseline only?: N | Y (default N)
+DEF spb_only = '&2.';
+PRO 3. SQL_ID: (default null)
+DEF sql_id = '&3.';
+PRO 4. Plan Hash Value: (default null)
+DEF phv = '&4.';
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET HEA OFF PAGES 0;
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
+COL x_container NEW_V x_container;
+SELECT 'NONE' x_container FROM DUAL;
+SELECT REPLACE(SYS_CONTEXT('USERENV', 'CON_NAME'), '$') x_container FROM DUAL;
 PRO
-DEF report_title = "Average performance of KIEV Tx SQL";
-DEF report_abstract_1 = "<br>Average Elapsed Time and CPU Times of SQL statements part of a KIEV transaction.";
-DEF report_abstract_2 = "<br>KIEV Transaction:(&&kiev_tx.). (C)=commitTx | (B)=beginTx | (R)=read | (G)=GC | (CB)=commitTx+beginTx | ()=commitTx+beginTx+read+GC";
-DEF report_abstract_3 = "";
+DEF report_title = "Database Time";
+DEF report_abstract_1 = "KIEV Transaction:(&&kiev_tx.). (C)=commitTx | (B)=beginTx | (R)=read | (G)=GC | (CB)=commitTx+beginTx | (O)ther | ()=ALL";
+DEF report_abstract_2 = "<br>Container:(&&x_container.). SQL with a Plan Baseline only?:(&&spb_only.). (N) | (Y) | ()=N";
+DEF report_abstract_3 = "<br>SQL_ID:(&&sql_id.). ()=ALL. Plan Hash Value:(&&phv.). ()=ALL.";
 DEF report_abstract_4 = "";
-DEF chart_title = "Average performance of SQL statements on KIEV Tx &&kiev_tx.";
-DEF xaxis_title = "Average Elapsed and CPU Times";
-DEF vaxis_title = "Avg Execution Time in Milliseconds";
+DEF chart_title = "&&x_container Tx(&&kiev_tx.) SPB(&&spb_only.) SQL_ID(&&sql_id.) PHV(&&phv.)";
+DEF xaxis_title = "DB Time and CPU Times";
+DEF vaxis_title = "DB Time in Seconds";
 COL cpu_count NEW_V cpu_count;
 SELECT TO_CHAR(ROUND(TO_NUMBER(value) * 0.7)) cpu_count FROM v$parameter WHERE name = 'cpu_count'; 
 DEF vaxis_baseline = ", baseline:&&cpu_count.";
@@ -23,7 +32,7 @@ DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
 DEF report_foot_note = "Based on dba_hist_sqlstat";
 PRO
-SPO dba_hist_sqlstat_kiev_&&kiev_tx._&&current_time..html;
+SPO dba_hist_sqlstat_dbtime_&&x_container._Tx&&kiev_tx._SPB&&spb_only._S&&sql_id._P&&phv._&&current_time..html;
 PRO <html>
 PRO <!-- $Header: line_chart.sql 2014-07-27 carlos.sierra $ -->
 PRO <head>
@@ -60,18 +69,30 @@ PRO var data = google.visualization.arrayToDataTable([
 /* add below more columns if needed (modify 3 places) */
 PRO [
 PRO 'Date Column', 
-PRO 'CPU Time',
-PRO 'Elapsed Time'
+PRO 'DB Time',
+PRO 'CPU Time'
 PRO ]
 /****************************************************************************************/
 WITH
 all_sql AS (
-SELECT DISTINCT sql_id, sql_text FROM v$sql
-UNION
-SELECT DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) FROM dba_hist_sqltext
+SELECT DISTINCT con_id, sql_id, sql_text 
+  FROM v$sql 
+ WHERE executions > 0
+   AND object_status = 'VALID'
+   AND is_obsolete = 'N'
+   AND is_shareable = 'Y'
+   AND (sql_id = '&&sql_id.' OR '&&sql_id.' IS NULL OR UPPER(TRIM('&&sql_id.')) IN ('ALL', 'NULL')) 
+   AND CASE 
+       WHEN UPPER(TRIM('&&spb_only.')) = 'Y' AND sql_plan_baseline IS NULL THEN 0
+       WHEN UPPER(TRIM('&&spb_only.')) = 'Y' AND sql_plan_baseline IS NOT NULL THEN 1
+       WHEN UPPER(TRIM('&&spb_only.')) = 'N' THEN 1
+       ELSE 1 
+       END = 1
+--UNION
+--SELECT DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) FROM dba_hist_sqltext
 ),
 all_sql_with_type AS (
-SELECT sql_id, sql_text, 
+SELECT con_id, sql_id, sql_text, 
        CASE 
          WHEN sql_text LIKE '/* addTransactionRow('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* checkStartRowValid('||CHR(37)||') */'||CHR(37) 
@@ -100,43 +121,50 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
+         ELSE 'OTHER'
         END application_module
   FROM all_sql
 ),
 my_tx_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, MAX(sql_text) sql_text, MAX(application_module) application_module
+       con_id, sql_id, MAX(sql_text) sql_text, MAX(application_module) application_module
   FROM all_sql_with_type
  WHERE application_module IS NOT NULL
   AND (  
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%C%' AND application_module = 'COMMIT') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%B%' AND application_module = 'BEGIN') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%R%' AND application_module = 'READ') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%G%' AND application_module = 'GC')
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%C%' AND application_module = 'COMMIT') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%B%' AND application_module = 'BEGIN') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%R%' AND application_module = 'READ') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%G%' AND application_module = 'GC') OR
+         (NVL('&&kiev_tx.', 'CBRGO') LIKE '%O%' AND application_module = 'OTHER') OR
+         UPPER(TRIM('&&kiev_tx.')) IN ('ALL', 'NULL')
       )
  GROUP BY
-       sql_id
+       con_id, sql_id
 ),
 my_query AS (
 /* query below selects one date_column and a small set of number_columns */
 SELECT s.snap_id,
        CAST(s.end_interval_time AS DATE) end_date,
-       ROUND(SUM(h.elapsed_time_delta)/SUM(h.executions_delta)/1000, 3) avg_et_ms_per_exec,
-       ROUND(SUM(h.cpu_time_delta)/SUM(h.executions_delta)/1000, 3) avg_cpu_ms_per_exec
+       ROUND(SUM(h.elapsed_time_delta)/SUM(h.executions_delta)/1e3, 3) avg_et_ms_per_exec,
+       ROUND(SUM(h.cpu_time_delta)/SUM(h.executions_delta)/1e3, 3) avg_cpu_ms_per_exec,
+       ROUND(SUM(h.elapsed_time_delta)/1e6) et_secs,
+       ROUND(SUM(h.cpu_time_delta)/1e6) cpu_secs,
+       SUM(h.executions_delta) executions
   FROM dba_hist_sqlstat h, dba_hist_snapshot s
  WHERE h.executions_delta > 0
+   AND ('&&sql_id.' IS NULL OR UPPER(TRIM('&&sql_id.')) IN ('ALL', 'NULL') OR h.sql_id = '&&sql_id.')
+   AND ('&&phv.' IS NULL OR UPPER(TRIM('&&phv.')) IN ('ALL', 'NULL') OR h.plan_hash_value = TO_NUMBER('&&phv.'))
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
-   AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)
+   AND (h.con_id, h.sql_id) IN (SELECT con_id, sql_id FROM my_tx_sql)
  GROUP BY
        s.snap_id,
        s.end_interval_time
 /* end of query */
 )
-/****************************************************************************************/
-/* no need to modify the date column below, but you may need to add some number columns */
 SELECT ', [new Date('||
        TO_CHAR(q.end_date, 'YYYY')|| /* year */
        ','||(TO_NUMBER(TO_CHAR(q.end_date, 'MM')) - 1)|| /* month - 1 */
@@ -145,8 +173,8 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_date, 'MI')|| /* minute */
        ','||TO_CHAR(q.end_date, 'SS')|| /* second */
        ')'||
-       ','||q.avg_cpu_ms_per_exec|| 
-       ','||q.avg_et_ms_per_exec|| 
+       ','||q.et_secs|| 
+       ','||q.cpu_secs|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -196,4 +224,5 @@ PRO </body>
 PRO </html>
 SPO OFF;
 UNDEF date, sql_id
-SET TERM ON HEA ON LIN 80 NEWP 1 PAGES 14 FEED ON ECHO OFF VER ON LONG 80 LONGC 80 WRA ON TRIMS OFF TRIM OFF TI OFF TIMI OFF ARRAY 15 NUM 10 NUMF "" SQLBL OFF BLO ON RECSEP WR;
+
+SET HEA ON PAGES 100;

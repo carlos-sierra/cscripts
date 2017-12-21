@@ -37,8 +37,7 @@
 --             
 ---------------------------------------------------------------------------------------
 --
-
-SET HEA ON LIN 32767 NEWP 1 PAGES 42 TAB OFF FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 COL container_id FOR 999999 HEA 'CON_ID';
 COL object_number FOR 999999999 HEA 'Object ID';
 COL object_owner_and_name FOR A60 HEA 'Object Owner.Name(Type)';

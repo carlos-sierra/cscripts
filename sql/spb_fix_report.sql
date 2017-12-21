@@ -47,7 +47,7 @@
 --             
 ---------------------------------------------------------------------------------------
 --
-SET LIN 350 PAGES 100 TAB OFF HEA ON VER OFF FEED OFF ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 COL sql_handle FOR A20;
 COL plan_name FOR A30;
 COL signature FOR 99999999999999999999;

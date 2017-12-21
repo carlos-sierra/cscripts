@@ -1,4 +1,3 @@
-SET TERM ON HEA ON LIN 32767 NEWP NONE PAGES 100 FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
 COL x_host_name NEW_V x_host_name;
@@ -61,6 +60,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -149,4 +149,3 @@ SELECT application_module appl,
 /
 /****************************************************************************************/
 SPO OFF;
-SET TERM ON HEA ON LIN 80 NEWP 1 PAGES 14 FEED ON ECHO OFF VER ON LONG 80 LONGC 80 WRA ON TRIMS OFF TRIM OFF TI OFF TIMI OFF ARRAY 15 NUM 10 NUMF "" SQLBL OFF BLO ON RECSEP WR;

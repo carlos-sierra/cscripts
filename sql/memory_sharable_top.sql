@@ -5,7 +5,7 @@ PRO An error "ORA-01476: divisor is equal to zero" just means v$database.open_mo
 SELECT CASE open_mode WHEN 'READ WRITE' THEN open_mode ELSE TO_CHAR(1/0) END open_mode FROM v$database;
 --WHENEVER SQLERROR EXIT FAILURE;
 
-SET TERM ON FEED OFF VER OFF HEA ON LIN 2000 PAGES 100 TAB OFF TIMI OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS') current_time FROM DUAL;

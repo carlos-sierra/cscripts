@@ -1,5 +1,38 @@
 CREATE OR REPLACE PACKAGE BODY &&1..iod_spm AS
-/* $Header: iod_spm.pkb.sql 2017-11-30T16:44:42 carlos.sierra $ */
+/* $Header: iod_spm.pkb.sql 2017-12-20T21:41:59 carlos.sierra $ */
+/* ------------------------------------------------------------------------------------ */  
+PROCEDURE output (p_line IN VARCHAR2) 
+IS
+BEGIN
+  DBMS_OUTPUT.PUT_LINE (a => p_line);
+END output;
+/* ------------------------------------------------------------------------------------ */  
+PROCEDURE output (p_col_1 IN VARCHAR2, p_col_2 IN VARCHAR2) 
+IS
+BEGIN
+  IF TRIM(p_col_2) IS NOT NULL THEN
+    output (p_line => '| '||RPAD(SUBSTR(NVL(p_col_1, ' '), 1, 32), 32)||' : '||SUBSTR(p_col_2, 1, 108));
+  END IF;
+END output;
+/* ------------------------------------------------------------------------------------ */  
+PROCEDURE output (p_col_01 IN VARCHAR2, 
+                  p_col_02 IN VARCHAR2, p_col_03 IN VARCHAR2, p_col_04 IN VARCHAR2, 
+                  p_col_05 IN VARCHAR2, p_col_06 IN VARCHAR2, p_col_07 IN VARCHAR2, 
+                  p_col_08 IN VARCHAR2, p_col_09 IN VARCHAR2, p_col_10 IN VARCHAR2) 
+IS
+  FUNCTION trim_and_pad (p_col IN VARCHAR) RETURN VARCHAR2 
+  IS
+  BEGIN
+    RETURN LPAD(NVL(TRIM(p_col), ' '), 12);
+  END trim_and_pad;
+BEGIN
+  output (p_col_1 => p_col_01, p_col_2 =>
+    trim_and_pad(p_col_02)||trim_and_pad(p_col_03)||trim_and_pad(p_col_04)||
+    trim_and_pad(p_col_05)||trim_and_pad(p_col_06)||trim_and_pad(p_col_07)||
+    trim_and_pad(p_col_08)||trim_and_pad(p_col_09)||trim_and_pad(p_col_10)
+    );
+END output;
+/* ------------------------------------------------------------------------------------ */  
 PROCEDURE maintain_plans_internal (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
   p_create_spm_limit             IN NUMBER   DEFAULT NULL, -- limits the number of SPMs to be created in one execution
@@ -19,6 +52,7 @@ PROCEDURE maintain_plans_internal (
   p_secs_per_exec_cand           IN NUMBER   DEFAULT NULL, -- a plan must perform better than this threshold to be a candidate
   p_first_load_time_days_cand    IN NUMBER   DEFAULT NULL, -- a sql must be loaded into memory at least this many days before it is considered as candidate
   p_awr_days                     IN NUMBER   DEFAULT NULL, -- amount of days to consider from AWR history assuming retention is at least this long
+  p_cur_days                     IN NUMBER   DEFAULT NULL, -- cursor must be active within the past k_cur_days to be considered
   x_plan_candidates              OUT NUMBER, -- Candidates
   x_qualified_for_spb_creation   OUT NUMBER, -- SPBs Qualified for Creation
   x_spbs_created                 OUT NUMBER, -- SPBs Created
@@ -45,8 +79,8 @@ IS
   k_incl_plans_appl_4            CONSTANT CHAR(1) := NVL(UPPER(SUBSTR(TRIM(p_incl_plans_appl_4), 1, 1)), 'Y'); -- (Y|N) include SQL from 4th application (GC)
   k_incl_plans_non_appl          CONSTANT CHAR(1) := NVL(UPPER(SUBSTR(TRIM(p_incl_plans_non_appl), 1, 1)), 'N'); -- (N|Y) consider as candidate SQL not qualified as "application module"
   k_aggressiveness_levels        CONSTANT NUMBER := 5; -- (2-5) levels the aggressiveness parameter can take
-  k_execs_candidate_min          CONSTANT NUMBER := 500; -- a plan must be executed these many times to be a candidate (for aggressiveness of 5)
-  k_execs_candidate_max          CONSTANT NUMBER := 2500; -- a plan must be executed these many times to be a candidate (for aggressiveness of 1)
+  k_execs_candidate_min          CONSTANT NUMBER := NVL(p_execs_candidate, 500); -- a plan must be executed these many times to be a candidate (for aggressiveness of 5)
+  k_execs_candidate_max          CONSTANT NUMBER := NVL(5 * p_execs_candidate, 2500); -- a plan must be executed these many times to be a candidate (for aggressiveness of 1)
   k_execs_candidate              CONSTANT NUMBER := NVL(p_execs_candidate, ROUND(k_execs_candidate_max - ((k_aggressiveness - 1) * (k_execs_candidate_max - k_execs_candidate_min) / (k_aggressiveness_levels - 1))));
   k_execs_appl_cat_1_min         CONSTANT NUMBER := 5000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness of 5)
   k_execs_appl_cat_1_max         CONSTANT NUMBER := 25000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness of 1)
@@ -81,6 +115,11 @@ IS
   k_secs_per_exec_noappl_min     CONSTANT NUMBER := 0.200; --(200ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_noappl_max     CONSTANT NUMBER := 1.000; -- (1s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_noappl         CONSTANT NUMBER := ROUND(k_secs_per_exec_noappl_min + ((k_aggressiveness - 1) * (k_secs_per_exec_noappl_max - k_secs_per_exec_noappl_min) / (k_aggressiveness_levels - 1)), 6);
+  k_num_rows_appl_1              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
+  k_num_rows_appl_2              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
+  k_num_rows_appl_3              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
+  k_num_rows_appl_4              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
+  k_num_rows_noappl              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
   k_90th_pctl_factor_cat         CONSTANT NUMBER := 2; -- the 90th percentile of "Avg Elapsed Time per Exec" should be less than this many times the "secs_per_exec" threshold for a Plan to qualify for SPM
   k_95th_pctl_factor_cat         CONSTANT NUMBER := 3; -- ditto for 95th percentile
   k_97th_pctl_factor_cat         CONSTANT NUMBER := 4; -- ditto for 97th percentile
@@ -89,23 +128,26 @@ IS
   k_95th_pctl_factor_avg         CONSTANT NUMBER := k_95th_pctl_factor_cat * 2 * k_aggressiveness; -- ditto for 95th percentile
   k_97th_pctl_factor_avg         CONSTANT NUMBER := k_97th_pctl_factor_cat * 2 * k_aggressiveness; -- ditto for 97th percentile
   k_99th_pctl_factor_avg         CONSTANT NUMBER := k_99th_pctl_factor_cat * 2 * k_aggressiveness; -- ditto for 99th percentile
+  k_instance_age_days            CONSTANT NUMBER := 7; -- instance must be at least this many days old
   k_first_load_time_days_cand    CONSTANT NUMBER := NVL(p_first_load_time_days_cand, k_aggressiveness_levels - k_aggressiveness); -- a sql must be loaded into memory at least this many days before it is considered as candidate
   k_first_load_time_days         CONSTANT NUMBER := 7 - k_aggressiveness; -- a sql must be loaded into memory at least this many days before it qualifies for a SPB
   k_fixed_mature_days            CONSTANT NUMBER := 14; -- a non-fixed SPB needs to be older than this many days in order to be promoted to "FIXED"
   k_spb_thershold_over_cat_max   CONSTANT NUMBER := 10; -- plan must perform better than 10x category max threshold
   k_spb_thershold_over_spf_perf  CONSTANT NUMBER := 100; -- plan must perform better than 100x performance at the time SPB was created
-  k_awr_days                     CONSTANT NUMBER := NVL(p_awr_days, 60); -- amount of days to consider from AWR history assuming retention is at least this long
+  k_awr_days                     CONSTANT NUMBER := NVL(p_awr_days, 14); -- amount of days to consider from AWR history assuming retention is at least this long
+  k_cur_days                     CONSTANT NUMBER := NVL(p_cur_days, 1); -- cursor must be active within the past k_cur_days to be considered
   k_display_plan                 CONSTANT CHAR(1) := 'Y'; -- include execution plan on report
   /* ---------------------------------------------------------------------------------- */
   k_appl_cat_1                   CONSTANT VARCHAR2(10) := 'BeginTx'; -- 1st application category
   k_appl_cat_2                   CONSTANT VARCHAR2(10) := 'CommitTx'; -- 2nd application category
   k_appl_cat_3                   CONSTANT VARCHAR2(10) := 'Read'; -- 3rd application category
   k_appl_cat_4                   CONSTANT VARCHAR2(10) := 'GC'; -- 4th application category
-  k_source_mem                   CONSTANT VARCHAR2(30) := 'gv$sql';
+  k_source_mem                   CONSTANT VARCHAR2(30) := 'v$sql';
   k_source_awr                   CONSTANT VARCHAR2(30) := 'dba_hist_sqlstat';
   k_display_plan_format          CONSTANT VARCHAR2(100) := 'BASIC ROWS COST OUTLINE PEEKED_BINDS PREDICATE NOTE';
   k_debugging                    CONSTANT BOOLEAN := FALSE; -- future use
   /* ---------------------------------------------------------------------------------- */
+  l_pdb_id                       NUMBER;
   l_candidate_was_accepted       BOOLEAN;
   l_spb_promotion_was_accepted   BOOLEAN;
   l_spb_demotion_was_accepted    BOOLEAN;
@@ -153,22 +195,30 @@ IS
   l_instance_startup_time        DATE;
   l_us_per_exec_c                NUMBER;
   l_us_per_exec_b                NUMBER;
+  l_owner                        VARCHAR2(30);
+  l_table_name                   VARCHAR2(30);
+  l_temporary                    VARCHAR2(1);
+  l_num_rows                     NUMBER;
+  l_last_analyzed                DATE;
   b_rec                          cdb_sql_plan_baselines%ROWTYPE;
   /* ---------------------------------------------------------------------------------- */
   CURSOR candidate_plan
   IS
-    WITH
+    WITH /* IOD_SPM candidate_plan */
     pdbs AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */ -- disjoint for perf reasons
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(pdbs) */ -- disjoint for perf reasons
            con_id,
            name pdb_name
       FROM v$pdbs
      WHERE open_mode = 'READ WRITE'
     ),
-    mem_plan_metrics AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    v_sql AS (
+    -- one row per sql/phv
+    -- if a sql/phv as crsors with and without spb still aggregates them into one row and qualifies it with spb
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(v_sql) */ -- disjoint to avoid runing into ora-1555
            c.con_id,
-           p.pdb_name,         
+           c.parsing_user_id,
+           c.parsing_schema_id,
            c.parsing_schema_name,
            c.sql_id,
            SUBSTR(c.sql_text, 1, 108) sql_text,
@@ -176,7 +226,6 @@ IS
            MIN(c.child_number) min_child_number,
            MAX(c.child_number) max_child_number,
            c.plan_hash_value,
-           k_source_mem metrics_source,
            SUM(c.executions) executions,
            SUM(c.buffer_gets) buffer_gets,
            SUM(c.disk_reads) disk_reads,
@@ -194,91 +243,127 @@ IS
            MAX(c.last_active_time) last_active_time, -- newest
            MIN(TO_DATE(c.last_load_time, 'YYYY-MM-DD/HH24:MI:SS')) last_load_time, -- oldest
            MIN(TO_DATE(c.first_load_time, 'YYYY-MM-DD/HH24:MI:SS')) first_load_time, -- oldest
-           c.sql_profile,
-           c.sql_patch,
-           c.sql_plan_baseline,
+           MAX(c.sql_profile) sql_profile,
+           MAX(c.sql_patch) sql_patch,
+           MAX(c.sql_plan_baseline) sql_plan_baseline, -- it is possible to have some child cursors (for same phv) with spb and some without
            c.exact_matching_signature
-      FROM gv$sql c,
-           cdb_users pu,
-           cdb_users ps,
-           pdbs p
-     WHERE c.con_id > 2 -- exclude CDB$ROOT and PDB$SEED
+      FROM v$sql c
+     WHERE (NVL(k_sql_id, 'ALL') = 'ALL' OR c.sql_id = k_sql_id)
+       AND (l_pdb_id IS NULL OR c.con_id = l_pdb_id)
+       AND c.con_id > 2 -- exclude CDB$ROOT and PDB$SEED
        AND c.parsing_user_id > 0 -- exclude SYS
        AND c.parsing_schema_id > 0 -- exclude SYS
        AND c.parsing_schema_name NOT LIKE 'C##'||CHR(37)
        AND c.plan_hash_value > 0
        AND c.executions > 0
        AND c.elapsed_time > 0
-       AND pu.con_id = c.con_id
-       AND pu.user_id = c.parsing_user_id
-       AND pu.oracle_maintained = 'N'
-       AND ps.con_id = c.con_id
-       AND ps.user_id = c.parsing_schema_id
-       AND ps.oracle_maintained = 'N'
-       AND p.con_id = c.con_id
-       AND (NVL(k_pdb_name, 'ALL') = 'ALL' OR p.pdb_name = k_pdb_name)
-       AND (NVL(k_sql_id, 'ALL') = 'ALL' OR c.sql_id = k_sql_id)
-       -- subquery c1 is to skip a cursor that has no SPB yet, but there are other
-       -- active cursors for same SQL_ID that already have a SPB.
-       -- if a SQL has already a SPB in use at the time this tool executes, we simply do not
-       -- want to create a new one plan in SPB. reason is that maybe an earlier execution of this
-       -- tool with a lower aggressiveness level just created a SPB, then on a subsequent
-       -- execution of this tool we don't want to create a lower-quality SPB if we already
-       -- have one created by more conservative level 1 execution.
-       AND CASE
-             WHEN c.sql_plan_baseline IS NULL THEN 
-               -- verify there are no cursors with active SPB
-               ( SELECT /*+ NO_MERGE QB_NAME(c1) */ COUNT(*)
-                   FROM gv$sql c1
-                  WHERE c1.con_id = c.con_id
-                    AND c1.parsing_schema_name = c.parsing_schema_name
-                    AND c1.sql_id = c.sql_id
-                    AND c1.sql_plan_baseline IS NOT NULL
-                    AND c1.is_obsolete = 'N'
-                    AND c1.is_shareable = 'Y'
-                    AND SUBSTR(c1.object_status, 1, 5) = 'VALID'
-                    AND c1.parsing_user_id > 0
-                    AND c1.parsing_schema_id > 0
-                    AND c1.parsing_schema_name NOT LIKE 'C##'||CHR(37)
-                    AND c1.plan_hash_value > 0
-                    AND c1.executions > 0
-                    AND c1.elapsed_time > 0
-                    AND ROWNUM = 1
-               )
-             ELSE 0 -- c.sql_plan_baseline IS NOT NULL (this cursor has a SPB)
-             END = 0
+       AND c.sql_text NOT LIKE '/* SQL Analyze(%'
+       AND c.last_active_time > SYSDATE - k_awr_days -- to ignore cursors with possible plans that haven't been executed for a while
+       AND c.last_active_time > SYSDATE - k_cur_days -- to ignore cursors with possible plans that haven't been executed for a while
+       AND c.plan_hash_value <> 187644085 -- /* addTransactionRow() */  INSERT INTO KievTransactions
+       AND SUBSTR(c.object_status, 1, 5) = 'VALID'
+       AND c.is_obsolete = 'N'
+       AND c.is_shareable = 'Y'
      GROUP BY
            c.con_id,
-           p.pdb_name,         
+           c.parsing_user_id,
+           c.parsing_schema_id,
            c.parsing_schema_name,
            c.sql_id,
            SUBSTR(c.sql_text, 1, 108),
            c.plan_hash_value,
+           c.exact_matching_signature
+    HAVING SUM(c.executions) > k_execs_candidate_min
+       --AND (SUM(c.elapsed_time) / SUM(c.executions) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
+       AND MIN(TO_DATE(c.first_load_time, 'YYYY-MM-DD/HH24:MI:SS')) < SYSDATE - k_first_load_time_days_cand -- sql is mature
+       --AND MIN(c.is_obsolete) = 'N' (moved to WHERE clause)
+       --AND MAX(c.is_shareable) = 'Y' (moved to WHERE clause)
+       --AND MAX(SUBSTR(c.object_status, 1, 5)) = 'VALID' (moved to WHERE clause)
+    ),
+    application_users AS (
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(application_users) */ -- disjoint for perf reasons
+           con_id,
+           user_id
+      FROM cdb_users
+     WHERE oracle_maintained = 'N'
+    ),
+    mem_plan_metrics AS (
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(mem_plan_metrics) */
+           c.con_id,
+           p.pdb_name,         
+           c.parsing_user_id,
+           c.parsing_schema_id,
+           c.parsing_schema_name,
+           c.sql_id,
+           c.sql_text,
+           c.child_cursors,
+           c.min_child_number,
+           c.max_child_number,
+           c.plan_hash_value,
+           k_source_mem metrics_source,
+           c.executions,
+           c.buffer_gets,
+           c.disk_reads,
+           c.rows_processed,
+           c.sharable_mem,
+           c.elapsed_time,
+           c.cpu_time,
+           c.user_io_wait_time,
+           c.application_wait_time,
+           c.concurrency_wait_time,
+           c.min_optimizer_cost,
+           c.max_optimizer_cost,
+           c.module,
+           c.action,
+           c.last_active_time,
+           c.last_load_time,
+           c.first_load_time,
            c.sql_profile,
            c.sql_patch,
            c.sql_plan_baseline,
            c.exact_matching_signature
-    HAVING MIN(c.is_obsolete) = 'N'
-       AND MAX(c.is_shareable) = 'Y'
-       AND MAX(SUBSTR(c.object_status, 1, 5)) = 'VALID'
-       AND SUM(c.executions) > k_execs_candidate_min
-       --AND (SUM(c.elapsed_time) / SUM(c.executions) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
-       AND MIN(TO_DATE(c.first_load_time, 'YYYY-MM-DD/HH24:MI:SS')) < SYSDATE - k_first_load_time_days_cand -- oldest
+      FROM v_sql c,
+           application_users pu,
+           application_users ps,
+           pdbs p
+     WHERE pu.con_id = c.con_id
+       AND pu.user_id = c.parsing_user_id
+       AND ps.con_id = c.con_id
+       AND ps.user_id = c.parsing_schema_id
+       AND p.con_id = c.con_id
+       -- subquery c1 is to skip a cursor that has no SPB yet, but there are other
+       -- active cursors for same SQL_ID that already have a SPB.
+       -- if a SQL has already a SPB in use at the time this tool executes, we simply do not
+       -- want to create a new plan in SPB. reason is that maybe an earlier execution of this
+       -- tool with a lower aggressiveness level just created a SPB, then on a subsequent
+       -- execution of this tool we don't want to create a lower-quality SPB if we already
+       -- have one created by a more conservative level of execution.
+       AND CASE
+             WHEN c.sql_plan_baseline IS NULL THEN 
+               -- verify there are no cursors for this SQL (different plan) with active SPB
+               ( SELECT /*+ NO_MERGE QB_NAME(c1) */ COUNT(*)
+                   FROM v_sql c1
+                  WHERE c1.con_id = c.con_id
+                    AND c1.parsing_user_id = c.parsing_user_id
+                    AND c1.parsing_schema_id = c.parsing_schema_id
+                    AND c1.sql_id = c.sql_id
+                    AND c1.sql_plan_baseline IS NOT NULL
+                    AND ROWNUM = 1
+               )
+             ELSE 0 -- c.sql_plan_baseline IS NOT NULL (this cursor has a SPB)
+             END = 0
     )
-    , awr_plan_metrics AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    , dba_hist_sqlstat_m AS (
+    -- one row per sql/phv/snap
+    -- this query block gets executed only when sql_id is passed as parameter
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(awr_plan_metrics) */ -- disjoint for perf reasons
            c.con_id,
-           p.pdb_name,  
+           MAX(c.instance_number) instance_number,
+           c.parsing_user_id,
+           c.parsing_schema_id,
            SUBSTR(c.parsing_schema_name, 1, 30) parsing_schema_name,
            c.sql_id,
-           ( SELECT DBMS_LOB.SUBSTR(t.sql_text, 108) 
-               FROM dba_hist_sqltext t
-              WHERE t.sql_id = c.sql_id
-                AND t.dbid   = l_dbid
-                AND ROWNUM   = 1
-           ) sql_text,
            c.plan_hash_value,
-           k_source_awr metrics_source,
            SUM(c.executions_total) executions,
            SUM(c.buffer_gets_total) buffer_gets,
            SUM(c.disk_reads_total) disk_reads,
@@ -293,16 +378,11 @@ IS
            MAX(c.optimizer_cost) max_optimizer_cost,
            MAX(c.module) module,
            MAX(c.action) action,
-           CAST(MAX(s.end_interval_time) AS DATE) last_active_time, -- newest
-           c.sql_profile,
+           MAX(c.sql_profile) sql_profile,
            c.snap_id,
-           ROW_NUMBER() OVER (PARTITION BY c.con_id, SUBSTR(c.parsing_schema_name, 1, 30), c.sql_id, c.plan_hash_value ORDER BY c.snap_id DESC NULLS LAST) newest,
-           ROW_NUMBER() OVER (PARTITION BY c.con_id, SUBSTR(c.parsing_schema_name, 1, 30), c.sql_id, c.plan_hash_value ORDER BY c.snap_id ASC  NULLS LAST) oldest
-      FROM dba_hist_sqlstat c,
-           dba_hist_snapshot s,
-           cdb_users pu,
-           cdb_users ps,
-           pdbs p
+           ROW_NUMBER() OVER (PARTITION BY c.con_id, c.parsing_user_id, c.parsing_schema_id, c.sql_id, c.plan_hash_value ORDER BY c.snap_id DESC NULLS LAST) newest,
+           ROW_NUMBER() OVER (PARTITION BY c.con_id, c.parsing_user_id, c.parsing_schema_id, c.sql_id, c.plan_hash_value ORDER BY c.snap_id ASC  NULLS LAST) oldest
+      FROM dba_hist_sqlstat c
      WHERE c.con_id > 2 -- exclude CDB$ROOT and PDB$SEED
        AND c.parsing_user_id > 0 -- exclude SYS
        AND c.parsing_schema_id > 0 -- exclude SYS
@@ -311,19 +391,74 @@ IS
        AND c.executions_total > 0
        AND c.elapsed_time_total > 0
        AND c.dbid = l_dbid
+       AND c.snap_id >= l_min_snap_id
+       --AND (NVL(k_sql_id, 'ALL') = 'ALL' OR c.sql_id = k_sql_id)
+       AND c.sql_id = k_sql_id -- consider plans from history only when executed for one SQL
+       AND (l_pdb_id IS NULL OR c.con_id = l_pdb_id)
+       AND c.plan_hash_value <> 187644085 -- /* addTransactionRow() */  INSERT INTO KievTransactions
+     GROUP BY
+           c.con_id,
+           c.parsing_user_id,
+           c.parsing_schema_id,
+           SUBSTR(c.parsing_schema_name, 1, 30),
+           c.sql_id,
+           c.plan_hash_value,
+           --c.sql_profile,
+           c.snap_id
+    HAVING SUM(c.executions_total) > k_execs_candidate_min
+       --AND (SUM(c.elapsed_time_total) / SUM(c.executions_total) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
+    )
+    , awr_plan_metrics AS (
+    -- two rows per sql/phv (the oldest and the newest)
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(awr_plan_metrics) */
+           c.con_id,
+           --c.instance_number,
+           p.pdb_name,  
+           c.parsing_user_id,
+           c.parsing_schema_id,
+           c.parsing_schema_name,
+           c.sql_id,
+           ( SELECT DBMS_LOB.SUBSTR(t.sql_text, 108) 
+               FROM dba_hist_sqltext t
+              WHERE t.sql_id = c.sql_id
+                AND t.dbid   = l_dbid
+                AND ROWNUM   = 1
+           ) sql_text,
+           c.plan_hash_value,
+           k_source_awr metrics_source,
+           c.executions,
+           c.buffer_gets,
+           c.disk_reads,
+           c.rows_processed,
+           c.sharable_mem,
+           c.elapsed_time,
+           c.cpu_time,
+           c.user_io_wait_time,
+           c.application_wait_time,
+           c.concurrency_wait_time,
+           c.min_optimizer_cost,
+           c.max_optimizer_cost,
+           c.module,
+           c.action,
+           CAST(s.end_interval_time AS DATE) last_active_time,
+           c.sql_profile,
+           c.snap_id,
+           c.newest,
+           c.oldest
+      FROM dba_hist_sqlstat_m c,
+           dba_hist_snapshot s,
+           application_users pu,
+           application_users ps,
+           pdbs p
+     WHERE (c.oldest = 1 OR c.newest = 1)
        AND s.snap_id = c.snap_id
-       AND s.dbid = c.dbid
+       AND s.dbid = l_dbid
        AND s.instance_number = c.instance_number
-       AND CAST(s.end_interval_time AS DATE) < SYSDATE - k_first_load_time_days_cand -- oldest
        AND pu.con_id = c.con_id
        AND pu.user_id = c.parsing_user_id
-       AND pu.oracle_maintained = 'N'
        AND ps.con_id = c.con_id
        AND ps.user_id = c.parsing_schema_id
-       AND ps.oracle_maintained = 'N'
        AND p.con_id = c.con_id
-       AND (NVL(k_pdb_name, 'ALL') = 'ALL' OR p.pdb_name = k_pdb_name)
-       AND (NVL(k_sql_id, 'ALL') = 'ALL' OR c.sql_id = k_sql_id)
        -- subqueries m1 and m2 below are needed to include awr plans for which there is
        -- no cursor, as long as their SQL is active (has at least one cursor under a 
        -- different plan but with no SPB), and the plan is not already being considered 
@@ -341,36 +476,29 @@ IS
        --    plan x from awr is filtered out (SQL is not in use).
        -- Note that if SQL has already a SPB as per cursors in shared pool, then we do
        -- not consider plans from awr.
-       AND EXISTS -- SQL has at least one cursor with a plan y or z other than this x, but no SPB
+       AND EXISTS -- SQL has at least one cursor with a plan "y" or "z" other than this c "x", but no SPB (i.e. sql is active)
            ( SELECT /*+ NO_MERGE QB_NAME(m1) */ NULL 
                FROM mem_plan_metrics m1
               WHERE m1.con_id = c.con_id
-                AND m1.parsing_schema_name = SUBSTR(c.parsing_schema_name, 1, 30)
+                AND m1.parsing_user_id = c.parsing_user_id
+                AND m1.parsing_schema_id = c.parsing_schema_id
                 AND m1.sql_id = c.sql_id
-                AND m1.plan_hash_value <> c.plan_hash_value
-                AND m1.sql_plan_baseline IS NULL
+                AND m1.plan_hash_value <> c.plan_hash_value -- there is a cursor with a different plan
+                AND m1.sql_plan_baseline IS NULL -- such cursor has no spb
            )
-       AND NOT EXISTS -- There are no cursors with this plan x
+       AND NOT EXISTS -- There are no cursors with this plan c "x" (i.e. plan is not active)
            ( SELECT /*+ NO_MERGE QB_NAME(m2) */ NULL
                FROM mem_plan_metrics m2
               WHERE m2.con_id = c.con_id
-                AND m2.parsing_schema_name = SUBSTR(c.parsing_schema_name, 1, 30)
+                AND m2.parsing_user_id = c.parsing_user_id
+                AND m2.parsing_schema_id = c.parsing_schema_id
                 AND m2.sql_id = c.sql_id
-                AND m2.plan_hash_value = c.plan_hash_value
+                AND m2.plan_hash_value = c.plan_hash_value -- there is a cursor with same plan
            )
-     GROUP BY
-           c.con_id,
-           p.pdb_name,         
-           SUBSTR(c.parsing_schema_name, 1, 30),
-           c.sql_id,
-           c.plan_hash_value,
-           c.sql_profile,
-           c.snap_id
-    HAVING SUM(c.executions_total) > k_execs_candidate_min
-       --AND (SUM(c.elapsed_time_total) / SUM(c.executions_total) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
     )
     , mem_and_awr_plan_metrics AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    -- one row per sql/phv regardless if source is shared pool or awr
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(mem_n_awr_metrics_m) */
            m.con_id,
            m.pdb_name,         
            m.parsing_schema_name,
@@ -404,7 +532,7 @@ IS
            m.exact_matching_signature
       FROM mem_plan_metrics m
      UNION ALL
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(mem_n_awr_metrics_a) */
            a.con_id,
            a.pdb_name,         
            a.parsing_schema_name,
@@ -434,7 +562,8 @@ IS
            ( SELECT o.last_active_time 
                FROM awr_plan_metrics o 
               WHERE o.con_id = a.con_id 
-                AND o.parsing_schema_name = a.parsing_schema_name
+                AND o.parsing_user_id = a.parsing_user_id
+                AND o.parsing_schema_id = a.parsing_schema_id
                 AND o.sql_id = a.sql_id
                 AND o.plan_hash_value = a.plan_hash_value
                 AND o.oldest = 1
@@ -447,7 +576,8 @@ IS
      WHERE a.newest = 1
     )
     , plan_performance_time_series AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    -- historical performance metrics for each sql/phv/snap. not all have a history!
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(plan_perf_time) */
            h.con_id,
            h.sql_id,
            h.plan_hash_value,
@@ -466,9 +596,18 @@ IS
            MAX(h.optimizer_cost) max_optimizer_cost
       FROM dba_hist_sqlstat h,
            dba_hist_snapshot s
-     WHERE h.dbid = l_dbid
+     WHERE h.con_id > 2 -- exclude CDB$ROOT and PDB$SEED
+       AND h.parsing_user_id > 0 -- exclude SYS
+       AND h.parsing_schema_id > 0 -- exclude SYS
+       AND h.parsing_schema_name NOT LIKE 'C##'||CHR(37)
+       AND h.plan_hash_value > 0
+       AND h.executions_total > 0
+       AND h.elapsed_time_total > 0
+       AND h.dbid = l_dbid
        AND h.snap_id >= l_min_snap_id
        AND h.executions_delta > 0
+       AND (NVL(k_sql_id, 'ALL') = 'ALL' OR h.sql_id = k_sql_id)
+       AND (l_pdb_id IS NULL OR h.con_id = l_pdb_id)
        AND (h.con_id, h.sql_id, h.plan_hash_value) IN (SELECT cm.con_id, cm.sql_id, cm.plan_hash_value FROM mem_and_awr_plan_metrics cm)
        AND s.snap_id = h.snap_id
        AND s.dbid = h.dbid
@@ -482,7 +621,8 @@ IS
            s.begin_interval_time
     )
     , plan_performance_metrics AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    -- historical performance metrics for each sql/phv. not all have a history!
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(plan_perf_metrics) */
            con_id,
            sql_id,
            plan_hash_value,
@@ -566,7 +706,8 @@ IS
            plan_hash_value
     ) -- Categorize SQL statement
     , extended_plan_metrics AS ( -- adding application_category
-    SELECT /*+ MATERIALIZE NO_MERGE */
+    -- application catagory is a custom grouping needed to assign thresholds on this tool
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(ext_plan_metrics) */
            cm.con_id,
            cm.pdb_name,         
            cm.parsing_schema_name,
@@ -600,6 +741,7 @@ IS
                OR cm.sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
                OR cm.sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
                OR cm.sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+               OR cm.sql_text LIKE '/* hashBucket */'||CHR(37) 
              THEN k_appl_cat_4
            END application_category,
            cm.plan_hash_value,
@@ -705,7 +847,9 @@ IS
        AND pm.sql_id(+) = cm.sql_id
        AND pm.plan_hash_value(+) = cm.plan_hash_value
     )
-    SELECT con_id,
+    -- candidates include sql that may get a spb and sql that already has one
+    SELECT /*+ GATHER_PLAN_STATISTICS QB_NAME(candidate) */
+           con_id,
            pdb_name,         
            parsing_schema_name,
            sql_id,
@@ -855,7 +999,14 @@ IS
              WHEN k_appl_cat_3 THEN k_execs_appl_cat_3_max
              WHEN k_appl_cat_4 THEN k_execs_appl_cat_4_max
              ELSE k_execs_non_appl_max
-           END executions_threshold_max
+           END executions_threshold_max,
+           CASE application_category
+             WHEN k_appl_cat_1 THEN k_num_rows_appl_1
+             WHEN k_appl_cat_2 THEN k_num_rows_appl_2
+             WHEN k_appl_cat_3 THEN k_num_rows_appl_3
+             WHEN k_appl_cat_4 THEN k_num_rows_appl_4
+             ELSE k_num_rows_noappl
+           END num_rows_min_main_table
       FROM extended_plan_metrics
      WHERE (    (k_incl_plans_appl_1    = 'Y' AND application_category = k_appl_cat_1) 
              OR (k_incl_plans_appl_2    = 'Y' AND application_category = k_appl_cat_2)
@@ -1011,40 +1162,94 @@ IS
       r_plan_name := NULL;
   END get_sql_handle_and_plan_name;
   /* ---------------------------------------------------------------------------------- */  
-  PROCEDURE output (p_line IN VARCHAR2) 
+  PROCEDURE get_stats_main_table (p_con_id IN NUMBER, p_sql_id IN VARCHAR2, r_owner OUT VARCHAR2, r_table_name OUT VARCHAR2, r_temporary OUT VARCHAR2, r_num_rows OUT NUMBER, r_last_analyzed OUT DATE)
   IS
-  BEGIN
-    DBMS_OUTPUT.PUT_LINE (a => p_line);
-  END output;
-  /* ---------------------------------------------------------------------------------- */  
-  PROCEDURE output (p_col_1 IN VARCHAR2, p_col_2 IN VARCHAR2) 
-  IS
-  BEGIN
-    IF TRIM(p_col_2) IS NOT NULL THEN
-      output (p_line => '| '||RPAD(SUBSTR(NVL(p_col_1, ' '), 1, 32), 32)||' : '||SUBSTR(p_col_2, 1, 108));
-    END IF;
-  END output;
-  /* ---------------------------------------------------------------------------------- */  
-  PROCEDURE output (p_col_01 IN VARCHAR2, 
-                    p_col_02 IN VARCHAR2, p_col_03 IN VARCHAR2, p_col_04 IN VARCHAR2, 
-                    p_col_05 IN VARCHAR2, p_col_06 IN VARCHAR2, p_col_07 IN VARCHAR2, 
-                    p_col_08 IN VARCHAR2, p_col_09 IN VARCHAR2, p_col_10 IN VARCHAR2) 
-  IS
-    FUNCTION trim_and_pad (p_col IN VARCHAR) RETURN VARCHAR2 
-    IS
-    BEGIN
-      RETURN LPAD(NVL(TRIM(p_col), ' '), 12);
-    END trim_and_pad;
-  BEGIN
-    output (p_col_1 => p_col_01, p_col_2 =>
-      trim_and_pad(p_col_02)||trim_and_pad(p_col_03)||trim_and_pad(p_col_04)||
-      trim_and_pad(p_col_05)||trim_and_pad(p_col_06)||trim_and_pad(p_col_07)||
-      trim_and_pad(p_col_08)||trim_and_pad(p_col_09)||trim_and_pad(p_col_10)
-      );
-  END output;
+  BEGIN  
+    WITH /* IOD_SPM get_stats_main_table */
+    v_sqlarea_m AS (
+    SELECT /*+ MATERIALIZE NO_MERGE */ 
+           hash_value 
+      FROM v$sqlarea 
+     WHERE con_id = p_con_id 
+       AND sql_id = p_sql_id
+    ),
+    v_object_dependency_m AS (
+    SELECT /*+ MATERIALIZE NO_MERGE */ 
+           to_hash, to_address 
+      FROM v$object_dependency 
+     WHERE con_id = p_con_id 
+       AND from_hash IN ( SELECT /*+ NO_MERGE QB_NAME(sqlarea) */
+                                 hash_value 
+                            FROM v_sqlarea_m
+                        )
+    ),
+    v_db_object_cache_m AS (
+    SELECT /*+ MATERIALIZE NO_MERGE */ 
+           SUBSTR(owner,1,30) object_owner, 
+           SUBSTR(name,1,30) object_name 
+      FROM v$db_object_cache 
+     WHERE con_id = p_con_id 
+       AND type IN ('TABLE','VIEW') 
+       AND (hash_value, addr) IN ( SELECT /*+ NO_MERGE QB_NAME(object_dependency) */
+                                          to_hash, to_address 
+                                     FROM v_object_dependency_m
+                                 )
+    ),
+    cdb_tables_m AS (
+    SELECT /*+ MATERIALIZE NO_MERGE */ 
+           owner, 
+           table_name, 
+           temporary,
+           num_rows, 
+           last_analyzed, 
+           ROW_NUMBER() OVER (ORDER BY num_rows DESC NULLS LAST) row_number 
+      FROM cdb_tables 
+     WHERE con_id = p_con_id 
+       AND (owner, table_name) IN ( SELECT /*+ NO_MERGE QB_NAME(object_cache) */
+                                           object_owner, 
+                                           object_name 
+                                      FROM v_db_object_cache_m
+                                  )
+    )
+    SELECT owner, 
+           table_name, 
+           temporary,
+           num_rows, 
+           last_analyzed
+      INTO r_owner, 
+           r_table_name, 
+           r_temporary,
+           r_num_rows, 
+           r_last_analyzed
+      FROM cdb_tables_m
+     WHERE row_number = 1;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      r_owner := NULL;
+      r_table_name := NULL;
+      r_temporary := NULL;
+      r_num_rows := TO_NUMBER(NULL);
+      r_last_analyzed := TO_DATE(NULL);
+  END get_stats_main_table;
   /* ---------------------------------------------------------------------------------- */  
 BEGIN
-  DBMS_OUTPUT.ENABLE (buffer_size => NULL);
+  DBMS_APPLICATION_INFO.SET_MODULE('IOD_SPM','LVL='||LPAD(k_aggressiveness, 2, '0'));
+  -- avoid PX on cdb view
+  BEGIN
+    EXECUTE IMMEDIATE 'ALTER SESSION SET "_px_cdb_view_enabled" = FALSE';
+  EXCEPTION
+    WHEN OTHERS THEN
+      output(SQLERRM);
+      output('ALTER SESSION SET "_px_cdb_view_enabled" = FALSE');
+  END;
+  -- workaround for bug 20118545 - Query using Subquery and Distinct Clause Raises ORA-600[kkqctinvvm(2): no qb found!]
+  BEGIN
+    EXECUTE IMMEDIATE 'ALTER SESSION SET "_complex_view_merging" = FALSE';
+  EXCEPTION
+    WHEN OTHERS THEN
+      output(SQLERRM);
+      output('ALTER SESSION SET "_complex_view_merging" = FALSE');
+  END;
   -- gets dbid for awr
   SELECT dbid, name, open_mode INTO l_dbid, l_db_name, l_open_mode FROM v$database;
   -- to be executed on DG primary only
@@ -1057,6 +1262,10 @@ BEGIN
   -- gets pdb name and con_id
   l_pdb_name := SYS_CONTEXT('USERENV', 'CON_NAME');
   l_con_id := SYS_CONTEXT('USERENV', 'CON_ID');
+  -- gets pdb id if pdb_name was passed
+  IF p_pdb_name IS NOT NULL THEN
+    SELECT con_id INTO l_pdb_id FROM v$pdbs WHERE open_mode = 'READ WRITE' AND name = UPPER(p_pdb_name);
+  END IF;
   -- output header
   output(RPAD('+', 145, '-'));
   output('|');
@@ -1112,6 +1321,13 @@ BEGIN
                                               TO_CHAR(k_secs_per_exec_noappl_min * 1e3, 'FM999,990.000')||'-'||
                                               TO_CHAR(k_secs_per_exec_noappl_max * 1e3, 'FM999,990.000')||')');
   END IF;
+  output('Min Rows - '||k_appl_cat_1,         k_num_rows_appl_1);
+  output('Min Rows - '||k_appl_cat_2,         k_num_rows_appl_2);
+  output('Min Rows - '||k_appl_cat_3,         k_num_rows_appl_3);
+  output('Min Rows - '||k_appl_cat_4,         k_num_rows_appl_4);
+  IF k_incl_plans_non_appl = 'Y' THEN
+    output('Min Rows - Non-Application',      k_num_rows_noappl);
+  END IF;
   output('90th Pctl Factor - Over Min Time',  k_90th_pctl_factor_cat||'x');
   output('95th Pctl Factor - Over Min Time',  k_95th_pctl_factor_cat||'x');
   output('97th Pctl Factor - Over Min Time',  k_97th_pctl_factor_cat||'x');
@@ -1126,6 +1342,7 @@ BEGIN
   output('SPB Threshold - Over Category Max', k_spb_thershold_over_cat_max||'x');
   output('SPB Threshold - Over SPB Perf',     k_spb_thershold_over_spf_perf||'x');
   output('Plan History Considered (days)',    k_awr_days||' (days)');
+  output('Cursor Age Considered (days)',      k_cur_days||' (days)');
   output('Display Execution Plans',           k_display_plan);
   output('|');
   output(RPAD('+', 145, '-'));
@@ -1181,6 +1398,21 @@ BEGIN
     b_rec                        := NULL;
     l_us_per_exec_c              := c_rec.elapsed_time / GREATEST(c_rec.executions, 1);
     l_us_per_exec_b              := NULL;
+    l_owner                      := NULL;
+    l_table_name                 := NULL;
+    l_temporary                  := NULL;
+    l_num_rows                   := TO_NUMBER(NULL);
+    l_last_analyzed              := TO_DATE(NULL);
+    -- get main table
+    get_stats_main_table (
+      p_con_id        => c_rec.con_id,
+      p_sql_id        => c_rec.sql_id,
+      r_owner         => l_owner,
+      r_table_name    => l_table_name,
+      r_temporary     => l_temporary,
+      r_num_rows      => l_num_rows,
+      r_last_analyzed => l_last_analyzed
+    );
     -- figure out signature
     IF c_rec.metrics_source = k_source_mem THEN
       l_signature := c_rec.exact_matching_signature;
@@ -1210,7 +1442,7 @@ BEGIN
         ELSIF b_rec.enabled = 'NO' OR b_rec.accepted = 'NO' OR b_rec.reproduced = 'NO' THEN -- not expected
           l_message1 := '*** SPB is inactive: Enabled='||b_rec.enabled||' Accepted='||b_rec.accepted||' Reproduced='||b_rec.reproduced||'.';
         ELSIF (l_us_per_exec_c / 1e6 > k_spb_thershold_over_cat_max * c_rec.secs_per_exec_threshold_max)
-           OR (l_us_per_exec_c > k_spb_thershold_over_spf_perf * l_us_per_exec_b) 
+           OR (l_us_per_exec_c > k_spb_thershold_over_spf_perf * l_us_per_exec_b AND l_us_per_exec_b > 0) 
         /* ---------------------------------------------------------------------------- */  
         THEN -- Demote SPB if underperforms (disable it)
           l_spb_demotion_was_accepted := TRUE;
@@ -1255,9 +1487,15 @@ BEGIN
         -- If existing SQL Plan Baseline (SPB) for candidate is valid then
         -- Evaluate and perform conditional SPB promotion
         ELSIF b_rec.created > SYSDATE - k_fixed_mature_days THEN
-          l_message1 := 'SPB promotion to "FIXED" is rejected at this time. SPB needs to be older than '||k_fixed_mature_days||' days.';
+          l_message1 := 'SPB promotion to "FIXED" rejected. SPB needs to be older than '||k_fixed_mature_days||' days.';
         --ELSIF b_rec.last_executed < SYSDATE - k_fixed_mature_days THEN (had to remove this, "last_executed" is not reliable)
           --l_message1 := 'SPB promotion to "FIXED" is rejected at this time. SPB has not been used within the last '||k_fixed_mature_days||' days.';
+        ELSIF l_owner IS NULL OR l_table_name IS NULL THEN
+          l_message1 := 'SPB promotion to "FIXED" rejected. Unknown main table.';
+        ELSIF l_temporary = 'N' AND (l_last_analyzed IS NULL OR l_num_rows IS NULL) THEN
+          l_message1 := 'SPB promotion to "FIXED" rejected. Main table has no CBO statistics.';
+        ELSIF l_num_rows < c_rec.num_rows_min_main_table THEN
+          l_message1 := 'SPB promotion to "FIXED" rejected. Number of rows on main table is below required threshold.';        
         /* ---------------------------------------------------------------------------- */  
         ELSE -- Promote SPB after proven performance (fix it)
           l_spb_promotion_was_accepted := TRUE;
@@ -1300,7 +1538,13 @@ BEGIN
     ELSE -- If there does not exist a SQL Plan Baseline (SPB) for candidate
       -- Further screen candidate
       IF l_us_per_exec_c / 1e6 > k_secs_per_exec_cand OR c_rec.executions < k_execs_candidate THEN
-        l_output := FALSE; -- simply ignore. this is to make it up for adjusting predicates from mem_plan_metrics and awr_plan_metrics queries on candidate_plan
+        -- simply ignore. this is to make it up for adjusting predicates from mem_plan_metrics and awr_plan_metrics queries on candidate_plan
+        l_output := FALSE; 
+        -- adjust candidate counters
+        l_candidate_count_t := l_candidate_count_t - 1;
+        l_candidate_count_p := l_candidate_count_p - 1;
+      ELSIF p_sql_id IS NULL AND SYSDATE - l_instance_startup_time < k_instance_age_days THEN
+        l_message1 := 'Rejected. Instance is '||TRUNC(SYSDATE - l_instance_startup_time)||' days old. Has to be older than '||k_instance_age_days||' days.';
       ELSIF c_rec.first_load_time > SYSDATE - k_first_load_time_days THEN
         l_message1 := 'Rejected. SQL''s first load time is too recent. Still within the last '||ROUND(k_first_load_time_days, 3)||' day(s) window.';
       ELSIF c_rec.executions < c_rec.executions_threshold THEN
@@ -1343,6 +1587,16 @@ BEGIN
         l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p99_avg_et_us > k_99th_pctl_factor_avg * c_rec.med_avg_et_us THEN
         l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
+      ELSIF c_rec.metrics_source = k_source_awr AND NVL(c_rec.avg_avg_et_us, 0) = 0 THEN
+        l_message1 := 'Rejected. Source is "'||k_source_awr||'" and average elapsed time per execution is null or zero.';
+      ELSIF l_owner IS NULL OR l_table_name IS NULL THEN
+        l_message1 := 'Rejected. Unknown main table.';
+      ELSIF l_temporary = 'N' AND (l_last_analyzed IS NULL OR l_num_rows IS NULL) THEN
+        l_message1 := 'Rejected. Main table has no CBO statistics.';
+      ELSIF l_num_rows < c_rec.num_rows_min_main_table THEN
+        l_message1 := 'Rejected. Number of rows on main table is below required threshold for this SQL category.';
+      ELSIF c_rec.last_load_time < l_last_analyzed THEN
+        l_message1 := 'Rejected. Cursor "last load time" is prior to main table "last analyzed" time. Cursor should be invalidated.';
       /* ------------------------------------------------------------------------------ */  
       ELSE -- Create SPB if candidate is accepted
         l_spb_created_qualified_p := l_spb_created_qualified_p + 1;
@@ -1390,15 +1644,17 @@ BEGIN
               r_sql_handle        => l_sql_handle,
               r_plan_name         => l_plan_name
             );
-            l_description := 'IOD FPZ LVL='||LPAD(k_aggressiveness, 2, '0')||' SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value;
-            set_spb_attribute (
-              p_sql_handle        => l_sql_handle,
-              p_plan_name         => l_plan_name,
-              p_con_name          => c_rec.pdb_name,
-              p_attribute_name    => 'DESCRIPTION',
-              p_attribute_value   => l_description,
-              r_plans             => l_plans_returned
-            );
+            IF l_sql_handle IS NOT NULL AND l_plan_name IS NOT NULL THEN
+              l_description := 'IOD FPZ LVL='||LPAD(k_aggressiveness, 2, '0')||' SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value;
+              set_spb_attribute (
+                p_sql_handle        => l_sql_handle,
+                p_plan_name         => l_plan_name,
+                p_con_name          => c_rec.pdb_name,
+                p_attribute_name    => 'DESCRIPTION',
+                p_attribute_value   => l_description,
+                r_plans             => l_plans_returned
+              );
+            END IF;
             get_spb_rec (
               p_signature         => l_signature,
               p_plan_name         => l_plan_name,
@@ -1454,6 +1710,8 @@ BEGIN
       ELSE
         output('Optimizer Cost',              c_rec.min_optimizer_cost);
       END IF;
+      output('Min Snap ID',                   l_min_snap_id);
+      output('Max Snap ID',                   l_max_snap_id);
       output('Module',                        c_rec.module);
       output('Action',                        c_rec.action);
       output('Last Active Time',              TO_CHAR(c_rec.last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'));
@@ -1470,6 +1728,13 @@ BEGIN
       output('Time per Exec Threshold (ms)',  TO_CHAR(c_rec.secs_per_exec_threshold * 1e3, 'FM999,990.000')||' (ms) (category range:'||
                                               TO_CHAR(c_rec.secs_per_exec_threshold_min * 1e3, 'FM999,990.000')||'-'||
                                               TO_CHAR(c_rec.secs_per_exec_threshold_max * 1e3, 'FM999,990.000')||')');
+      output('Min Rows Threshold',            c_rec.num_rows_min_main_table);
+      output('|');
+      output('Main Table - Owner',            l_owner);
+      output('Main Table - Name',             l_table_name);
+      output('Main Table - Temporary',        l_temporary);
+      output('Main Table - Num Rows',         l_num_rows);
+      output('Main Table - Last Analyzed',    TO_CHAR(l_last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS'));
       -- Output plan performance metrics
       output('|');
       output(
@@ -1617,7 +1882,7 @@ BEGIN
         TO_CHAR(ROUND(c_rec.max_sharable_mem / POWER(2, 20), 3), 'FM9999,990.000')
         );
       -- Output SQL Plan Baseline details
-      IF l_spb_exists OR l_spb_demotion_was_accepted OR l_spb_promotion_was_accepted THEN
+      IF b_rec.signature IS NOT NULL AND (l_spb_exists OR l_spb_demotion_was_accepted OR l_spb_promotion_was_accepted) THEN
         output('|');
         output('Signature',                   b_rec.signature);
         output('SQL Handle',                  b_rec.sql_handle);
@@ -1725,6 +1990,7 @@ BEGIN
   x_qualified_for_spb_demotion   := l_spb_disable_qualified_t;
   x_spbs_demoted                 := l_spb_disabled_count_t;
   x_spbs_already_fixed           := l_spb_already_fixed_count_t;
+  DBMS_APPLICATION_INFO.SET_MODULE(NULL,NULL);
 END maintain_plans_internal;
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE maintain_plans (
@@ -1745,7 +2011,8 @@ PROCEDURE maintain_plans (
   p_execs_candidate              IN NUMBER   DEFAULT NULL, -- a plan must be executed these many times to be a candidate
   p_secs_per_exec_cand           IN NUMBER   DEFAULT NULL, -- a plan must perform better than this threshold to be a candidate
   p_first_load_time_days_cand    IN NUMBER   DEFAULT NULL, -- a sql must be loaded into memory at least this many days before it is considered as candidate
-  p_awr_days                     IN NUMBER   DEFAULT NULL  -- amount of days to consider from AWR history assuming retention is at least this long
+  p_awr_days                     IN NUMBER   DEFAULT NULL, -- amount of days to consider from AWR history assuming retention is at least this long
+  p_cur_days                     IN NUMBER   DEFAULT NULL  -- cursor must be active within the past k_cur_days to be considered
 )
 IS
   l_candidate_count_t            NUMBER := 0;
@@ -1777,6 +2044,7 @@ BEGIN
     p_secs_per_exec_cand           => p_secs_per_exec_cand           ,
     p_first_load_time_days_cand    => p_first_load_time_days_cand    ,
     p_awr_days                     => p_awr_days                     ,
+    p_cur_days                     => p_cur_days                     ,
     x_plan_candidates              => l_candidate_count_t            ,
     x_qualified_for_spb_creation   => l_spb_created_qualified_t      ,
     x_spbs_created                 => l_spb_created_count_t          ,
@@ -1793,6 +2061,10 @@ PROCEDURE fpz (
   p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL
 )
 IS
+  l_sleep_seconds                NUMBER := 10;
+  l_start_time			 DATE := SYSDATE;
+  l_db_name                      VARCHAR2(9);
+  l_host_name                    VARCHAR2(64);
   l_candidate_count_t            NUMBER := 0;
   l_spb_created_qualified_t      NUMBER := 0;
   l_spb_created_count_t          NUMBER := 0;
@@ -1801,10 +2073,23 @@ IS
   l_spb_disable_qualified_t      NUMBER := 0;
   l_spb_disabled_count_t         NUMBER := 0;
   l_spb_already_fixed_count_t    NUMBER := 0;
-  l_sleep_seconds                NUMBER := 10;
+  l_candidate_count_gt           NUMBER := 0;
+  l_spb_created_qualified_gt     NUMBER := 0;
+  l_spb_created_count_gt         NUMBER := 0;
+  l_spb_promoted_qualified_gt    NUMBER := 0;
+  l_spb_promoted_count_gt        NUMBER := 0;
+  l_spb_disable_qualified_gt     NUMBER := 0;
+  l_spb_disabled_count_gt        NUMBER := 0;
+  l_spb_already_fixed_count_gt   NUMBER := 0;
 /* ------------------------------------------------------------------------------------ */
 BEGIN
+  -- gets host name 
+  SELECT host_name INTO l_host_name FROM v$instance;
+  -- gets database name
+  SELECT name INTO l_db_name FROM v$database;
+  -- 
   IF p_sql_id IS NULL THEN -- by CDB (p_pdb_name IS NULL) or by PDB (p_pdb_name IS NOT NULL)
+    -- level 1
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 1                              ,
@@ -1819,7 +2104,18 @@ BEGIN
       x_qualified_for_spb_demotion   => l_spb_disable_qualified_t      ,
       x_spbs_demoted                 => l_spb_disabled_count_t         ,
       x_spbs_already_fixed           => l_spb_already_fixed_count_t    );
-    DBMS_LOCK.SLEEP(l_sleep_seconds);
+    l_candidate_count_gt         := l_candidate_count_gt         + l_candidate_count_t        ;
+    l_spb_created_qualified_gt   := l_spb_created_qualified_gt   + l_spb_created_qualified_t  ;
+    l_spb_created_count_gt       := l_spb_created_count_gt       + l_spb_created_count_t      ;
+    l_spb_promoted_qualified_gt  := l_spb_promoted_qualified_gt  + l_spb_promoted_qualified_t ;
+    l_spb_promoted_count_gt      := l_spb_promoted_count_gt      + l_spb_promoted_count_t     ;
+    l_spb_disable_qualified_gt   := l_spb_disable_qualified_gt   + l_spb_disable_qualified_t  ;
+    l_spb_disabled_count_gt      := l_spb_disabled_count_gt      + l_spb_disabled_count_t     ;
+    l_spb_already_fixed_count_gt := l_spb_already_fixed_count_gt + l_spb_already_fixed_count_t;
+    IF p_report_only = 'N' THEN
+      DBMS_LOCK.SLEEP(l_sleep_seconds);
+    END IF;
+    -- level 2
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 2                              ,
@@ -1834,7 +2130,18 @@ BEGIN
       x_qualified_for_spb_demotion   => l_spb_disable_qualified_t      ,
       x_spbs_demoted                 => l_spb_disabled_count_t         ,
       x_spbs_already_fixed           => l_spb_already_fixed_count_t    );
-    DBMS_LOCK.SLEEP(l_sleep_seconds);
+    l_candidate_count_gt         := l_candidate_count_gt         + l_candidate_count_t        ;
+    l_spb_created_qualified_gt   := l_spb_created_qualified_gt   + l_spb_created_qualified_t  ;
+    l_spb_created_count_gt       := l_spb_created_count_gt       + l_spb_created_count_t      ;
+    l_spb_promoted_qualified_gt  := l_spb_promoted_qualified_gt  + l_spb_promoted_qualified_t ;
+    l_spb_promoted_count_gt      := l_spb_promoted_count_gt      + l_spb_promoted_count_t     ;
+    l_spb_disable_qualified_gt   := l_spb_disable_qualified_gt   + l_spb_disable_qualified_t  ;
+    l_spb_disabled_count_gt      := l_spb_disabled_count_gt      + l_spb_disabled_count_t     ;
+    l_spb_already_fixed_count_gt := l_spb_already_fixed_count_gt + l_spb_already_fixed_count_t;
+    IF p_report_only = 'N' THEN
+      DBMS_LOCK.SLEEP(l_sleep_seconds);
+    END IF;
+    -- level 3
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 3                              ,
@@ -1849,7 +2156,18 @@ BEGIN
       x_qualified_for_spb_demotion   => l_spb_disable_qualified_t      ,
       x_spbs_demoted                 => l_spb_disabled_count_t         ,
       x_spbs_already_fixed           => l_spb_already_fixed_count_t    );
-    DBMS_LOCK.SLEEP(l_sleep_seconds);
+    l_candidate_count_gt         := l_candidate_count_gt         + l_candidate_count_t        ;
+    l_spb_created_qualified_gt   := l_spb_created_qualified_gt   + l_spb_created_qualified_t  ;
+    l_spb_created_count_gt       := l_spb_created_count_gt       + l_spb_created_count_t      ;
+    l_spb_promoted_qualified_gt  := l_spb_promoted_qualified_gt  + l_spb_promoted_qualified_t ;
+    l_spb_promoted_count_gt      := l_spb_promoted_count_gt      + l_spb_promoted_count_t     ;
+    l_spb_disable_qualified_gt   := l_spb_disable_qualified_gt   + l_spb_disable_qualified_t  ;
+    l_spb_disabled_count_gt      := l_spb_disabled_count_gt      + l_spb_disabled_count_t     ;
+    l_spb_already_fixed_count_gt := l_spb_already_fixed_count_gt + l_spb_already_fixed_count_t;
+    IF p_report_only = 'N' THEN
+      DBMS_LOCK.SLEEP(l_sleep_seconds);
+    END IF;
+    -- level 4
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 4                              ,
@@ -1864,7 +2182,18 @@ BEGIN
       x_qualified_for_spb_demotion   => l_spb_disable_qualified_t      ,
       x_spbs_demoted                 => l_spb_disabled_count_t         ,
       x_spbs_already_fixed           => l_spb_already_fixed_count_t    );
-    DBMS_LOCK.SLEEP(l_sleep_seconds);
+    l_candidate_count_gt         := l_candidate_count_gt         + l_candidate_count_t        ;
+    l_spb_created_qualified_gt   := l_spb_created_qualified_gt   + l_spb_created_qualified_t  ;
+    l_spb_created_count_gt       := l_spb_created_count_gt       + l_spb_created_count_t      ;
+    l_spb_promoted_qualified_gt  := l_spb_promoted_qualified_gt  + l_spb_promoted_qualified_t ;
+    l_spb_promoted_count_gt      := l_spb_promoted_count_gt      + l_spb_promoted_count_t     ;
+    l_spb_disable_qualified_gt   := l_spb_disable_qualified_gt   + l_spb_disable_qualified_t  ;
+    l_spb_disabled_count_gt      := l_spb_disabled_count_gt      + l_spb_disabled_count_t     ;
+    l_spb_already_fixed_count_gt := l_spb_already_fixed_count_gt + l_spb_already_fixed_count_t;
+    IF p_report_only = 'N' THEN
+      DBMS_LOCK.SLEEP(l_sleep_seconds);
+    END IF;
+    -- level 5
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 5                              ,
@@ -1879,7 +2208,36 @@ BEGIN
       x_qualified_for_spb_demotion   => l_spb_disable_qualified_t      ,
       x_spbs_demoted                 => l_spb_disabled_count_t         ,
       x_spbs_already_fixed           => l_spb_already_fixed_count_t    );
+    l_candidate_count_gt         := l_candidate_count_gt         + l_candidate_count_t        ;
+    l_spb_created_qualified_gt   := l_spb_created_qualified_gt   + l_spb_created_qualified_t  ;
+    l_spb_created_count_gt       := l_spb_created_count_gt       + l_spb_created_count_t      ;
+    l_spb_promoted_qualified_gt  := l_spb_promoted_qualified_gt  + l_spb_promoted_qualified_t ;
+    l_spb_promoted_count_gt      := l_spb_promoted_count_gt      + l_spb_promoted_count_t     ;
+    l_spb_disable_qualified_gt   := l_spb_disable_qualified_gt   + l_spb_disable_qualified_t  ;
+    l_spb_disabled_count_gt      := l_spb_disabled_count_gt      + l_spb_disabled_count_t     ;
+    l_spb_already_fixed_count_gt := l_spb_already_fixed_count_gt + l_spb_already_fixed_count_t;
+    -- global summary
+    output(RPAD('+', 145, '-'));
+    output('|');
+    output('IOD SPM AUT FPZ',                   'Flipping-Plan Zapper (FPZ)');
+    output('|');
+    output('Database',                          l_db_name);
+    output('Host',                              l_host_name);
+    output('|');
+    output('Candidates',                        l_candidate_count_gt);
+    output('SPBs Qualified for Creation',       l_spb_created_qualified_gt);
+    output('SPBs Created',                      l_spb_created_count_gt);
+    output('SPBs Qualified for Promotion',      l_spb_promoted_qualified_gt);
+    output('SPBs Promoted',                     l_spb_promoted_count_gt);
+    output('SPBs Qualified for Demotion',       l_spb_disable_qualified_gt);
+    output('SPBs Demoted',                      l_spb_disabled_count_gt);
+    output('SPBs already Fixed',                l_spb_already_fixed_count_gt);
+    output('Date and Time (end)',               TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+    output('Duration (secs)',                   ROUND((SYSDATE - l_start_time) * 24 * 60 * 60));
+    output('|');
+    output(RPAD('+', 145, '-'));
   ELSE -- p_sql_id IS NOT NULL 
+    -- level 1
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 1                              ,
@@ -1896,6 +2254,7 @@ BEGIN
     IF l_spb_created_count_t > 0 THEN
       RETURN;
     END IF;    
+    -- level 2
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 2                              ,
@@ -1912,6 +2271,7 @@ BEGIN
     IF l_spb_created_count_t > 0 THEN
       RETURN;
     END IF;    
+    -- level 3
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 3                              ,
@@ -1928,6 +2288,7 @@ BEGIN
     IF l_spb_created_count_t > 0 THEN
       RETURN;
     END IF;    
+    -- level 4
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 4                              ,
@@ -1944,6 +2305,7 @@ BEGIN
     IF l_spb_created_count_t > 0 THEN
       RETURN;
     END IF;    
+    -- level 5
     maintain_plans_internal (
       p_report_only                  => p_report_only                  ,
       p_aggressiveness               => 5                              ,

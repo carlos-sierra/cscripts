@@ -1,6 +1,6 @@
 ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
 
-SET HEA ON LIN 32767 NEWP 1 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -48,7 +48,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
  GROUP BY
        h.sample_time,
        h.sql_id,
@@ -83,7 +83,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
  GROUP BY
        h.sample_time,
        h.sql_id,
@@ -115,7 +115,7 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END on_cpu_or_wait_class,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sql q WHERE q.sql_id = h.sql_id AND q.con_id = h.con_id AND ROWNUM = 1) sql_text_100_only
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
  GROUP BY
        CAST(h.sample_time AS DATE),
        h.sql_id, 
@@ -141,11 +141,12 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        h.sql_id,
        h.sql_plan_hash_value,
        h.sql_child_number,
+       h.sql_exec_id,
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sql q WHERE q.sql_id = h.sql_id AND q.con_id = h.con_id AND ROWNUM = 1) sql_text_100_only
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
  ORDER BY
        CAST(h.sample_time AS DATE),
        h.machine,

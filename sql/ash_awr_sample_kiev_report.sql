@@ -2,7 +2,7 @@ ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
-SET HEA ON LIN 32767 NEWP 1 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -15,6 +15,8 @@ SELECT 'NONE' x_container FROM DUAL;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 COL num_cpu_cores NEW_V num_cpu_cores;
 SELECT TO_CHAR(value) num_cpu_cores FROM v$osstat WHERE stat_name = 'NUM_CPU_CORES';
+COL num_cpus NEW_V num_cpus;
+SELECT TO_CHAR(value) num_cpus FROM v$osstat WHERE stat_name = 'NUM_CPUS';
 
 CL BREAK
 COL sql_text_100_only FOR A100 HEA 'SQL Text';
@@ -31,14 +33,15 @@ COL sessions FOR 9999,999 HEA 'Sessions|this SQL';
 
 SPO ash_awr_sample_kiev_&&current_time..txt;
 PRO HOST: &&x_host_name.
-PRO CORES: &&num_cpu_cores.
+PRO NUM_CPU_CORES: &&num_cpu_cores.
+PRO NUM_CPUS: &&num_cpus.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
 PRO SAMPLE_TIME: &&sample_time.
 
 PRO
-PRO ASH spikes by sample time and top SQL (spikes higher than &&num_cpu_cores. cores)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PRO ASH AWR spikes by sample time and top SQL (spikes higher than &&num_cpus. cpus)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 WITH
 all_sql AS (
@@ -76,6 +79,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -120,7 +124,7 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
   FROM ash_by_sample_and_sql h
  GROUP BY
        h.sample_time
-HAVING SUM(h.samples) >= &&num_cpu_cores.
+HAVING SUM(h.samples) >= &&num_cpus.
  ORDER BY
        h.sample_time
 /
@@ -165,6 +169,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -254,6 +259,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -335,6 +341,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql

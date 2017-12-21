@@ -1,4 +1,4 @@
-SET LIN 300 PAGES 100 TAB OFF VER OFF FEED OFF ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
@@ -64,6 +64,7 @@ SELECT ROUND(SUM(s.elapsed_time)/SUM(s.executions)/1e3) ms_per_exec,
                 OR s.sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
                 OR s.sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
                 OR s.sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+                OR s.sql_text LIKE '/* hashBucket */'||CHR(37) 
               ) AND NVL('&&kiev_tx.', 'CBRG') LIKE '%G%'
          THEN 1
         END
@@ -97,5 +98,4 @@ SELECT ms_per_exec,
 /
 
 SPO OFF;
-SET LIN 80 PAGES 14 VER ON FEED ON ECHO ON;
 

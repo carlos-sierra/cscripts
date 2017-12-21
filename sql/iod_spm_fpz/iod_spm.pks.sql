@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
-/* $Header: iod_spm.pks.sql 2017-11-30T16:44:42 carlos.sierra $ */
+/* $Header: iod_spm.pks.sql 2017-12-20T21:41:59 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */
 --
 -- Purpose:     Implement SQL Plan Management (SPM) on a high-rate OLTP application 
@@ -44,7 +44,8 @@ PROCEDURE maintain_plans (
   p_execs_candidate              IN NUMBER   DEFAULT NULL, -- a plan must be executed these many times to be a candidate
   p_secs_per_exec_cand           IN NUMBER   DEFAULT NULL, -- a plan must perform better than this threshold to be a candidate
   p_first_load_time_days_cand    IN NUMBER   DEFAULT NULL, -- a sql must be loaded into memory at least this many days before it is considered as candidate
-  p_awr_days                     IN NUMBER   DEFAULT NULL  -- amount of days to consider from AWR history assuming retention is at least this long
+  p_awr_days                     IN NUMBER   DEFAULT NULL, -- amount of days to consider from AWR history assuming retention is at least this long
+  p_cur_days                     IN NUMBER   DEFAULT NULL  -- cursor must be active within the past k_cur_days to be considered
 );
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE fpz (

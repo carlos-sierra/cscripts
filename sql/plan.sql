@@ -1,4 +1,6 @@
-SET LIN 300 PAGES 24 VER OFF FEED OFF ECHO OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET SERVEROUT OFF;
+
 UNDEF sql_id child_number;
 SELECT inst_id, child_number, plan_hash_value phv, executions execs, TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time
 FROM gv$sql WHERE SQL_ID = '&&sql_id.' ORDER BY inst_id, child_number

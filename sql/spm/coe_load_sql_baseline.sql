@@ -230,7 +230,7 @@ BEGIN
       attribute_value => :plan_name );
     DBMS_OUTPUT.PUT_LINE(plans||' plan(s) modified plan_name: "'||:plan_name||'"');
   END IF;
-
+/*
   -- drop baseline staging table for original sql (if one exists)
   BEGIN
     DBMS_OUTPUT.PUT_LINE('dropping staging table "STGTAB_BASELINE_'||UPPER(TRIM('&&original_sql_id.'))||'"');
@@ -244,17 +244,18 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('creating staging table "STGTAB_BASELINE_'||UPPER(TRIM('&&original_sql_id.'))||'"');
   DBMS_SPM.CREATE_STGTAB_BASELINE (
     table_name  => 'STGTAB_BASELINE_'||UPPER(TRIM('&&original_sql_id.')),
-    table_owner => '&&connected_user.' );
+    table_owner => 'SYSTEM' );
 
   -- packs new baseline for original sql
   DBMS_OUTPUT.PUT_LINE('packaging new sql baseline into staging table "STGTAB_BASELINE_'||UPPER(TRIM('&&original_sql_id.'))||'"');
   plans :=
   DBMS_SPM.PACK_STGTAB_BASELINE (
      table_name  => 'STGTAB_BASELINE_'||UPPER(TRIM('&&original_sql_id.')),
-     table_owner => '&&connected_user.',
+     table_owner => 'SYSTEM',
      sql_handle  => sys_sql_handle,
      plan_name   => :plan_name );
   DBMS_OUTPUT.PUT_LINE(plans||' pla(s) packaged');
+*/
 END;
 /
 
@@ -269,29 +270,33 @@ SELECT signature, sql_handle, plan_name, enabled, accepted, fixed--, reproduced 
 SELECT description
   FROM dba_sql_plan_baselines WHERE plan_name = :plan_name;
 SET ECHO OFF;
+/*
 PRO
 PRO ****************************************************************************
-PRO * Enter &&connected_user. password to export staging table STGTAB_BASELINE_&&original_sql_id.
+PRO * Enter SYSTEM password to export staging table STGTAB_BASELINE_&&original_sql_id.
 PRO ****************************************************************************
-HOS exp &&connected_user. tables=&&connected_user..STGTAB_BASELINE_&&original_sql_id. file=STGTAB_BASELINE_&&original_sql_id..dmp statistics=NONE indexes=N constraints=N grants=N triggers=N
+HOS exp SYSTEM tables=SYSTEM.STGTAB_BASELINE_&&original_sql_id. file=STGTAB_BASELINE_&&original_sql_id..dmp statistics=NONE indexes=N constraints=N grants=N triggers=N
 PRO
 PRO If you need to implement this SQL Plan Baseline on a similar system,
 PRO import and unpack using these commands:
 PRO
-PRO imp &&connected_user. file=STGTAB_BASELINE_&&original_sql_id..dmp tables=STGTAB_BASELINE_&&original_sql_id. ignore=Y
+PRO imp SYSTEM file=STGTAB_BASELINE_&&original_sql_id..dmp tables=STGTAB_BASELINE_&&original_sql_id. ignore=Y
 PRO
 PRO SET SERVEROUT ON;;
 PRO DECLARE
 PRO   plans NUMBER;;
 PRO BEGIN
-PRO   plans := DBMS_SPM.UNPACK_STGTAB_BASELINE('STGTAB_BASELINE_&&original_sql_id.', '&&connected_user.');;
+PRO   plans := DBMS_SPM.UNPACK_STGTAB_BASELINE('STGTAB_BASELINE_&&original_sql_id.', 'SYSTEM');;
 PRO   DBMS_OUTPUT.PUT_LINE(plans||' plan(s) unpackaged');;
 PRO END;;
 PRO /
 PRO
+*/
 SPO OFF;
+/*
 HOS zip -m coe_load_sql_baseline_&&original_sql_id. coe_load_sql_baseline_&&original_sql_id..log STGTAB_BASELINE_&&original_sql_id..dmp coe_load_sql_baseline.log
 HOS zip -d coe_load_sql_baseline_&&original_sql_id. coe_load_sql_baseline.log
+*/
 WHENEVER SQLERROR CONTINUE;
 SET DEF ON TERM ON ECHO OFF FEED 6 VER ON HEA ON LIN 80 PAGES 14 LONG 80 LONGC 80 TRIMS OFF TI OFF TIMI OFF SERVEROUT OFF NUM 10 SQLP SQL>;
 SET SERVEROUT OFF;

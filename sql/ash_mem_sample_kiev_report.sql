@@ -2,7 +2,7 @@ ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
-SET HEA ON LIN 32767 NEWP 1 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -15,6 +15,8 @@ SELECT 'NONE' x_container FROM DUAL;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 COL num_cpu_cores NEW_V num_cpu_cores;
 SELECT TO_CHAR(value) num_cpu_cores FROM v$osstat WHERE stat_name = 'NUM_CPU_CORES';
+COL num_cpus NEW_V num_cpus;
+SELECT TO_CHAR(value) num_cpus FROM v$osstat WHERE stat_name = 'NUM_CPUS';
 
 CL BREAK
 COL sql_text_100_only FOR A100 HEA 'SQL Text';
@@ -31,14 +33,15 @@ COL sessions FOR 9999,999 HEA 'Sessions|this SQL';
 
 SPO ash_awr_sample_kiev_&&current_time..txt;
 PRO HOST: &&x_host_name.
-PRO CORES: &&num_cpu_cores.
+PRO NUM_CPU_CORES: &&num_cpu_cores.
+PRO NUM_CPUS: &&num_cpus.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
 PRO SAMPLE_TIME: &&sample_time.
 
 PRO
-PRO ASH spikes by sample time and top SQL (spikes higher than &&num_cpu_cores. cores)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PRO ASH MEM spikes by sample time and top SQL (spikes higher than &&num_cpus. cpus)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 WITH
 all_sql AS (
@@ -76,6 +79,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -103,7 +107,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
    AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)
  GROUP BY
        h.sample_time,
@@ -120,7 +124,7 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
   FROM ash_by_sample_and_sql h
  GROUP BY
        h.sample_time
-HAVING SUM(h.samples) >= &&num_cpu_cores.
+HAVING SUM(h.samples) >= &&num_cpus.
  ORDER BY
        h.sample_time
 /
@@ -165,6 +169,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -192,7 +197,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
    AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)
  GROUP BY
        h.sample_time,
@@ -254,6 +259,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -279,7 +285,7 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END on_cpu_or_wait_class,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM my_tx_sql q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
    AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)
  GROUP BY
        CAST(h.sample_time AS DATE),
@@ -335,6 +341,7 @@ SELECT sql_id, sql_text,
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -360,11 +367,12 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        h.sql_id,
        h.sql_plan_hash_value,
        h.sql_child_number,
+       h.sql_exec_id,
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM my_tx_sql q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only
   FROM v$active_session_history h
- WHERE CAST(h.sample_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - (0.5/60/24) AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (0.5/60/24) -- +/- 0.5m
+ WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
    AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)
  ORDER BY
        CAST(h.sample_time AS DATE),

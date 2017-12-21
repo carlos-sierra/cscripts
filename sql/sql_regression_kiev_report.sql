@@ -38,7 +38,7 @@ ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
-SET HEA ON LIN 32767 NEWP 1 PAGES 42 FEED OFF ECHO OFF VER OFF LONG 32000 LONGC 2000 WRA ON TRIMS ON TRIM ON TI OFF TIMI OFF ARRAY 100 NUM 20 SQLBL ON BLO . RECSEP OFF;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 BREAK ON inst SKIP 1 ON container_id ON sql_id SKIP 1 ON sql_text_100_only;
 COL inst FOR 9990 HEA 'Inst';
 COL new_snap_id FOR 9999999 HEA 'Snap|After';
@@ -124,6 +124,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql

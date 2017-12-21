@@ -1,8 +1,8 @@
-PRO Enter approximate date of incident. If within the past 24hrs then enter nothing.
+PRO Enter approximate date of incident. If within the past 24hrs then enter nothing. Script will reveiw a 24h window.
 ACC date_and_time PROMPT 'Date and Time YYYY-MM-DD"T"HH24:MI:SS (e.g. 2017-11-04T20:15:55) (opt): '
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
-SET LIN 350 PAGES 100 TAB OFF HEA ON VER OFF FEED ON ECHO OFF TRIMS ON;
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 VAR dbid NUMBER;
 VAR snap_id_begin NUMBER;
 VAR snap_id_end NUMBER;
@@ -96,6 +96,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
            OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
            OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
            OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
+           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
          THEN 'GC'
         END application_module
   FROM all_sql
@@ -276,22 +277,13 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ip.con_id,
        ip.sql_id,
        ip.snap_id,
-       ip.lag_snap_id
+       ip.lag_snap_id,
+       CASE WHEN ip.ash_top_phv <> ip.lag_ash_top_phv AND ip.sta_top_phv <> ip.lag_sta_top_phv THEN 'F' ELSE '?' END flag
   FROM per_sql_and_snap ip
-/*
- WHERE ip.ash_plans >= ip.lag_ash_plans -- ash number of plans has increased or stayed the same
-   AND NVL(ip.sta_plans, -666) >= NVL(ip.lag_sta_plans, -666) -- sqlstat number of plans has increased or stayed the same
-   AND ip.ash_top_phv <> ip.lag_ash_top_phv -- ash top plan has changed
-   AND NVL(ip.sta_top_phv, -666) <> NVL(ip.lag_sta_top_phv, -666) -- sqlstat top plan has changed
-   AND ip.ash_cpu_secs >= 2 * ip.lag_ash_cpu_secs -- ash performance per execution regressed over 2x
-   AND NVL(ip.sta_cpu_secs, 0) >= 2 * NVL(ip.lag_sta_cpu_secs, 0) -- sqlstat performance per execution regressed over 2x
-   AND (ip.ash_cpu_secs > 60 OR ip.sta_cpu_secs > 60) -- more than 1 minute of CPU elapsed time 
-*/
  WHERE 1 = 1
-   --AND ip.ash_plans + NVL(ip.sta_plans, 0) >= ip.lag_ash_plans + NVL(ip.lag_sta_plans, 0) -- number of plans has increased or stayed the same
-   AND ip.ash_top_phv + NVL(ip.sta_top_phv, ip.ash_top_phv) <> ip.lag_ash_top_phv + NVL(ip.lag_sta_top_phv, ip.lag_ash_top_phv) -- top plan has changed
+   AND ip.ash_top_phv + NVL(ip.sta_top_phv, ip.ash_top_phv) <> ip.lag_ash_top_phv + NVL(ip.lag_sta_top_phv, ip.lag_ash_top_phv) -- top plan has shifted
    AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) >= 2 * (ip.lag_ash_cpu_secs + NVL(ip.lag_sta_cpu_secs, ip.lag_ash_cpu_secs)) -- performance per execution regressed over 2x
-   AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) > 60 * 2 -- more than 1 minute of CPU elapsed time 
+   AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) > 15 -- more than 15 seconds of CPU elapsed time 
 ),
 before_and_after AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -300,7 +292,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ip.sql_id,
        ip.snap_id inflection_snap_id,
        ba.snap_id,
-       CASE ba.snap_id WHEN ip.snap_id THEN '*' END f,
+       -- CASE ba.snap_id WHEN ip.snap_id THEN '*' END f,
+       CASE ba.snap_id WHEN ip.snap_id THEN ip.flag END f,
        TO_CHAR(sh.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time,
        TO_CHAR(sh.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time,
        ba.ash_plans,
@@ -359,4 +352,3 @@ SELECT instance_number inst,
 /
 /****************************************************************************************/
 SPO OFF;
-SET LIN 80 PAGES 14 VER ON FEED ON ECHO ON;
