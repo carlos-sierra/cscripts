@@ -20,6 +20,6 @@ SELECT i.index_name,
    AND i.table_name = UPPER(TRIM('&&table_name.'))
  ORDER BY
        i.index_name,
-       h.analyzetime
+       h.analyzetime DESC
 /
 SPO OFF;

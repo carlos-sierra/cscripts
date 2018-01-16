@@ -12,7 +12,7 @@ SELECT TO_CHAR(h.analyzetime, 'YYYY-MM-DD"T"HH24:MI:SS') last_analyzed,
    AND o.object_name = UPPER(TRIM('&&table_name.'))
    AND o.object_type = 'TABLE'
  ORDER BY 
-       h.analyzetime
+       h.analyzetime DESC
 /
 SPO OFF;
 UNDEF table_owner table_name

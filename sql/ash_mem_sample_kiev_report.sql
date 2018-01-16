@@ -370,7 +370,13 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        h.sql_exec_id,
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
-       (SELECT SUBSTR(q.sql_text, 1, 100) FROM my_tx_sql q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only
+       (SELECT SUBSTR(q.sql_text, 1, 100) FROM my_tx_sql q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only,
+       h.current_obj#,
+       h.current_file#,
+       h.current_block#,
+       h.current_row#,
+       h.in_parse,
+       h.in_hard_parse
   FROM v$active_session_history h
  WHERE CAST(h.sample_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - (3/60/24) AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + (3/60/24), SYSDATE) -- +/- 3m
    AND h.sql_id IN (SELECT sql_id FROM my_tx_sql)

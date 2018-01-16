@@ -1,5 +1,6 @@
 -- sql_shared_cursor.sql
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET PAGES 0;
 SPO all_reasons.sql
 SELECT CASE WHEN ROWNUM = 1 THEN '( ' ELSE ', ' END||column_name
   FROM dba_tab_columns

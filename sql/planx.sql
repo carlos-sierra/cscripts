@@ -201,6 +201,8 @@ COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
 COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
 COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
 COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
+COL avg_row_awr FOR 999,999,990 HEA 'Rows Avg|AWR';
+COL avg_row_mem FOR 999,999,990 HEA 'Rows Avg|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
 COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
@@ -289,6 +291,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time)/SUM(executions) avg_et_us,
        SUM(cpu_time)/SUM(executions) avg_cpu_us,
        ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
+       ROUND(SUM(rows_processed)/SUM(executions)) avg_rows_processed,
        SUM(executions) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -303,6 +306,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
        SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us,
        ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) avg_buffer_gets,
+       ROUND(SUM(rows_processed_delta)/SUM(executions_delta)) avg_rows_processed,
        SUM(executions_delta) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -321,6 +325,8 @@ SELECT
        LPAD(TRIM(TO_CHAR(ROUND(m.avg_cpu_us/1e3, 6), '9999,990.000')), 11) avg_cpu_ms_mem,
        a.avg_buffer_gets avg_bg_awr,
        m.avg_buffer_gets avg_bg_mem,
+       a.avg_rows_processed avg_row_awr,
+       m.avg_rows_processed avg_row_mem,
        a.executions executions_awr,
        m.executions executions_mem,
        LEAST(NVL(m.min_cost, a.min_cost), NVL(a.min_cost, m.min_cost)) min_cost,

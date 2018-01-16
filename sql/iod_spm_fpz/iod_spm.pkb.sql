@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE BODY &&1..iod_spm AS
-/* $Header: iod_spm.pkb.sql 2017-12-20T21:41:59 carlos.sierra $ */
+/* $Header: iod_spm.pkb.sql 2018-01-02T23:53:10 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */  
 PROCEDURE output (p_line IN VARCHAR2) 
 IS
@@ -79,6 +79,7 @@ IS
   k_incl_plans_appl_4            CONSTANT CHAR(1) := NVL(UPPER(SUBSTR(TRIM(p_incl_plans_appl_4), 1, 1)), 'Y'); -- (Y|N) include SQL from 4th application (GC)
   k_incl_plans_non_appl          CONSTANT CHAR(1) := NVL(UPPER(SUBSTR(TRIM(p_incl_plans_non_appl), 1, 1)), 'N'); -- (N|Y) consider as candidate SQL not qualified as "application module"
   k_aggressiveness_levels        CONSTANT NUMBER := 5; -- (2-5) levels the aggressiveness parameter can take
+  /*
   k_execs_candidate_min          CONSTANT NUMBER := NVL(p_execs_candidate, 500); -- a plan must be executed these many times to be a candidate (for aggressiveness of 5)
   k_execs_candidate_max          CONSTANT NUMBER := NVL(5 * p_execs_candidate, 2500); -- a plan must be executed these many times to be a candidate (for aggressiveness of 1)
   k_execs_candidate              CONSTANT NUMBER := NVL(p_execs_candidate, ROUND(k_execs_candidate_max - ((k_aggressiveness - 1) * (k_execs_candidate_max - k_execs_candidate_min) / (k_aggressiveness_levels - 1))));
@@ -100,21 +101,49 @@ IS
   k_secs_per_exec_cand_min       CONSTANT NUMBER := 2.000; -- (2s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_cand_max       CONSTANT NUMBER := 10.000; -- (10s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_cand           CONSTANT NUMBER := NVL(p_secs_per_exec_cand, ROUND(k_secs_per_exec_cand_min + ((k_aggressiveness - 1) * (k_secs_per_exec_cand_max - k_secs_per_exec_cand_min) / (k_aggressiveness_levels - 1)), 6));
-  k_secs_per_exec_appl_1_min     CONSTANT NUMBER := 0.00025; --(0.25ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
+  k_secs_per_exec_appl_1_min     CONSTANT NUMBER := 0.00025; -- (0.25ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_appl_1_max     CONSTANT NUMBER := 0.00125; -- (1.25ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_appl_1         CONSTANT NUMBER := ROUND(k_secs_per_exec_appl_1_min + ((k_aggressiveness - 1) * (k_secs_per_exec_appl_1_max - k_secs_per_exec_appl_1_min) / (k_aggressiveness_levels - 1)), 6);
-  k_secs_per_exec_appl_2_min     CONSTANT NUMBER := 0.0005; --(0.5ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
+  k_secs_per_exec_appl_2_min     CONSTANT NUMBER := 0.0005; -- (0.5ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_appl_2_max     CONSTANT NUMBER := 0.0025; -- (2.5ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_appl_2         CONSTANT NUMBER := ROUND(k_secs_per_exec_appl_2_min + ((k_aggressiveness - 1) * (k_secs_per_exec_appl_2_max - k_secs_per_exec_appl_2_min) / (k_aggressiveness_levels - 1)), 6);
-  k_secs_per_exec_appl_3_min     CONSTANT NUMBER := 0.010; --(10ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
+  k_secs_per_exec_appl_3_min     CONSTANT NUMBER := 0.010; -- (10ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_appl_3_max     CONSTANT NUMBER := 0.050; -- (50ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_appl_3         CONSTANT NUMBER := ROUND(k_secs_per_exec_appl_3_min + ((k_aggressiveness - 1) * (k_secs_per_exec_appl_3_max - k_secs_per_exec_appl_3_min) / (k_aggressiveness_levels - 1)), 6);
-  k_secs_per_exec_appl_4_min     CONSTANT NUMBER := 1.000; --(1s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
+  k_secs_per_exec_appl_4_min     CONSTANT NUMBER := 1.000; -- (1s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_appl_4_max     CONSTANT NUMBER := 5.000; -- (5s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_appl_4         CONSTANT NUMBER := ROUND(k_secs_per_exec_appl_4_min + ((k_aggressiveness - 1) * (k_secs_per_exec_appl_4_max - k_secs_per_exec_appl_4_min) / (k_aggressiveness_levels - 1)), 6);
-  k_secs_per_exec_noappl_min     CONSTANT NUMBER := 0.200; --(200ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
+  k_secs_per_exec_noappl_min     CONSTANT NUMBER := 0.200; -- (200ms) a plan must perform better than this threshold to be a candidate (for aggressiveness of 1)
   k_secs_per_exec_noappl_max     CONSTANT NUMBER := 1.000; -- (1s) a plan must perform better than this threshold to be a candidate (for aggressiveness of 5)
   k_secs_per_exec_noappl         CONSTANT NUMBER := ROUND(k_secs_per_exec_noappl_min + ((k_aggressiveness - 1) * (k_secs_per_exec_noappl_max - k_secs_per_exec_noappl_min) / (k_aggressiveness_levels - 1)), 6);
+  */
+  -- begin 2018-01-09 (laxing upper limits for secs per exec, and eliminating redundant min values) 
+  k_execs_candidate_min          CONSTANT NUMBER := NVL(p_execs_candidate, 500); -- a plan must be executed these many times to be a candidate (for aggressiveness level 5)
+  k_execs_candidate_max          CONSTANT NUMBER := k_aggressiveness_levels * k_execs_candidate_min; -- a plan must be executed these many times to be a candidate (for aggressiveness level 1)
+  k_execs_candidate              CONSTANT NUMBER := NVL(p_execs_candidate, ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_candidate_max / k_aggressiveness_levels));
+  k_execs_appl_cat_1_max         CONSTANT NUMBER := 25000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness level 1)
+  k_execs_appl_cat_1             CONSTANT NUMBER := ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_appl_cat_1_max / k_aggressiveness_levels);
+  k_execs_appl_cat_2_max         CONSTANT NUMBER := 25000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness level 1)
+  k_execs_appl_cat_2             CONSTANT NUMBER := ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_appl_cat_2_max / k_aggressiveness_levels);
+  k_execs_appl_cat_3_max         CONSTANT NUMBER := 5000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness level 1)
+  k_execs_appl_cat_3             CONSTANT NUMBER := ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_appl_cat_3_max / k_aggressiveness_levels);
+  k_execs_appl_cat_4_max         CONSTANT NUMBER := 5000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness level 1)
+  k_execs_appl_cat_4             CONSTANT NUMBER := ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_appl_cat_4_max / k_aggressiveness_levels);
+  k_execs_non_appl_max           CONSTANT NUMBER := 5000; -- a plan of this appl category must be executed these many times to qualify for a SPB (for aggressiveness level 1)
+  k_execs_non_appl               CONSTANT NUMBER := ROUND((k_aggressiveness_levels - k_aggressiveness + 1) * k_execs_non_appl_max / k_aggressiveness_levels);
+  k_secs_per_exec_cand_max       CONSTANT NUMBER := 10.000; -- (10s) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_cand           CONSTANT NUMBER := NVL(p_secs_per_exec_cand, ROUND(k_aggressiveness * k_secs_per_exec_cand_max / k_aggressiveness_levels, 6));
+  k_secs_per_exec_appl_1_max     CONSTANT NUMBER := 0.005; -- (5ms) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_appl_1         CONSTANT NUMBER := ROUND(k_aggressiveness * k_secs_per_exec_appl_1_max / k_aggressiveness_levels, 6);
+  k_secs_per_exec_appl_2_max     CONSTANT NUMBER := 0.005; -- (5ms) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_appl_2         CONSTANT NUMBER := ROUND(k_aggressiveness * k_secs_per_exec_appl_2_max / k_aggressiveness_levels, 6);
+  k_secs_per_exec_appl_3_max     CONSTANT NUMBER := 0.250; -- (250ms) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_appl_3         CONSTANT NUMBER := ROUND(k_aggressiveness * k_secs_per_exec_appl_3_max / k_aggressiveness_levels, 6);
+  k_secs_per_exec_appl_4_max     CONSTANT NUMBER := 5.000; -- (5s) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_appl_4         CONSTANT NUMBER := ROUND(k_aggressiveness * k_secs_per_exec_appl_4_max / k_aggressiveness_levels, 6);
+  k_secs_per_exec_noappl_max     CONSTANT NUMBER := 1.000; -- (1s) a plan must perform better than this threshold to be a candidate (for aggressiveness level 5)
+  k_secs_per_exec_noappl         CONSTANT NUMBER := ROUND(k_aggressiveness * k_secs_per_exec_noappl_max / k_aggressiveness_levels, 6);
+  -- end 2018-01-09
   k_num_rows_appl_1              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
   k_num_rows_appl_2              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
   k_num_rows_appl_3              CONSTANT NUMBER := 1000; -- minimum number of rows on cbo stats for main table to be a candidate
@@ -145,6 +174,7 @@ IS
   k_source_mem                   CONSTANT VARCHAR2(30) := 'v$sql';
   k_source_awr                   CONSTANT VARCHAR2(30) := 'dba_hist_sqlstat';
   k_display_plan_format          CONSTANT VARCHAR2(100) := 'BASIC ROWS COST OUTLINE PEEKED_BINDS PREDICATE NOTE';
+  k_date_format                  CONSTANT VARCHAR2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
   k_debugging                    CONSTANT BOOLEAN := FALSE; -- future use
   /* ---------------------------------------------------------------------------------- */
   l_pdb_id                       NUMBER;
@@ -198,13 +228,17 @@ IS
   l_owner                        VARCHAR2(30);
   l_table_name                   VARCHAR2(30);
   l_temporary                    VARCHAR2(1);
+  l_blocks                       NUMBER;
   l_num_rows                     NUMBER;
+  l_avg_row_len                  NUMBER;
   l_last_analyzed                DATE;
+  l_pre_existing_valid_plans     INTEGER;
+  l_pre_existing_fixed_plans     INTEGER;
   b_rec                          cdb_sql_plan_baselines%ROWTYPE;
   /* ---------------------------------------------------------------------------------- */
   CURSOR candidate_plan
   IS
-    WITH /* IOD_SPM candidate_plan */
+    WITH /*+ GATHER_PLAN_STATISTICS IOD_SPM candidate_plan */
     pdbs AS (
     SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(pdbs) */ -- disjoint for perf reasons
            con_id,
@@ -241,7 +275,7 @@ IS
            MAX(c.module) module,
            MAX(c.action) action,
            MAX(c.last_active_time) last_active_time, -- newest
-           MIN(TO_DATE(c.last_load_time, 'YYYY-MM-DD/HH24:MI:SS')) last_load_time, -- oldest
+           MAX(TO_DATE(c.last_load_time, 'YYYY-MM-DD/HH24:MI:SS')) last_load_time, -- newest
            MIN(TO_DATE(c.first_load_time, 'YYYY-MM-DD/HH24:MI:SS')) first_load_time, -- oldest
            MAX(c.sql_profile) sql_profile,
            MAX(c.sql_patch) sql_patch,
@@ -274,6 +308,7 @@ IS
            c.plan_hash_value,
            c.exact_matching_signature
     HAVING SUM(c.executions) > k_execs_candidate_min
+       AND SUM(c.executions) > 0 -- redunant
        --AND (SUM(c.elapsed_time) / SUM(c.executions) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
        AND MIN(TO_DATE(c.first_load_time, 'YYYY-MM-DD/HH24:MI:SS')) < SYSDATE - k_first_load_time_days_cand -- sql is mature
        --AND MIN(c.is_obsolete) = 'N' (moved to WHERE clause)
@@ -406,6 +441,7 @@ IS
            --c.sql_profile,
            c.snap_id
     HAVING SUM(c.executions_total) > k_execs_candidate_min
+       AND SUM(c.executions_total) > 0 -- redundant
        --AND (SUM(c.elapsed_time_total) / SUM(c.executions_total) / 1e6) < k_secs_per_exec_cand_max (removed to trap SPB regressions)
     )
     , awr_plan_metrics AS (
@@ -451,6 +487,7 @@ IS
            application_users ps,
            pdbs p
      WHERE (c.oldest = 1 OR c.newest = 1)
+       AND c.executions > 0 -- redundant
        AND s.snap_id = c.snap_id
        AND s.dbid = l_dbid
        AND s.instance_number = c.instance_number
@@ -843,7 +880,8 @@ IS
            pm.med_avg_concurrency_us
       FROM mem_and_awr_plan_metrics cm,
            plan_performance_metrics pm
-     WHERE pm.con_id(+) = cm.con_id
+     WHERE cm.executions > 0 -- redundant
+       AND pm.con_id(+) = cm.con_id
        AND pm.sql_id(+) = cm.sql_id
        AND pm.plan_hash_value(+) = cm.plan_hash_value
     )
@@ -966,13 +1004,6 @@ IS
              ELSE k_secs_per_exec_noappl
            END secs_per_exec_threshold,
            CASE application_category
-             WHEN k_appl_cat_1 THEN k_secs_per_exec_appl_1_min
-             WHEN k_appl_cat_2 THEN k_secs_per_exec_appl_2_min
-             WHEN k_appl_cat_3 THEN k_secs_per_exec_appl_3_min
-             WHEN k_appl_cat_4 THEN k_secs_per_exec_appl_4_min
-             ELSE k_secs_per_exec_noappl_min
-           END secs_per_exec_threshold_min,
-           CASE application_category
              WHEN k_appl_cat_1 THEN k_secs_per_exec_appl_1_max
              WHEN k_appl_cat_2 THEN k_secs_per_exec_appl_2_max
              WHEN k_appl_cat_3 THEN k_secs_per_exec_appl_3_max
@@ -986,13 +1017,6 @@ IS
              WHEN k_appl_cat_4 THEN k_execs_appl_cat_4
              ELSE k_execs_non_appl
            END executions_threshold,
-           CASE application_category
-             WHEN k_appl_cat_1 THEN k_execs_appl_cat_1_min
-             WHEN k_appl_cat_2 THEN k_execs_appl_cat_2_min
-             WHEN k_appl_cat_3 THEN k_execs_appl_cat_3_min
-             WHEN k_appl_cat_4 THEN k_execs_appl_cat_4_min
-             ELSE k_execs_non_appl_min
-           END executions_threshold_min,
            CASE application_category
              WHEN k_appl_cat_1 THEN k_execs_appl_cat_1_max
              WHEN k_appl_cat_2 THEN k_execs_appl_cat_2_max
@@ -1008,7 +1032,8 @@ IS
              ELSE k_num_rows_noappl
            END num_rows_min_main_table
       FROM extended_plan_metrics
-     WHERE (    (k_incl_plans_appl_1    = 'Y' AND application_category = k_appl_cat_1) 
+     WHERE executions > 0 -- redundant
+       AND (    (k_incl_plans_appl_1    = 'Y' AND application_category = k_appl_cat_1) 
              OR (k_incl_plans_appl_2    = 'Y' AND application_category = k_appl_cat_2)
              OR (k_incl_plans_appl_3    = 'Y' AND application_category = k_appl_cat_3)
              OR (k_incl_plans_appl_4    = 'Y' AND application_category = k_appl_cat_4)
@@ -1023,9 +1048,9 @@ IS
              WHEN k_appl_cat_4 THEN 4 
              ELSE 5 
            END,
-           elapsed_time / executions, -- fast SQL first
-           sql_id,
-           plan_hash_value;  
+           sql_id, -- clustered for easier review
+           elapsed_time / executions, -- average performance
+           plan_hash_value; -- redundant
   /* ---------------------------------------------------------------------------------- */
   PROCEDURE get_spb_rec (p_signature IN NUMBER, p_plan_name IN VARCHAR2, p_con_id IN NUMBER)
   IS
@@ -1162,64 +1187,85 @@ IS
       r_plan_name := NULL;
   END get_sql_handle_and_plan_name;
   /* ---------------------------------------------------------------------------------- */  
-  PROCEDURE get_stats_main_table (p_con_id IN NUMBER, p_sql_id IN VARCHAR2, r_owner OUT VARCHAR2, r_table_name OUT VARCHAR2, r_temporary OUT VARCHAR2, r_num_rows OUT NUMBER, r_last_analyzed OUT DATE)
+  FUNCTION pre_existing_valid_plans (p_signature IN NUMBER, p_con_id IN NUMBER, p_fixed_only IN VARCHAR2 DEFAULT 'N')
+  RETURN INTEGER
+  IS
+    l_plans INTEGER;
+  BEGIN
+    SELECT COUNT(*)
+      INTO l_plans
+      FROM cdb_sql_plan_baselines
+     WHERE con_id = p_con_id
+       AND signature = p_signature
+       AND enabled = 'YES'
+       AND accepted = 'YES'
+       AND reproduced = 'YES'
+       AND (CASE NVL(UPPER(SUBSTR(TRIM(p_fixed_only), 1, 1)), 'N') WHEN 'Y' THEN (CASE fixed WHEN 'YES' THEN 1 ELSE 0 END) ELSE 1 END) = 1
+       AND created < l_start_time;
+    RETURN l_plans;
+  END pre_existing_valid_plans;
+  /* ---------------------------------------------------------------------------------- */  
+  PROCEDURE get_stats_main_table (p_con_id IN NUMBER, p_sql_id IN VARCHAR2, r_owner OUT VARCHAR2, r_table_name OUT VARCHAR2, r_temporary OUT VARCHAR2, r_blocks OUT NUMBER, r_num_rows OUT NUMBER, r_avg_row_len OUT NUMBER, r_last_analyzed OUT DATE)
   IS
   BEGIN  
-    WITH /* IOD_SPM get_stats_main_table */
+    WITH /*+ GATHER_PLAN_STATISTICS IOD_SPM get_stats_main_table */
     v_sqlarea_m AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */ 
-           hash_value 
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(sqlarea) */ 
+           hash_value, address
       FROM v$sqlarea 
      WHERE con_id = p_con_id 
        AND sql_id = p_sql_id
     ),
     v_object_dependency_m AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */ 
-           to_hash, to_address 
-      FROM v$object_dependency 
-     WHERE con_id = p_con_id 
-       AND from_hash IN ( SELECT /*+ NO_MERGE QB_NAME(sqlarea) */
-                                 hash_value 
-                            FROM v_sqlarea_m
-                        )
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(obj_dependency) */ 
+           o.to_hash, o.to_address 
+      FROM v$object_dependency o,
+           v_sqlarea_m s
+     WHERE o.con_id = p_con_id 
+       AND o.from_hash = s.hash_value 
+       AND o.from_address = s.address
     ),
     v_db_object_cache_m AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */ 
-           SUBSTR(owner,1,30) object_owner, 
-           SUBSTR(name,1,30) object_name 
-      FROM v$db_object_cache 
-     WHERE con_id = p_con_id 
-       AND type IN ('TABLE','VIEW') 
-       AND (hash_value, addr) IN ( SELECT /*+ NO_MERGE QB_NAME(object_dependency) */
-                                          to_hash, to_address 
-                                     FROM v_object_dependency_m
-                                 )
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(obj_cache) */ 
+           SUBSTR(c.owner,1,30) object_owner, 
+           SUBSTR(c.name,1,30) object_name 
+      FROM v$db_object_cache c,
+           v_object_dependency_m d
+     WHERE c.con_id = p_con_id 
+       AND c.type IN ('TABLE','VIEW') 
+       AND c.hash_value = d.to_hash
+       AND c.addr = d.to_address 
     ),
     cdb_tables_m AS (
-    SELECT /*+ MATERIALIZE NO_MERGE */ 
+    SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(cdb_tables) */ 
+           t.owner, 
+           t.table_name, 
+           t.temporary,
+           t.blocks,
+           t.num_rows, 
+           t.avg_row_len,
+           t.last_analyzed, 
+           ROW_NUMBER() OVER (ORDER BY t.num_rows DESC NULLS LAST) row_number 
+      FROM cdb_tables t,
+           v_db_object_cache_m c
+     WHERE t.con_id = p_con_id 
+       AND t.owner = c.object_owner
+       AND t.table_name = c.object_name 
+    )
+    SELECT /*+ GATHER_PLAN_STATISTICS QB_NAME(get_stats) */
            owner, 
            table_name, 
            temporary,
-           num_rows, 
-           last_analyzed, 
-           ROW_NUMBER() OVER (ORDER BY num_rows DESC NULLS LAST) row_number 
-      FROM cdb_tables 
-     WHERE con_id = p_con_id 
-       AND (owner, table_name) IN ( SELECT /*+ NO_MERGE QB_NAME(object_cache) */
-                                           object_owner, 
-                                           object_name 
-                                      FROM v_db_object_cache_m
-                                  )
-    )
-    SELECT owner, 
-           table_name, 
-           temporary,
-           num_rows, 
+           blocks,
+           num_rows,
+           avg_row_len, 
            last_analyzed
       INTO r_owner, 
            r_table_name, 
            r_temporary,
+           r_blocks,
            r_num_rows, 
+           r_avg_row_len,
            r_last_analyzed
       FROM cdb_tables_m
      WHERE row_number = 1;
@@ -1228,12 +1274,14 @@ IS
       r_owner := NULL;
       r_table_name := NULL;
       r_temporary := NULL;
+      r_blocks := TO_NUMBER(NULL);
       r_num_rows := TO_NUMBER(NULL);
+      r_avg_row_len := TO_NUMBER(NULL);
       r_last_analyzed := TO_DATE(NULL);
   END get_stats_main_table;
   /* ---------------------------------------------------------------------------------- */  
 BEGIN
-  DBMS_APPLICATION_INFO.SET_MODULE('IOD_SPM','LVL='||LPAD(k_aggressiveness, 2, '0'));
+  DBMS_APPLICATION_INFO.SET_MODULE(UPPER('&&1.')||'.IOD_SPM','MAINTAIN_PLANS_INTERNAL');
   -- avoid PX on cdb view
   BEGIN
     EXECUTE IMMEDIATE 'ALTER SESSION SET "_px_cdb_view_enabled" = FALSE';
@@ -1270,12 +1318,13 @@ BEGIN
   output(RPAD('+', 145, '-'));
   output('|');
   output('IOD SPM AUT FPZ',                   'Flipping-Plan Zapper (FPZ)');
+  output('FPZ Aggressiveness',                k_aggressiveness||' (1-5) 1=conservative, 3=moderate, 5=aggressive');
   output('|');
   output('Database',                          l_db_name);
   output('Plugable Database (PDB)',           l_pdb_name||' ('||l_con_id||')');
   output('Host',                              l_host_name);
-  output('Instance Startup Time',             TO_CHAR(l_instance_startup_time, 'YYYY-MM-DD"T"HH24:MI:SS'));
-  output('Date and Time (begin)',             TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+  output('Instance Startup Time',             TO_CHAR(l_instance_startup_time, k_date_format));
+  output('Date and Time (begin)',             TO_CHAR(SYSDATE, k_date_format));
   output('|');
   output('Report Only',                       k_report_only);
   IF k_report_only = 'N' THEN
@@ -1283,7 +1332,6 @@ BEGIN
     output('Promote (to FIXED) SPM Limit',    k_promote_spm_limit||' (0 means: report only)');
     output('Demote (disable) SPM Limit',      k_disable_spm_limit||' (0 means: report only)');
   END IF;
-  output('FPZ Aggressiveness',                k_aggressiveness||' (1-5) 1=conservative, 3=moderate, 5=aggressive');
   output('Report Rejected Candidates',        k_repo_rejected_candidates);
   output('Report Non-Promoted SPBs',          k_repo_non_promoted_spb);
   output('PDB Name',                          NVL(k_pdb_name, 'ALL'));
@@ -1293,32 +1341,32 @@ BEGIN
   output('Evaluate '||k_appl_cat_3||' Plans', k_incl_plans_appl_3);
   output('Evaluate '||k_appl_cat_4||' Plans', k_incl_plans_appl_4);
   output('Evaluate Non-Application Plans',    k_incl_plans_non_appl);
-  output('Min Executions - Candidate',        k_execs_candidate||' (range:'||k_execs_candidate_min||'-'||k_execs_candidate_max||')');
-  output('Min Executions - '||k_appl_cat_1,   k_execs_appl_cat_1||' (category range:'||k_execs_appl_cat_1_min||'-'||k_execs_appl_cat_1_max||')');
-  output('Min Executions - '||k_appl_cat_2,   k_execs_appl_cat_2||' (category range:'||k_execs_appl_cat_2_min||'-'||k_execs_appl_cat_2_max||')');
-  output('Min Executions - '||k_appl_cat_3,   k_execs_appl_cat_3||' (category range:'||k_execs_appl_cat_3_min||'-'||k_execs_appl_cat_3_max||')');
-  output('Min Executions - '||k_appl_cat_4,   k_execs_appl_cat_4||' (category range:'||k_execs_appl_cat_4_min||'-'||k_execs_appl_cat_4_max||')');
+  output('Min Executions - Candidate',        k_execs_candidate||' (range:0-'||k_execs_candidate_max||')');
+  output('Min Executions - '||k_appl_cat_1,   k_execs_appl_cat_1||' (category range:0-'||k_execs_appl_cat_1_max||')');
+  output('Min Executions - '||k_appl_cat_2,   k_execs_appl_cat_2||' (category range:0-'||k_execs_appl_cat_2_max||')');
+  output('Min Executions - '||k_appl_cat_3,   k_execs_appl_cat_3||' (category range:0-'||k_execs_appl_cat_3_max||')');
+  output('Min Executions - '||k_appl_cat_4,   k_execs_appl_cat_4||' (category range:0-'||k_execs_appl_cat_4_max||')');
   IF k_incl_plans_non_appl = 'Y' THEN
-    output('Min Executions - Non-Application',k_execs_non_appl||' (category range:'||k_execs_non_appl_min||'-'||k_execs_non_appl_max||')');
+    output('Min Executions - Non-Application',k_execs_non_appl||' (category range:0-'||k_execs_non_appl_max||')');
   END IF;
-  output('Min Time (ms) - Candidate',         TO_CHAR(k_secs_per_exec_cand * 1e3, 'FM999,990.000')||' (ms) (range:'||
-                                              TO_CHAR(k_secs_per_exec_cand_min * 1e3, 'FM999,990.000')||'-'||
+  output('Time Threshold (ms) Candidate',     
+                                              TO_CHAR(k_secs_per_exec_cand * 1e3, 'FM999,990.000')||' (ms) (range:0-'||
                                               TO_CHAR(k_secs_per_exec_cand_max * 1e3, 'FM999,990.000')||')');
-  output('Min Time (ms) - '||k_appl_cat_1,    TO_CHAR(k_secs_per_exec_appl_1 * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(k_secs_per_exec_appl_1_min * 1e3, 'FM999,990.000')||'-'||
+  output('Time Threshold (ms) '||k_appl_cat_1,
+                                              TO_CHAR(k_secs_per_exec_appl_1 * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(k_secs_per_exec_appl_1_max * 1e3, 'FM999,990.000')||')');
-  output('Min Time (ms) - '||k_appl_cat_2,    TO_CHAR(k_secs_per_exec_appl_2 * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(k_secs_per_exec_appl_2_min * 1e3, 'FM999,990.000')||'-'||
+  output('Time Threshold (ms) '||k_appl_cat_2,
+                                              TO_CHAR(k_secs_per_exec_appl_2 * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(k_secs_per_exec_appl_2_max * 1e3, 'FM999,990.000')||')');
-  output('Min Time (ms) - '||k_appl_cat_3,    TO_CHAR(k_secs_per_exec_appl_3 * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(k_secs_per_exec_appl_3_min * 1e3, 'FM999,990.000')||'-'||
+  output('Time Threshold (ms) '||k_appl_cat_3,
+                                              TO_CHAR(k_secs_per_exec_appl_3 * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(k_secs_per_exec_appl_3_max * 1e3, 'FM999,990.000')||')');
-  output('Min Time (ms) - '||k_appl_cat_4,    TO_CHAR(k_secs_per_exec_appl_4 * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(k_secs_per_exec_appl_4_min * 1e3, 'FM999,990.000')||'-'||
+  output('Time Threshold (ms) '||k_appl_cat_4,
+                                              TO_CHAR(k_secs_per_exec_appl_4 * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(k_secs_per_exec_appl_4_max * 1e3, 'FM999,990.000')||')');
   IF k_incl_plans_non_appl = 'Y' THEN
-    output('Min Time (ms) - Non-Application', TO_CHAR(k_secs_per_exec_noappl * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(k_secs_per_exec_noappl_min * 1e3, 'FM999,990.000')||'-'||
+    output('Time Threshold (ms) Non-Appl', 
+                                              TO_CHAR(k_secs_per_exec_noappl * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(k_secs_per_exec_noappl_max * 1e3, 'FM999,990.000')||')');
   END IF;
   output('Min Rows - '||k_appl_cat_1,         k_num_rows_appl_1);
@@ -1339,7 +1387,7 @@ BEGIN
   output('Min Age (days) - Candidate',        k_first_load_time_days_cand||' (days)');
   output('Min Age (days) - To Qualify',       k_first_load_time_days||' (days)');
   output('Min Age (days) - SPB 4 Promotion',  k_fixed_mature_days||' (days)');
-  output('SPB Threshold - Over Category Max', k_spb_thershold_over_cat_max||'x');
+  output('SPB Threshold - Over Categ Max',    k_spb_thershold_over_cat_max||'x');
   output('SPB Threshold - Over SPB Perf',     k_spb_thershold_over_spf_perf||'x');
   output('Plan History Considered (days)',    k_awr_days||' (days)');
   output('Cursor Age Considered (days)',      k_cur_days||' (days)');
@@ -1370,7 +1418,7 @@ BEGIN
       output('SPBs Qualified for Demotion',   l_spb_disable_qualified_p);
       output('SPBs Demoted',                  l_spb_disabled_count_p);
       output('SPBs already Fixed',            l_spb_already_fixed_count_p);
-      output('Date and Time',                 TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+      output('Date and Time',                 TO_CHAR(SYSDATE, k_date_format));
       output('|');
       output(RPAD('+', 145, '-'));
       l_candidate_count_p := 0;
@@ -1401,8 +1449,12 @@ BEGIN
     l_owner                      := NULL;
     l_table_name                 := NULL;
     l_temporary                  := NULL;
+    l_blocks                     := TO_NUMBER(NULL);
     l_num_rows                   := TO_NUMBER(NULL);
+    l_avg_row_len                := TO_NUMBER(NULL);
     l_last_analyzed              := TO_DATE(NULL);
+    l_pre_existing_valid_plans   := TO_NUMBER(NULL);
+    l_pre_existing_fixed_plans   := TO_NUMBER(NULL);
     -- get main table
     get_stats_main_table (
       p_con_id        => c_rec.con_id,
@@ -1410,7 +1462,9 @@ BEGIN
       r_owner         => l_owner,
       r_table_name    => l_table_name,
       r_temporary     => l_temporary,
+      r_blocks        => l_blocks,
       r_num_rows      => l_num_rows,
+      r_avg_row_len   => l_avg_row_len,
       r_last_analyzed => l_last_analyzed
     );
     -- figure out signature
@@ -1422,6 +1476,18 @@ BEGIN
     ELSE
       l_signature := NULL;
     END IF;
+    -- pre-existing SPB valid plans
+    IF l_signature IS NULL THEN
+      l_pre_existing_valid_plans := 0;
+      l_pre_existing_fixed_plans := 0;
+    ELSE
+      l_pre_existing_valid_plans := pre_existing_valid_plans (p_signature => l_signature, p_con_id => c_rec.con_id, p_fixed_only => 'N');
+      IF l_pre_existing_valid_plans = 0 THEN
+        l_pre_existing_fixed_plans := 0;
+      ELSE
+        l_pre_existing_fixed_plans := pre_existing_valid_plans (p_signature => l_signature, p_con_id => c_rec.con_id, p_fixed_only => 'Y');
+      END IF;
+    END IF;    
     /* -------------------------------------------------------------------------------- */  
     -- If there exists a SQL Plan Baseline (SPB) for candidate 
     IF c_rec.sql_plan_baseline IS NOT NULL THEN
@@ -1431,16 +1497,16 @@ BEGIN
         p_con_id    => c_rec.con_id
       );
       IF b_rec.signature IS NULL THEN -- not expected 
-        l_message1 := '*** SPB is missing!';
+        l_message1 := '*** ERR-00010: SPB is missing!';
       ELSE -- SPB record is available (as expected)
         l_spb_exists := TRUE;
         l_us_per_exec_b := b_rec.elapsed_time / GREATEST(b_rec.executions, 1);
         IF b_rec.fixed = 'YES' THEN
-          l_message1 := 'Skip. SPB already FIXED.';
+          l_message1 := 'MSG-00010: Skip. SPB already FIXED.';
           l_spb_already_fixed_count_p := l_spb_already_fixed_count_p + 1;
           l_spb_already_fixed_count_t := l_spb_already_fixed_count_t + 1;
         ELSIF b_rec.enabled = 'NO' OR b_rec.accepted = 'NO' OR b_rec.reproduced = 'NO' THEN -- not expected
-          l_message1 := '*** SPB is inactive: Enabled='||b_rec.enabled||' Accepted='||b_rec.accepted||' Reproduced='||b_rec.reproduced||'.';
+          l_message1 := '*** ERR-00020: SPB is inactive: Enabled='||b_rec.enabled||' Accepted='||b_rec.accepted||' Reproduced='||b_rec.reproduced||'.';
         ELSIF (l_us_per_exec_c / 1e6 > k_spb_thershold_over_cat_max * c_rec.secs_per_exec_threshold_max)
            OR (l_us_per_exec_c > k_spb_thershold_over_spf_perf * l_us_per_exec_b AND l_us_per_exec_b > 0) 
         /* ---------------------------------------------------------------------------- */  
@@ -1449,7 +1515,7 @@ BEGIN
           l_spb_disable_qualified_p := l_spb_disable_qualified_p + 1;
           l_spb_disable_qualified_t := l_spb_disable_qualified_t + 1;
           IF l_spb_disabled_count_t < k_disable_spm_limit AND k_report_only = 'N' THEN
-            l_message1 := 'SPB was disabled. It undeperforms. ('||
+            l_message1 := 'MSG-00020: SPB was disabled. It undeperforms. ('||
                          'cur:'||TO_CHAR(ROUND(l_us_per_exec_c / 1e3, 3), 'FM9999,990.000')||'ms, '||
                          'cat:'||k_spb_thershold_over_cat_max||'x '||TO_CHAR(ROUND(c_rec.secs_per_exec_threshold_max * 1e3, 3), 'FM9999,990.000')||'ms, '||
                          'spb:'||k_spb_thershold_over_spf_perf||'x '||TO_CHAR(ROUND(l_us_per_exec_b / 1e3, 3), 'FM9999,990.000')||'ms)';
@@ -1464,7 +1530,7 @@ BEGIN
               p_attribute_value   => 'NO',
               r_plans             => l_plans_returned
             );
-            l_description := 'IOD FPZ SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value||' DISABLED='||TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS');
+            l_description := 'IOD FPZ SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value||' DISABLED='||TO_CHAR(SYSDATE, k_date_format);
             set_spb_attribute (
               p_sql_handle        => b_rec.sql_handle,
               p_plan_name         => b_rec.plan_name,
@@ -1479,7 +1545,7 @@ BEGIN
               p_con_id            => c_rec.con_id
             );
           ELSE -- l_spb_disabled_count_t < k_disable_spm_limit
-            l_message1 := 'SPB would be disabled. It undeperforms. ('||
+            l_message1 := 'MSG-00030: SPB would be disabled. It undeperforms. ('||
                          'cur:'||TO_CHAR(ROUND(l_us_per_exec_c / 1e3, 3), 'FM9999,990.000')||'ms, '||
                          'cat:'||k_spb_thershold_over_cat_max||'x '||TO_CHAR(ROUND(c_rec.secs_per_exec_threshold_max * 1e3, 3), 'FM9999,990.000')||'ms, '||
                          'spb:'||k_spb_thershold_over_spf_perf||'x '||TO_CHAR(ROUND(l_us_per_exec_b / 1e3, 3), 'FM9999,990.000')||'ms)';
@@ -1487,15 +1553,15 @@ BEGIN
         -- If existing SQL Plan Baseline (SPB) for candidate is valid then
         -- Evaluate and perform conditional SPB promotion
         ELSIF b_rec.created > SYSDATE - k_fixed_mature_days THEN
-          l_message1 := 'SPB promotion to "FIXED" rejected. SPB needs to be older than '||k_fixed_mature_days||' days.';
+          l_message1 := 'MSG-00040: SPB promotion to "FIXED" rejected. SPB needs to be older than '||k_fixed_mature_days||' days.';
         --ELSIF b_rec.last_executed < SYSDATE - k_fixed_mature_days THEN (had to remove this, "last_executed" is not reliable)
-          --l_message1 := 'SPB promotion to "FIXED" is rejected at this time. SPB has not been used within the last '||k_fixed_mature_days||' days.';
+          --l_message1 := 'MSG-00050: SPB promotion to "FIXED" is rejected at this time. SPB has not been used within the last '||k_fixed_mature_days||' days.';
         ELSIF l_owner IS NULL OR l_table_name IS NULL THEN
-          l_message1 := 'SPB promotion to "FIXED" rejected. Unknown main table.';
+          l_message1 := 'MSG-00060: SPB promotion to "FIXED" rejected. Unknown main table.';
         ELSIF l_temporary = 'N' AND (l_last_analyzed IS NULL OR l_num_rows IS NULL) THEN
-          l_message1 := 'SPB promotion to "FIXED" rejected. Main table has no CBO statistics.';
+          l_message1 := 'MSG-00070: SPB promotion to "FIXED" rejected. Main table has no CBO statistics.';
         ELSIF l_num_rows < c_rec.num_rows_min_main_table THEN
-          l_message1 := 'SPB promotion to "FIXED" rejected. Number of rows on main table is below required threshold.';        
+          l_message1 := 'MSG-00080: SPB promotion to "FIXED" rejected. Number of rows on main table ('||l_num_rows||') is below required threshold ('||c_rec.num_rows_min_main_table||').';        
         /* ---------------------------------------------------------------------------- */  
         ELSE -- Promote SPB after proven performance (fix it)
           l_spb_promotion_was_accepted := TRUE;
@@ -1504,7 +1570,7 @@ BEGIN
           IF l_spb_promoted_count_t < k_promote_spm_limit AND k_report_only = 'N' THEN
             l_spb_promoted_count_p := l_spb_promoted_count_p + 1;
             l_spb_promoted_count_t := l_spb_promoted_count_t + 1;
-            l_message1 := 'SPB promoted to "FIXED".';
+            l_message1 := 'MSG-00090: SPB promoted to "FIXED".';
             l_spb_was_promoted := TRUE;
             -- call dbms_spm
             set_spb_attribute (
@@ -1515,7 +1581,7 @@ BEGIN
               p_attribute_value   => 'YES',
               r_plans             => l_plans_returned
             );
-            l_description := 'IOD FPZ SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value||' FIXED='||TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS');
+            l_description := 'IOD FPZ SQL_ID='||c_rec.sql_id||' PHV='||c_rec.plan_hash_value||' FIXED='||TO_CHAR(SYSDATE, k_date_format);
             set_spb_attribute (
               p_sql_handle        => b_rec.sql_handle,
               p_plan_name         => b_rec.plan_name,
@@ -1530,7 +1596,7 @@ BEGIN
               p_con_id            => c_rec.con_id
             );
           ELSE -- l_spb_promoted_count_t > k_promote_spm_limit
-            l_message1 := 'SPB qualifies for promotion to "FIXED".';
+            l_message1 := 'MSG-00090: SPB qualifies for promotion to "FIXED".';
           END IF; -- l_spb_promoted_count_t < k_promote_spm_limit
         END IF; -- b_rec.fixed = 'YES'
       END IF; -- b_rec.signature IS NULL
@@ -1544,59 +1610,61 @@ BEGIN
         l_candidate_count_t := l_candidate_count_t - 1;
         l_candidate_count_p := l_candidate_count_p - 1;
       ELSIF p_sql_id IS NULL AND SYSDATE - l_instance_startup_time < k_instance_age_days THEN
-        l_message1 := 'Rejected. Instance is '||TRUNC(SYSDATE - l_instance_startup_time)||' days old. Has to be older than '||k_instance_age_days||' days.';
+        l_message1 := 'MSG-01010: Rejected. Instance is '||TRUNC(SYSDATE - l_instance_startup_time)||' days old. Has to be older than '||k_instance_age_days||' days.';
       ELSIF c_rec.first_load_time > SYSDATE - k_first_load_time_days THEN
-        l_message1 := 'Rejected. SQL''s first load time is too recent. Still within the last '||ROUND(k_first_load_time_days, 3)||' day(s) window.';
+        l_message1 := 'MSG-01020: Rejected. SQL''s first load time is too recent. Still within the last '||ROUND(k_first_load_time_days, 3)||' day(s) window.';
       ELSIF c_rec.executions < c_rec.executions_threshold THEN
-        l_message1 := 'Rejected. '||c_rec.executions||' executions is less than '||c_rec.executions_threshold||' threshold for this SQL category.';
+        l_message1 := 'MSG-01030: Rejected. '||c_rec.executions||' executions is less than '||c_rec.executions_threshold||' threshold for this SQL category.';
       ELSIF l_us_per_exec_c / 1e6 > c_rec.secs_per_exec_threshold AND c_rec.metrics_source = k_source_mem THEN
-        l_message1 := 'Rejected. "MEM Avg Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01040: Rejected. "MEM Avg Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.avg_avg_et_us / 1e6 > c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "AWR Avg Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01050: Rejected. "AWR Avg Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.med_avg_et_us / 1e6 > c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "Median Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01060: Rejected. "Median Elapsed Time per Exec" exceeds '||(c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.p90_avg_et_us / 1e6 > k_90th_pctl_factor_cat * c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||(k_90th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01070: Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||(k_90th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.p95_avg_et_us / 1e6 > k_95th_pctl_factor_cat * c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||(k_95th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01080: Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||(k_95th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.p97_avg_et_us / 1e6 > k_97th_pctl_factor_cat * c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||(k_97th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01090: Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||(k_97th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.p99_avg_et_us / 1e6 > k_99th_pctl_factor_cat * c_rec.secs_per_exec_threshold THEN
-        l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||(k_99th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
+        l_message1 := 'MSG-01100: Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||(k_99th_pctl_factor_cat * c_rec.secs_per_exec_threshold * 1e3)||'ms threshold for this SQL category.';
       ELSIF c_rec.p90_avg_et_us > k_90th_pctl_factor_avg * l_us_per_exec_c AND c_rec.metrics_source = k_source_mem THEN
-        l_message1 := 'Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01110: Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p90_avg_et_us > k_90th_pctl_factor_avg * c_rec.avg_avg_et_us THEN
-        l_message1 := 'Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01120: Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p90_avg_et_us > k_90th_pctl_factor_avg * c_rec.med_avg_et_us THEN
-        l_message1 := 'Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01130: Rejected. "90th Pctl Elapsed Time per Exec" exceeds '||k_90th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p95_avg_et_us > k_95th_pctl_factor_avg * l_us_per_exec_c AND c_rec.metrics_source = k_source_mem THEN
-        l_message1 := 'Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01140: Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p95_avg_et_us > k_95th_pctl_factor_avg * c_rec.avg_avg_et_us THEN
-        l_message1 := 'Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01150: Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p95_avg_et_us > k_95th_pctl_factor_avg * c_rec.med_avg_et_us THEN
-        l_message1 := 'Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01160: Rejected. "95th Pctl Elapsed Time per Exec" exceeds '||k_95th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p97_avg_et_us > k_97th_pctl_factor_avg * l_us_per_exec_c AND c_rec.metrics_source = k_source_mem THEN
-        l_message1 := 'Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01170: Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p97_avg_et_us > k_97th_pctl_factor_avg * c_rec.avg_avg_et_us THEN
-        l_message1 := 'Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01180: Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p97_avg_et_us > k_97th_pctl_factor_avg * c_rec.med_avg_et_us THEN
-        l_message1 := 'Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01190: Rejected. "97th Pctl Elapsed Time per Exec" exceeds '||k_97th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p99_avg_et_us > k_99th_pctl_factor_avg * l_us_per_exec_c AND c_rec.metrics_source = k_source_mem THEN
-        l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01200: Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "MEM Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p99_avg_et_us > k_99th_pctl_factor_avg * c_rec.avg_avg_et_us THEN
-        l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01210: Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "AWR Avg Elapsed Time per Exec" threshold.';
       ELSIF c_rec.p99_avg_et_us > k_99th_pctl_factor_avg * c_rec.med_avg_et_us THEN
-        l_message1 := 'Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
+        l_message1 := 'MSG-01220: Rejected. "99th Pctl Elapsed Time per Exec" exceeds '||k_99th_pctl_factor_avg||'x "Median Elapsed Time per Exec" threshold.';
       ELSIF c_rec.metrics_source = k_source_awr AND NVL(c_rec.avg_avg_et_us, 0) = 0 THEN
-        l_message1 := 'Rejected. Source is "'||k_source_awr||'" and average elapsed time per execution is null or zero.';
+        l_message1 := 'MSG-01230: Rejected. Source is "'||k_source_awr||'" and average elapsed time per execution is null or zero.';
       ELSIF l_owner IS NULL OR l_table_name IS NULL THEN
-        l_message1 := 'Rejected. Unknown main table.';
+        l_message1 := 'MSG-01240: Rejected. Unknown main table.';
       ELSIF l_temporary = 'N' AND (l_last_analyzed IS NULL OR l_num_rows IS NULL) THEN
-        l_message1 := 'Rejected. Main table has no CBO statistics.';
+        l_message1 := 'MSG-01250: Rejected. Main table has no CBO statistics.';
       ELSIF l_num_rows < c_rec.num_rows_min_main_table THEN
-        l_message1 := 'Rejected. Number of rows on main table is below required threshold for this SQL category.';
+        l_message1 := 'MSG-01260: Rejected. Number of rows on main table ('||l_num_rows||') is below required threshold ('||c_rec.num_rows_min_main_table||').';        
       ELSIF c_rec.last_load_time < l_last_analyzed THEN
-        l_message1 := 'Rejected. Cursor "last load time" is prior to main table "last analyzed" time. Cursor should be invalidated.';
+        l_message1 := 'MSG-01270: Rejected. Cursor "last load time" is prior to main table "last analyzed" time. Cursor should be invalidated.';
+      ELSIF l_pre_existing_valid_plans > 0 THEN
+        l_message1 := 'MSG-01280: Rejected. There are '||l_pre_existing_valid_plans||' pre-existing valid plans for '||l_signature||' (as of:'||TO_CHAR(l_start_time, k_date_format)||').';
       /* ------------------------------------------------------------------------------ */  
       ELSE -- Create SPB if candidate is accepted
         l_spb_created_qualified_p := l_spb_created_qualified_p + 1;
@@ -1663,14 +1731,14 @@ BEGIN
             l_spb_created_count_p := l_spb_created_count_p + 1;
             l_spb_created_count_t := l_spb_created_count_t + 1;
             l_spb_exists := TRUE;
-            l_message1 := 'SPB created.';
+            l_message1 := 'MSG-02010: SPB created.';
             l_spb_was_created := TRUE;
           ELSE
-            l_message1 := 'Plan qualifies for SPB creation. SPB was not created. Load API returned no plans.';
-            l_message2 := 'sqlset='||l_sqlset_name||', min_snap_id='||l_min_snap_id||', max_snap_id:'||l_max_snap_id;
+            l_message1 := 'MSG-02020: Plan qualifies for SPB creation. SPB was not created. Load API returned no plans.';
+            l_message2 := 'MSG-02025: sqlset='||l_sqlset_name||', min_snap_id='||l_min_snap_id||', max_snap_id:'||l_max_snap_id;
           END IF;
         ELSE -- l_spb_created_count_t > k_create_spm_limit
-          l_message1 := 'Plan qualifies for SPB creation. SPB was not created. Limit reached or Report Only.';
+          l_message1 := 'MSG-02030: Plan qualifies for SPB creation. SPB was not created. Limit reached or Report Only.';
         END IF; -- l_spb_created_count_t < k_create_spm_limit
       END IF; -- c_rec.first_load_time > SYSDATE - k_first_load_time_days
     END IF; -- If there exists a SQL Plan Baseline (SPB) for candidate 
@@ -1714,27 +1782,28 @@ BEGIN
       output('Max Snap ID',                   l_max_snap_id);
       output('Module',                        c_rec.module);
       output('Action',                        c_rec.action);
-      output('Last Active Time',              TO_CHAR(c_rec.last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'));
-      output('Last Load Time',                TO_CHAR(c_rec.last_load_time, 'YYYY-MM-DD"T"HH24:MI:SS'));
-      output('First Load Time',               TO_CHAR(c_rec.first_load_time, 'YYYY-MM-DD"T"HH24:MI:SS'));
+      output('Last Active Time',              TO_CHAR(c_rec.last_active_time, k_date_format));
+      output('Last Load Time',                TO_CHAR(c_rec.last_load_time, k_date_format));
+      output('First Load Time',               TO_CHAR(c_rec.first_load_time, k_date_format));
+      output('Exact Matching Signature',      l_signature);
+      output('SQL Plan Baseline (SPB)',       c_rec.sql_plan_baseline);
       output('SQL Profile',                   c_rec.sql_profile);
       output('SQL Patch',                     c_rec.sql_patch);
-      output('SQL Plan Baseline (SPB)',       c_rec.sql_plan_baseline);
-      output('Exact Matching Signature',      l_signature);
       output('|');
       output('Application Category',          c_rec.application_category);
       output('Critical Application',          c_rec.critical_application);
-      output('Executions Threshold',          c_rec.executions_threshold||' (category range:'||c_rec.executions_threshold_min||'-'||c_rec.executions_threshold_max||')');
-      output('Time per Exec Threshold (ms)',  TO_CHAR(c_rec.secs_per_exec_threshold * 1e3, 'FM999,990.000')||' (ms) (category range:'||
-                                              TO_CHAR(c_rec.secs_per_exec_threshold_min * 1e3, 'FM999,990.000')||'-'||
+      output('Executions Threshold',          c_rec.executions_threshold||' (category range:0-'||c_rec.executions_threshold_max||')');
+      output('Time per Exec Threshold (ms)',  TO_CHAR(c_rec.secs_per_exec_threshold * 1e3, 'FM999,990.000')||' (ms) (category range:0-'||
                                               TO_CHAR(c_rec.secs_per_exec_threshold_max * 1e3, 'FM999,990.000')||')');
       output('Min Rows Threshold',            c_rec.num_rows_min_main_table);
       output('|');
       output('Main Table - Owner',            l_owner);
       output('Main Table - Name',             l_table_name);
       output('Main Table - Temporary',        l_temporary);
+      output('Main Table - Blocks',           l_blocks);
       output('Main Table - Num Rows',         l_num_rows);
-      output('Main Table - Last Analyzed',    TO_CHAR(l_last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS'));
+      output('Main Table - Avg Row Len',      l_avg_row_len);
+      output('Main Table - Last Analyzed',    TO_CHAR(l_last_analyzed, k_date_format));
       -- Output plan performance metrics
       output('|');
       output(
@@ -1881,6 +1950,10 @@ BEGIN
         TO_CHAR(ROUND(c_rec.p99_sharable_mem / POWER(2, 20), 3), 'FM9999,990.000'),
         TO_CHAR(ROUND(c_rec.max_sharable_mem / POWER(2, 20), 3), 'FM9999,990.000')
         );
+      -- pre-existing SPB valid plans
+      output('|');
+      output('Pre-existing Valid SPB Plans',  l_pre_existing_valid_plans);
+      output('Pre-existing Fixed SPB Plans',  l_pre_existing_fixed_plans);
       -- Output SQL Plan Baseline details
       IF b_rec.signature IS NOT NULL AND (l_spb_exists OR l_spb_demotion_was_accepted OR l_spb_promotion_was_accepted) THEN
         output('|');
@@ -1907,12 +1980,12 @@ BEGIN
         output('Optimizer Cost',              b_rec.optimizer_cost);
         output('Module',                      b_rec.module);
         output('Action',                      b_rec.action);
-        output('Last Executed',               TO_CHAR(b_rec.last_executed, 'YYYY-MM-DD"T"HH24:MI:SS'));
-        output('Last Modified',               TO_CHAR(b_rec.last_modified, 'YYYY-MM-DD"T"HH24:MI:SS'));
-        output('Last Verified',               TO_CHAR(b_rec.last_verified, 'YYYY-MM-DD"T"HH24:MI:SS'));
-        output('Created',                     TO_CHAR(b_rec.created, 'YYYY-MM-DD"T"HH24:MI:SS'));
+        output('Last Executed',               TO_CHAR(b_rec.last_executed, k_date_format));
+        output('Last Modified',               TO_CHAR(b_rec.last_modified, k_date_format));
+        output('Last Verified',               TO_CHAR(b_rec.last_verified, k_date_format));
+        output('Created',                     TO_CHAR(b_rec.created, k_date_format));
       END IF; -- Output SQL Plan Baseline details
-      IF l_message1 IS NOT NULL THEN
+      IF l_message1 IS NOT NULL OR l_message2 IS NOT NULL THEN
         output('|');
         output('Message1',                    SUBSTR(l_message1, 1, 108));
         output('Message2',                    SUBSTR(l_message2, 1, 108));
@@ -1961,7 +2034,7 @@ BEGIN
     output('SPBs Qualified for Demotion',     l_spb_disable_qualified_p);
     output('SPBs Demoted',                    l_spb_disabled_count_p);
     output('SPBs already Fixed',              l_spb_already_fixed_count_p);
-    output('Date and Time',                   TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+    output('Date and Time',                   TO_CHAR(SYSDATE, k_date_format));
     output('|');
     output(RPAD('+', 145, '-'));
   END IF;
@@ -1976,7 +2049,7 @@ BEGIN
   output('SPBs Qualified for Demotion',       l_spb_disable_qualified_t);
   output('SPBs Demoted',                      l_spb_disabled_count_t);
   output('SPBs already Fixed',                l_spb_already_fixed_count_t);
-  output('Date and Time (end)',               TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+  output('Date and Time (end)',               TO_CHAR(SYSDATE, k_date_format));
   output('Duration (secs)',                   ROUND((SYSDATE - l_start_time) * 24 * 60 * 60));
   output('|');
   output(RPAD('+', 145, '-'));
@@ -2061,6 +2134,7 @@ PROCEDURE fpz (
   p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL
 )
 IS
+  k_date_format                  CONSTANT VARCHAR2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
   l_sleep_seconds                NUMBER := 10;
   l_start_time			 DATE := SYSDATE;
   l_db_name                      VARCHAR2(9);
@@ -2232,7 +2306,7 @@ BEGIN
     output('SPBs Qualified for Demotion',       l_spb_disable_qualified_gt);
     output('SPBs Demoted',                      l_spb_disabled_count_gt);
     output('SPBs already Fixed',                l_spb_already_fixed_count_gt);
-    output('Date and Time (end)',               TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'));
+    output('Date and Time (end)',               TO_CHAR(SYSDATE, k_date_format));
     output('Duration (secs)',                   ROUND((SYSDATE - l_start_time) * 24 * 60 * 60));
     output('|');
     output(RPAD('+', 145, '-'));
@@ -2311,7 +2385,7 @@ BEGIN
       p_aggressiveness               => 5                              ,
       p_pdb_name                     => p_pdb_name                     ,
       p_sql_id                       => p_sql_id                       ,
-      p_execs_candidate              => 1                              , -- laxed
+      p_execs_candidate              => 0                              , -- laxed
       p_secs_per_exec_cand           => 60                             , -- laxed
       p_first_load_time_days_cand    => 0                              , -- laxed
       x_plan_candidates              => l_candidate_count_t            ,

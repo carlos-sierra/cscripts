@@ -58,3 +58,5 @@ WHERE   ts.tablespace_name     = t.tablespace_name(+)
         AND ts.con_id          = un.con_id(+)
 ORDER BY 1,2
 /
+
+
