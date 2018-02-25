@@ -27,9 +27,9 @@ SELECT
        SUBSTR(sq.sql_text, 1, 100),
        SUBSTR(sq.module, 1, 30),
        SUBSTR(sq.action, 1, 30)
- HAVING
-       ROUND(SUM(sq.elapsed_time)/1e6) > 60 -- over 60s
-    OR SUM(sq.executions) > 1000
+ --HAVING
+       --ROUND(SUM(sq.elapsed_time)/1e6) > 60 -- over 60s
+    --OR SUM(sq.executions) > 1000
  ORDER BY
        SUBSTR(sq.module, 1, 30),
        SUBSTR(sq.action, 1, 30),

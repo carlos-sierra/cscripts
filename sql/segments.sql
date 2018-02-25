@@ -13,7 +13,8 @@ COL segment_type HEA 'TYPE';
 COL owner FOR A30;
 COL segment_name FOR A30;
 
-BRE ON segment_type SKIP 1 ON owner;
+CLE BRE;
+BRE ON segment_type SKIP 1;
 COMP SUM LAB 'TOTAL' OF size_gb percent ON segment_type;
 
 COL current_time NEW_V current_time FOR A15;
@@ -48,13 +49,15 @@ SELECT SUBSTR(s.segment_type, 1, 5) segment_type,
   FROM dba_segments s
  WHERE s.tablespace_name = UPPER(TRIM('&&tablespace_name.'))
    AND SUBSTR(s.segment_type, 1, 5) IN ('TABLE', 'INDEX')
+   AND s.segment_name NOT LIKE 'BIN$%' 
  GROUP BY
        SUBSTR(s.segment_type, 1, 5),
        s.owner,
        s.segment_name
 ) v
- WHERE v.rank <= 5 OR v.percent >= 5
+ WHERE v.rank <= 20 OR v.percent >= 1
  ORDER BY
+       v.segment_type DESC,
        v.rank
 /
 

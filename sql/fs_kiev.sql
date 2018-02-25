@@ -56,6 +56,7 @@ SELECT ROUND(SUM(s.elapsed_time)/SUM(s.executions)/1e3) ms_per_exec,
          WHEN (    s.sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
                 OR s.sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
                 OR s.sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+                OR s.sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
               ) AND NVL('&&kiev_tx.', 'CBRG') LIKE '%R%'
          THEN 1
          WHEN (    s.sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 

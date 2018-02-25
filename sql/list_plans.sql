@@ -7,7 +7,8 @@ SELECT b.created,
        b.enabled,
        b.accepted,
        b.reproduced,
-       b.fixed
+       b.fixed,
+       b.adaptive
   FROM dba_sql_plan_baselines b
  WHERE b.sql_handle = NVL('&&sql_handle.', b.sql_handle)
  ORDER BY

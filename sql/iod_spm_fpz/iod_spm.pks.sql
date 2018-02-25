@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
-/* $Header: iod_spm.pks.sql 2018-01-02T23:53:10 carlos.sierra $ */
+/* $Header: iod_spm.pks.sql 2018-02-21T15:33:16 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */
 --
 -- Purpose:     Implement SQL Plan Management (SPM) on a high-rate OLTP application 
@@ -10,7 +10,7 @@ CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
 -- Usage:       Execute from CDB$ROOT. Levels: one SQL_ID, one PDB, or all PDBS.
 --
 -- Example:     For one SQL:
---                SET LINES 145 TRIMS ON SERVEROUT ON SIZE UNLIMITED;
+--                SET LINES 300 TRIMS ON SERVEROUT ON SIZE UNLIMITED;
 --                EXEC &&1..iod_spm.fpz(p_report_only => 'N', p_pdb_name => 'COMPUTE', p_sql_id => '9knmfv7smm4q1');
 --
 --              For one PDB:
@@ -18,13 +18,22 @@ CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
 --                EXEC &&1..iod_spm.fpz(p_report_only => 'N', p_pdb_name => 'COMPUTE');
 --
 --              For all PDBs:
---                SET LINES 145 TRIMS ON SERVEROUT ON SIZE UNLIMITED;
+--                SET LINES 300 TRIMS ON SERVEROUT ON SIZE UNLIMITED;
 --                EXEC &&1..iod_spm.fpz(p_report_only => 'N');
 --
--- Notes:       Parameter p_report_only = 'Y' produces "what-if" report.
+-- Notes:       (1) Parameter p_report_only = 'Y' produces "what-if" report.
 --
---              For more granularity consider maintain_plans procedure instead of fpz.
+--              (2) To demote SPBs that perform poor compared to when they created, 
+--                  use "sentinel" API
 --
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE workaround_ora_13831 (
+  p_report_only IN VARCHAR2 DEFAULT NULL -- (Y|N) when Y then only produces report and changes nothing
+);
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE workaround_ora_06512 (
+  p_report_only IN VARCHAR2 DEFAULT NULL -- (Y|N) when Y then only produces report and changes nothing
+);
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE maintain_plans (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
@@ -34,6 +43,7 @@ PROCEDURE maintain_plans (
   p_aggressiveness               IN NUMBER   DEFAULT NULL, -- (1-5) range between 1 to 5 where 1 is conservative and 5 is aggresive
   p_repo_rejected_candidates     IN VARCHAR2 DEFAULT 'Y',  -- (Y|N) include on report rejected candidates
   p_repo_non_promoted_spb        IN VARCHAR2 DEFAULT 'Y',  -- (Y|N) include on report non-fixed SPB that is not getting promoted to "FIXED"
+  p_repo_fixed_spb               IN VARCHAR2 DEFAULT 'Y',  -- (Y|N) include on report "FIXED" SPB
   p_pdb_name                     IN VARCHAR2 DEFAULT NULL, -- evaluate only this one PDB
   p_sql_id                       IN VARCHAR2 DEFAULT NULL, -- evaluate only this one SQL
   p_incl_plans_appl_1            IN VARCHAR2 DEFAULT 'Y',  -- (Y|N) include SQL from 1st application (BeginTx)
@@ -44,11 +54,19 @@ PROCEDURE maintain_plans (
   p_execs_candidate              IN NUMBER   DEFAULT NULL, -- a plan must be executed these many times to be a candidate
   p_secs_per_exec_cand           IN NUMBER   DEFAULT NULL, -- a plan must perform better than this threshold to be a candidate
   p_first_load_time_days_cand    IN NUMBER   DEFAULT NULL, -- a sql must be loaded into memory at least this many days before it is considered as candidate
+  p_spb_thershold_over_cat_max   IN NUMBER   DEFAULT NULL, -- plan must perform better than this many times the category max threshold
+  p_spb_thershold_over_spf_perf  IN NUMBER   DEFAULT NULL, -- plan must perform better than this many times the its own performance at the time SPB was created
   p_awr_days                     IN NUMBER   DEFAULT NULL, -- amount of days to consider from AWR history assuming retention is at least this long
   p_cur_days                     IN NUMBER   DEFAULT NULL  -- cursor must be active within the past k_cur_days to be considered
 );
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE fpz (
+  p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
+  p_pdb_name                     IN VARCHAR2 DEFAULT NULL, -- evaluate only this one PDB
+  p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL
+);
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE sentinel (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
   p_pdb_name                     IN VARCHAR2 DEFAULT NULL, -- evaluate only this one PDB
   p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL

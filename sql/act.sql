@@ -10,34 +10,72 @@ COL x_container NEW_V x_container;
 SELECT 'NONE' x_container FROM DUAL;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 
-SPO active_sql_&&current_time..txt;
+SPO act_&&current_time..txt;
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
 
-COL sid_serial FOR A10;
+COL con_id FOR 999999;
+COL sid_serial FOR A12;
 COL sql_id_and_child FOR A16;
-COL serv_mod_act_client_info FOR A50;
-COL sql_text FOR A80;
+COL serv_host_client_mod_act FOR A50;
+COL current_sql_text FOR A80;
+BRE ON con_id SKIP PAGE;
 
-SELECT /* exclude_me */
-       s.sid||','||s.serial# sid_serial,
-       s.sql_id||','||s.sql_child_number sql_id_and_child,
-       SUBSTR(s.service_name||','||s.module||','||s.action||','||s.client_info, 1, 250) serv_mod_act_client_info,
-       SUBSTR(q.sql_text, 1, 400) sql_text,
+WITH /* exclude_me */
+active_sessions AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       con_id,
+       sid,
+       serial#,
+       sql_id,
+       sql_child_number,
+       prev_sql_id,
+       prev_child_number,
+       service_name,
+       module,
+       action,
+       client_info,
+       machine
+  FROM v$session
+ WHERE status = 'ACTIVE'
+   AND type = 'USER'
+)
+SELECT s.con_id,
+       LPAD(s.sid||','||s.serial#, 10) sid_serial,
+       'C:'||s.sql_id||CHR(10)||'C:'||s.sql_child_number||CHR(10)||'P:'||s.prev_sql_id||CHR(10)||'P:'||s.prev_child_number sql_id_and_child,
+       SUBSTR('S:'||s.service_name||CHR(10)||'H:'||s.machine||CHR(10)||'C:'||s.client_info||CHR(10)||'M:'||s.module||CHR(10)||'A:'||s.action, 1, 250) serv_host_client_mod_act,
+       SUBSTR(q.sql_text, 1, 800) current_sql_text,
        ROUND(q.elapsed_time/1e6,3) et_secs,
        q.executions,
        CASE WHEN q.executions > 0 THEN ROUND(q.elapsed_time/1e6/q.executions,6) END et_per_exec
-  FROM v$session s,
+  FROM active_sessions s,
        v$sql q
- WHERE s.status = 'ACTIVE'
-   AND s.type = 'USER'
-   AND q.con_id(+) = s.con_id
-   AND q.sql_id(+) = s.sql_id
-   AND q.child_number(+) = s.sql_child_number
-   AND q.sql_text(+) NOT LIKE '%/* exclude_me */%'
+ WHERE s.sql_id IS NOT NULL
+   AND q.con_id = s.con_id
+   AND q.sql_id = s.sql_id
+   AND q.child_number = s.sql_child_number
+   AND q.sql_text NOT LIKE '%/* exclude_me */%'
+   AND q.is_obsolete = 'N'
+   AND q.is_shareable = 'Y'
+   AND q.object_status = 'VALID'
+ UNION ALL
+SELECT s.con_id,
+       LPAD(s.sid||','||s.serial#, 10) sid_serial,
+       'C:'||s.sql_id||CHR(10)||'C:'||s.sql_child_number||CHR(10)||'P:'||s.prev_sql_id||CHR(10)||'P:'||s.prev_child_number sql_id_and_child,
+       SUBSTR('S:'||s.service_name||CHR(10)||'H:'||s.machine||CHR(10)||'C:'||s.client_info||CHR(10)||'M:'||s.module||CHR(10)||'A:'||s.action, 1, 250) serv_host_client_mod_act,
+       NULL current_sql_text,
+       NULL et_secs,
+       NULL executions,
+       NULL et_per_exec
+  FROM active_sessions s
+ WHERE s.sql_id IS NULL
  ORDER BY
        1,2
 /
 
 SPO OFF;
+CL BRE;
+
+
+

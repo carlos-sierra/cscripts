@@ -78,6 +78,7 @@ BEGIN
     FOR i IN (SELECT con_id, name 
                 FROM v$containers 
                WHERE con_id <> 2 
+                 AND name = 'SYNC_TEST'
                  AND open_mode = 'READ WRITE'
                ORDER BY 1)
     LOOP

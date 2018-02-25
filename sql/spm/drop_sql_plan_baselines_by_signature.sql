@@ -11,7 +11,7 @@
 --
 -- Usage:       Execute connected into the PDB of interest.
 --
---              Enter SQL Text string when requested.
+--              Enter SQL SIGNATURE when requested.
 --
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @drop_sql_plan_baselines_by_signature.sql
@@ -40,11 +40,11 @@ COL x_container NEW_V x_container;
 SELECT 'NONE' x_container FROM DUAL;
 SELECT REPLACE(SYS_CONTEXT('USERENV', 'CON_NAME'), '$') x_container FROM DUAL;
 
-SPO drop_sql_plan_baselines_by_signature_&&x_container._&&current_time..txt;
+SPO drop_sql_plan_baselines_by_signature_&&signature._&&x_container._&&current_time..txt;
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
-PRO Signature: "&&signature."
+PRO SIGNATURE: "&&signature."
 
 COL sql_text_100 FOR A100;
 COL sql_handle FOR A20;
@@ -53,12 +53,12 @@ COL plan_name FOR A30;
 COL created FOR A30;
 COL last_executed FOR A30;
 COL last_modified FOR A30;
-COL description FOR A60;
+COL description FOR A100;
 BRE ON sql_handle SKIP PAGE ON signature;
 
 
 SELECT sql_handle, signature, plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description,
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified, description,
        REPLACE(DBMS_LOB.SUBSTR(sql_text, 100), CHR(10), CHR(32)) sql_text_100
   FROM dba_sql_plan_baselines
  WHERE signature = &&signature.
@@ -68,7 +68,7 @@ SELECT sql_handle, signature, plan_name,
 /
 
 SELECT plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified
   FROM dba_sql_plan_baselines
  WHERE signature = &&signature.
  ORDER BY
@@ -94,7 +94,7 @@ END;
 /
 
 SELECT plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified
   FROM dba_sql_plan_baselines
  WHERE signature = &&signature.
  ORDER BY

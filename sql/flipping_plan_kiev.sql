@@ -1,4 +1,4 @@
-PRO Enter approximate date of incident. If within the past 24hrs then enter nothing. Script will reveiw a 24h window.
+PRO Enter approximate date of incident. If within the past 24hrs then enter nothing. Script will review a 24h window.
 ACC date_and_time PROMPT 'Date and Time YYYY-MM-DD"T"HH24:MI:SS (e.g. 2017-11-04T20:15:55) (opt): '
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
@@ -8,7 +8,7 @@ VAR snap_id_begin NUMBER;
 VAR snap_id_end NUMBER;
 BEGIN
   SELECT dbid INTO :dbid FROM v$database;
-  IF '&&date_and_time.' IS NULL OR TRUNC(TO_DATE('&&date_and_time.', 'YYYY-MM-DD"T"HH24:MI:SS')) >= TRUNC(SYSDATE) THEN
+  IF '&&date_and_time.' IS NULL OR TRUNC(TO_DATE('&&date_and_time.', 'YYYY-MM-DD"T"HH24:MI:SS')) >= SYSDATE - 0.5 THEN
     SELECT MAX(snap_id) INTO :snap_id_end FROM dba_hist_snapshot WHERE dbid = :dbid;
     SELECT MAX(snap_id) INTO :snap_id_begin FROM dba_hist_snapshot WHERE dbid = :dbid AND end_interval_time < SYSDATE - 1;
   ELSE
@@ -36,6 +36,8 @@ SELECT 'NONE' x_container FROM DUAL;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 COL ash_plans FOR 9999999 HEA 'ASH|PLANS';
 COL sta_plans FOR 9999999 HEA 'SQLSTAT|PLANS';
+COL lag_ash_plans FOR 9999999 HEA 'LAG|ASH|PLANS';
+COL lag_sta_plans FOR 9999999 HEA 'LAG|SQLSTAT|PLANS';
 COL ash_et_secs FOR 9999999 HEA 'ASH|ET_SECS';
 COL ash_cpu_secs FOR 9999999 HEA 'ASH|CPU_SECS';
 COL sta_et_secs FOR 9999999 HEA 'SQLSTAT|ET_SECS';
@@ -89,6 +91,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -132,7 +135,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        my_tx_sql t
  WHERE h.dbid = :dbid
    AND h.snap_id BETWEEN :snap_id_begin AND :snap_id_end
-   AND h.session_state IN ('ON CPU', 'Scheduler')
+   --AND h.session_state IN ('ON CPU', 'Scheduler')
+   AND h.sql_plan_hash_value > 0
    AND t.sql_id = h.sql_id
  GROUP BY
        h.dbid,
@@ -184,6 +188,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.snap_id BETWEEN :snap_id_begin AND :snap_id_end
    AND h.executions_delta > 0
    AND h.elapsed_time_delta > 0
+   AND h.plan_hash_value > 0
    AND t.sql_id = h.sql_id
  GROUP BY
        h.dbid,
@@ -281,9 +286,20 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        CASE WHEN ip.ash_top_phv <> ip.lag_ash_top_phv AND ip.sta_top_phv <> ip.lag_sta_top_phv THEN 'F' ELSE '?' END flag
   FROM per_sql_and_snap ip
  WHERE 1 = 1
-   AND ip.ash_top_phv + NVL(ip.sta_top_phv, ip.ash_top_phv) <> ip.lag_ash_top_phv + NVL(ip.lag_sta_top_phv, ip.lag_ash_top_phv) -- top plan has shifted
-   AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) >= 2 * (ip.lag_ash_cpu_secs + NVL(ip.lag_sta_cpu_secs, ip.lag_ash_cpu_secs)) -- performance per execution regressed over 2x
-   AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) > 15 -- more than 15 seconds of CPU elapsed time 
+   -- AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) > 15 -- more than 15 seconds of CPU elapsed time 
+   AND (    ip.ash_cpu_secs > 15 
+         OR ip.sta_cpu_secs > 15 
+       ) -- more than 15 seconds of CPU elapsed time 
+   --AND ip.ash_top_phv + NVL(ip.sta_top_phv, ip.ash_top_phv) <> ip.lag_ash_top_phv + NVL(ip.lag_sta_top_phv, ip.lag_ash_top_phv) -- top plan has shifted
+   AND (    ip.ash_plans <> ip.lag_ash_plans -- number of active plans changed
+         OR ip.sta_plans <> ip.lag_sta_plans -- number of active plans changed
+         OR ip.ash_top_phv <> ip.lag_ash_top_phv -- top plan has shifted
+         OR ip.sta_top_phv <> ip.lag_sta_top_phv -- top plan has shifted
+       )
+   -- AND ip.ash_cpu_secs + NVL(ip.sta_cpu_secs, ip.ash_cpu_secs) >= 2 * (ip.lag_ash_cpu_secs + NVL(ip.lag_sta_cpu_secs, ip.lag_ash_cpu_secs)) -- performance per execution regressed over 2x
+   AND (    ip.ash_cpu_secs >= 1.5 * ip.lag_ash_cpu_secs
+         OR ip.sta_cpu_secs >= 1.5 * ip.lag_sta_cpu_secs
+       ) -- performance per execution regressed over 50% from one snap to next
 ),
 before_and_after AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -297,10 +313,12 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        TO_CHAR(sh.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time,
        TO_CHAR(sh.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time,
        ba.ash_plans,
+       ba.lag_ash_plans,
        ba.ash_top_phv,
        ba.ash_et_secs,
        ba.ash_cpu_secs,
        ba.sta_plans,
+       ba.lag_sta_plans,
        ba.sta_top_phv,
        ba.sta_et_secs,
        ba.sta_cpu_secs,
@@ -330,10 +348,12 @@ SELECT instance_number inst,
        begin_interval_time,
        end_interval_time,
        ash_plans,
+       lag_ash_plans,
        ash_top_phv,
        ash_et_secs,
        ash_cpu_secs,
        sta_plans,
+       lag_sta_plans,
        sta_top_phv,
        sta_et_secs,
        sta_cpu_secs,
@@ -346,9 +366,13 @@ SELECT instance_number inst,
  ORDER BY
        instance_number,
        con_id,
+       CASE appl_module WHEN 'COMMIT' THEN 1 WHEN 'BEGIN' THEN 2 WHEN 'READ' THEN 3 WHEN 'GC' THEN 4 ELSE 5 END,
        sql_id,
        inflection_snap_id,
        snap_id
 /
+PRO
+PRO Start reviewing cases where column F has value of F, and where ET_MILLISECS jumps
+PRO
 /****************************************************************************************/
 SPO OFF;

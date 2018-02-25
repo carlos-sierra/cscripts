@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2017/12/01
+-- Version:     2018/02/14
 --
 -- Usage:       This script inputs two parameters. Parameter 1 is a flag to specify if
 --              your database is licensed to use the Oracle Diagnostics Pack or not.
@@ -195,14 +195,25 @@ COL users_executing_ff              FOR A15 HEA "Users executing";
 COL users_opening_ff                FOR A15 HEA "Users opening";
 COL version_count_ff                FOR A8  HEA "Version count";
 
+COL obsl FOR A4;
+COL sens FOR A4;
+COL aware FOR A5;
+COL shar FOR A4;
+COL u_exec FOR 999999;
+COL obj_sta FOR A7;
+
+COL plan_name FOR A30;
+COL created FOR A30;
+COL last_executed FOR A30;
+
 COL avg_et_ms_awr FOR A11 HEA 'ET Avg|AWR (ms)';
 COL avg_et_ms_mem FOR A11 HEA 'ET Avg|MEM (ms)';
 COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
 COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
 COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
 COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
-COL avg_row_awr FOR 999,999,990 HEA 'Rows Avg|AWR';
-COL avg_row_mem FOR 999,999,990 HEA 'Rows Avg|MEM';
+COL avg_row_awr FOR 999,990.000 HEA 'Rows Avg|AWR';
+COL avg_row_mem FOR 999,990.000 HEA 'Rows Avg|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
 COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
@@ -291,7 +302,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time)/SUM(executions) avg_et_us,
        SUM(cpu_time)/SUM(executions) avg_cpu_us,
        ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
-       ROUND(SUM(rows_processed)/SUM(executions)) avg_rows_processed,
+       ROUND(SUM(rows_processed)/SUM(executions), 3) avg_rows_processed,
        SUM(executions) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -306,7 +317,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
        SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us,
        ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) avg_buffer_gets,
-       ROUND(SUM(rows_processed_delta)/SUM(executions_delta)) avg_rows_processed,
+       ROUND(SUM(rows_processed_delta)/SUM(executions_delta), 3) avg_rows_processed,
        SUM(executions_delta) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -388,13 +399,15 @@ SELECT   inst_id
  ORDER BY inst_id
 /
 
-COL obsl FOR A4;
+BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP PAGE;
 PRO
-PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
+PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   inst_id
+       , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
+       , is_shareable shar
        , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
@@ -441,14 +454,18 @@ SELECT   inst_id
   FROM gv$sql
  WHERE sql_id = :sql_id
  ORDER BY inst_id
+       , SUBSTR(object_status, 1, 7) DESC
        , is_obsolete
+       , is_shareable DESC
        , last_active_time DESC
        , child_number DESC
 /
+CLEAR BREAKS;
 
 PRO
 PRO GV$SQL (grouped by PHV and ordered by et_secs_per_exec)
 PRO ~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   plan_hash_value
        , TO_CHAR(ROUND(SUM(elapsed_time)/SUM(executions)/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(SUM(cpu_time)/SUM(executions)/1e6,6), '999,990.000000') cpu_secs_per_exec
@@ -474,24 +491,20 @@ SELECT   plan_hash_value
        2
 /
 
-COL sens FOR A4;
-COL aware FOR A5;
-COL shar FOR A4;
-COL u_exec FOR 999999;
-COL obj_sta FOR A7;
-
+BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP PAGE;
 PRO
-PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
+PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   inst_id
+       , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
+       , is_shareable shar
        , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
        , is_bind_sensitive sens
        , is_bind_aware aware
-       , is_shareable shar
-       , SUBSTR(object_status, 1, 7) obj_sta 
        , users_executing u_exec
        , TO_CHAR(ROUND(elapsed_time/executions/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(cpu_time/executions/1e6,6), '999,990.000000') cpu_secs_per_exec
@@ -505,21 +518,26 @@ SELECT   inst_id
  WHERE sql_id = :sql_id
    AND executions > 0
  ORDER BY inst_id
+       , SUBSTR(object_status, 1, 7) DESC
        , is_obsolete
+       , is_shareable DESC
        , last_active_time DESC
        , child_number DESC
 /
+CLEAR BREAKS;
 
+BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP PAGE;
 PRO
-PRO GV$SQL (ordered by inst_id, is_obsolete, last_active_time and child_number)
+PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
 SELECT   inst_id
+       , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
+       , is_shareable shar
        , LPAD(TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS'), 20) last_active_time_ff
        , child_number
        , plan_hash_value
-       , is_shareable shar
-       , SUBSTR(object_status, 1, 7) obj_sta
        &&is_10g., sql_plan_baseline
        , sql_profile
        &&is_10g., sql_patch
@@ -527,13 +545,56 @@ SELECT   inst_id
  WHERE sql_id = :sql_id
    AND executions > 0
  ORDER BY inst_id
+       , SUBSTR(object_status, 1, 7) DESC
        , is_obsolete
+       , is_shareable DESC
        , last_active_time DESC
        , child_number DESC
 /
+CLEAR BREAKS;
+
+COL sid_serial# FOR A12;
+COL current_timed_event FOR A80;
+
+PRO
+PRO GV$SESSION (active)
+PRO ~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
+SELECT inst_id,
+       sql_child_number child_number,
+       sid||','||serial# sid_serial#,
+       TO_CHAR(sql_exec_start, 'YYYY-MM-DD"T"HH24:MI:SS') sql_exec_start,
+       CASE state WHEN 'WAITING' THEN SUBSTR(wait_class||' - '||event, 1, 100) ELSE 'ON CPU' END current_timed_event
+  FROM gv$session
+ WHERE sql_id = '&&sql_id.'
+   AND status = 'ACTIVE'
+ ORDER BY
+       inst_id,
+       child_number,
+       sid;
+
+COL bind_name FOR A30;
+COL bind_value FOR A120;
+
+PRO
+PRO GV$SQL_BIND_CAPTURE (sample)
+PRO ~~~~~~~~~~
+SPO planx_&&sql_id._&&current_time..txt APP;
+SELECT inst_id,
+       TO_CHAR(last_captured, 'YYYY-MM-DD"T"HH24:MI:SS') last_captured,
+       child_number,
+       position, 
+       SUBSTR(name, 1, 30) bind_name,
+       SUBSTR(value_string, 1, 120) bind_value
+  FROM gv$sql_bind_capture 
+ WHERE sql_id = '&&sql_id.'
+ ORDER BY
+       inst_id,
+       last_captured,
+       child_number,
+       position;
 
 PRO       
---PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by inst_id and child_number)
 PRO GV$SQL_PLAN_STATISTICS_ALL LAST (ordered by child_number)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRO
@@ -700,6 +761,7 @@ SELECT /*+ ORDERED USE_NL(t) */
        t.plan_table_output
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
+CLEAR BREAK;
 
 PRO
 PRO GV$ACTIVE_SESSION_HISTORY 
@@ -764,7 +826,8 @@ SELECT /*+
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
-   AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
+   AND h.snap_id >= &&x_minimum_snap_id. 
+   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
  GROUP BY
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
  ORDER BY
@@ -785,68 +848,6 @@ SELECT e.samples samples_ff,
  UNION ALL
 SELECT others samples_ff,
        ROUND(100 * others / samples, 1) percent_ff,
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '31';
-SPO planx_&&sql_id._&&current_time..txt APP;
-/
-
-PRO
-PRO GV$ACTIVE_SESSION_HISTORY 
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_slices = '15';
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ MATERIALIZE */
-       h.sql_plan_hash_value plan_hash_value,
-       NVL(h.sql_plan_line_id, 0) line_id_ff,
-       SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation_ff,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM gv$active_session_history h
- WHERE :license = 'Y'
-   AND sql_id = :sql_id
- GROUP BY
-       h.sql_plan_hash_value,
-       h.sql_plan_line_id,
-       h.sql_plan_operation,
-       h.sql_plan_options,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       5 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.plan_hash_value,
-       e.line_id_ff,
-       e.operation_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       TO_NUMBER(NULL) plan_hash_value, 
-       TO_NUMBER(NULL) id, 
-       NULL operation_ff, 
        'Others' timed_event_ff
   FROM total
  WHERE others > 0
@@ -879,7 +880,8 @@ SELECT /*+
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
-   AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
+   AND h.snap_id >= &&x_minimum_snap_id. 
+   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -914,16 +916,6 @@ SELECT others samples_ff,
   FROM total
  WHERE others > 0
    AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by plan line and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '31';
-SPO planx_&&sql_id._&&current_time..txt APP;
 /
 
 PRO
@@ -1012,7 +1004,8 @@ SELECT /*+
  WHERE :license = 'Y'
    AND h.dbid = :dbid 
    AND h.sql_id = :sql_id
-   AND h.snap_id BETWEEN &&x_minimum_snap_id. AND &&x_maximum_snap_id.
+   AND h.snap_id >= &&x_minimum_snap_id. 
+   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
  GROUP BY
        h.sql_plan_hash_value,
        h.sql_plan_line_id,
@@ -1055,29 +1048,57 @@ SELECT others samples_ff,
    AND ROUND(100 * others / samples, 1) > 0.1
 /
 
-PRO
-PRO AWR History range considered: from &&x_minimum_date. to &&x_maximum_date.
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 31 days by plan line, obj and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '31';
-SPO planx_&&sql_id._&&current_time..txt APP;
-/
-
+COL description FOR A100;
+COL last_modified FOR A30;
 COL plan_name FOR A30;
-COL created FOR A30;
-COL last_executed FOR A30;
+COL created FOR A20;
 PRO
 PRO SQL Plan Baselines
 PRO ~~~~~~~~~~~~~~~~~~
 SPO planx_&&sql_id._&&current_time..txt APP;
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
+SELECT TO_CHAR(created, 'YYYY-MM-DD"T"HH24:MI:SS') created, plan_name, origin, enabled, accepted, fixed, reproduced, &&is_10g.&&is_11r1. adaptive,
+       last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name
 /
+SELECT --p.signature,
+       --t.sql_handle,
+       TO_CHAR(a.created, 'YYYY-MM-DD"T"HH24:MI:SS') created,
+       o.name plan_name,
+       p.plan_id,
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]')) plan_hash_2, -- plan_hash_value ignoring transient object names (must be same than plan_id)
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash"]')) plan_hash, -- normal plan_hash_value
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) plan_hash_full, -- adaptive plan (must be different than plan_hash_2 on loaded plans)
+       DECODE(BITAND(o.flags, 1),   0, 'NO', 'YES') enabled,
+       DECODE(BITAND(o.flags, 2),   0, 'NO', 'YES') accepted,
+       DECODE(BITAND(o.flags, 4),   0, 'NO', 'YES') fixed,
+       DECODE(BITAND(o.flags, 64),  0, 'YES', 'NO') reproduced,
+       &&is_10g.&&is_11r1. DECODE(BITAND(o.flags, 256), 0, 'NO', 'YES') adaptive,
+       a.description
+  FROM sqlobj$plan p,
+       sqlobj$ o,
+       sqlobj$auxdata a,
+       sql$text t
+ WHERE p.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND p.id = 1
+   AND p.signature = :signature
+   AND p.other_xml IS NOT NULL
+   --AND p.plan_id <> TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   --AND TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) = TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   AND o.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND o.signature = p.signature
+   AND o.plan_id = p.plan_id
+   --AND BITAND(o.flags, 1) = 1 /* enabled */
+   AND a.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND a.signature = p.signature
+   AND a.plan_id = p.plan_id
+   AND t.signature = p.signature
+ ORDER BY
+       a.created,
+       o.name
+/
 SET HEA OFF PAGES 0;
-SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'))
+SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.', NULL, 'ADVANCED'))
 /
 SET HEA ON PAGES 50;
 
@@ -1136,6 +1157,8 @@ BEGIN
   	       AND h.dbid = :dbid
   	       AND h.sql_id = :sql_id
   	       AND h.current_obj# >= 0
+  	       AND h.snap_id >= &&x_minimum_snap_id.
+  	       AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
   	       AND o.object_id(+) = h.current_obj#
   	    )
   	    SELECT 'TABLE', t.owner, t.table_name

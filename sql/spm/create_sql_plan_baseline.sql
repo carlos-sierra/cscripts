@@ -30,6 +30,7 @@ WHENEVER SQLERROR CONTINUE;
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 SET SERVEROUT OFF;
+SET NUM 20;
 
 ACC sql_id PROMPT 'SQL_ID: ';
 
@@ -73,7 +74,8 @@ SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = :signature AND R
 COL plan_name FOR A30;
 COL created FOR A30;
 COL last_executed FOR A30;
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
+COL description FOR A100;
+SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name;
 
@@ -85,8 +87,8 @@ COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
 COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
 COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
 COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
-COL avg_row_awr FOR 999,999,990 HEA 'Rows Avg|AWR';
-COL avg_row_mem FOR 999,999,990 HEA 'Rows Avg|MEM';
+COL avg_row_awr FOR 999,990.000 HEA 'Rows Avg|AWR';
+COL avg_row_mem FOR 999,990.000 HEA 'Rows Avg|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
 COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
@@ -173,7 +175,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time)/SUM(executions) avg_et_us,
        SUM(cpu_time)/SUM(executions) avg_cpu_us,
        ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
-       ROUND(SUM(rows_processed)/SUM(executions)) avg_rows_processed,
+       ROUND(SUM(rows_processed)/SUM(executions), 3) avg_rows_processed,
        SUM(executions) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -188,7 +190,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
        SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us,
        ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) avg_buffer_gets,
-       ROUND(SUM(rows_processed_delta)/SUM(executions_delta)) avg_rows_processed,
+       ROUND(SUM(rows_processed_delta)/SUM(executions_delta), 3) avg_rows_processed,
        SUM(executions_delta) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -291,7 +293,7 @@ SELECT MIN(p.snap_id) begin_snap_id, MAX(p.snap_id) end_snap_id
    AND s.instance_number = p.instance_number;
 
 VAR sqlset_name VARCHAR2(30);
-EXEC :sqlset_name := REPLACE('s_&&sql_id.', ' ');
+EXEC :sqlset_name := UPPER(REPLACE('s_&&sql_id.', ' '));
 PRINT sqlset_name;
 
 SET SERVEROUT ON;
@@ -350,16 +352,155 @@ PRINT plans
 COL sql_handle NEW_V sql_handle;
 SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = :signature AND ROWNUM = 1;
 
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
+---------------------------------------------------------------------------------------
+
+-- disable baselines on this sql if metadata is corrupt
+DECLARE
+  l_plans INTEGER;
+  l_plans_t INTEGER := 0;
+BEGIN
+  FOR i IN (SELECT t.sql_handle,
+                   o.name plan_name,
+                   a.description
+              FROM sqlobj$plan p,
+                   sqlobj$ o,
+                   sqlobj$auxdata a,
+                   sql$text t
+             WHERE p.signature = :signature
+               AND p.obj_type = 2 /* 1=profile, 2=baseline, 3=patch */
+               AND p.id = 1
+               AND p.other_xml IS NOT NULL
+               -- plan_hash_value ignoring transient object names (must be same than plan_id)
+               AND p.plan_id <> TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+               -- adaptive plan (must be different than plan_hash_2 on loaded plans)
+               --AND TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) = TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+               AND o.obj_type = 2 /* 1=profile, 2=baseline, 3=patch */
+               AND o.signature = p.signature
+               AND o.plan_id = p.plan_id
+               AND BITAND(o.flags, 1) = 1 /* enabled */
+               AND a.obj_type = 2 /* 1=profile, 2=baseline, 3=patch */
+               AND a.signature = p.signature
+               AND a.plan_id = p.plan_id
+               AND t.signature = p.signature
+             ORDER BY
+                   t.sql_handle,
+                   o.name)
+  LOOP
+    l_plans :=
+    DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
+      sql_handle      => i.sql_handle,
+      plan_name       => i.plan_name,
+      attribute_name  => 'ENABLED',
+      attribute_value => 'NO'
+    );
+    l_plans :=
+    DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
+      sql_handle      => i.sql_handle,
+      plan_name       => i.plan_name,
+      attribute_name  => 'DESCRIPTION',
+      attribute_value => TRIM(i.description||' NON-FPZ ORA-13831 DISABLED='||TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS'))
+    );
+    l_plans_t := l_plans_t + l_plans;
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('PLANS:'||l_plans_t);
+END;
+/
+
+---------------------------------------------------------------------------------------
+
+COL description FOR A100;
+COL last_modified FOR A30;
+COL plan_name FOR A30;
+COL created FOR A20;
+
+SELECT TO_CHAR(created, 'YYYY-MM-DD"T"HH24:MI:SS') created, plan_name, origin, enabled, accepted, fixed, reproduced, --adaptive,
+       last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
-ORDER BY created, plan_name;
+ORDER BY created, plan_name
+/
+
+SELECT --p.signature,
+       --t.sql_handle,
+       TO_CHAR(a.created, 'YYYY-MM-DD"T"HH24:MI:SS') created,
+       o.name plan_name,
+       p.plan_id,
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]')) plan_hash_2, -- plan_hash_value ignoring transient object names (must be same than plan_id)
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash"]')) plan_hash, -- normal plan_hash_value
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) plan_hash_full, -- adaptive plan (must be different than plan_hash_2 on loaded plans)
+       DECODE(BITAND(o.flags, 1),   0, 'NO', 'YES') enabled,
+       DECODE(BITAND(o.flags, 2),   0, 'NO', 'YES') accepted,
+       DECODE(BITAND(o.flags, 4),   0, 'NO', 'YES') fixed,
+       DECODE(BITAND(o.flags, 64),  0, 'YES', 'NO') reproduced,
+       --DECODE(BITAND(o.flags, 256), 0, 'NO', 'YES') adaptive,
+       a.description
+  FROM sqlobj$plan p,
+       sqlobj$ o,
+       sqlobj$auxdata a,
+       sql$text t
+ WHERE p.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND p.id = 1
+   AND p.signature = :signature
+   AND p.other_xml IS NOT NULL
+   AND p.plan_id <> TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   --AND TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) = TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   AND o.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND o.signature = p.signature
+   AND o.plan_id = p.plan_id
+   --AND BITAND(o.flags, 1) = 1 /* enabled */
+   AND a.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND a.signature = p.signature
+   AND a.plan_id = p.plan_id
+   AND t.signature = p.signature
+ ORDER BY
+       a.created,
+       o.name
+/
 
 SET HEA OFF PAGES 0
-SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.'));
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_handle.', NULL, 'ADVANCED'));
 SET HEA ON PAGES 25
 
-SELECT created, plan_name, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description
+SELECT TO_CHAR(created, 'YYYY-MM-DD"T"HH24:MI:SS') created, plan_name, origin, enabled, accepted, fixed, reproduced, --adaptive,
+       last_executed, last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
-ORDER BY created, plan_name;
+ORDER BY created, plan_name
+/
+
+SELECT --p.signature,
+       --t.sql_handle,
+       TO_CHAR(a.created, 'YYYY-MM-DD"T"HH24:MI:SS') created,
+       o.name plan_name,
+       p.plan_id,
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]')) plan_hash_2, -- plan_hash_value ignoring transient object names (must be same than plan_id)
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash"]')) plan_hash, -- normal plan_hash_value
+       TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) plan_hash_full, -- adaptive plan (must be different than plan_hash_2 on loaded plans)
+       DECODE(BITAND(o.flags, 1),   0, 'NO', 'YES') enabled,
+       DECODE(BITAND(o.flags, 2),   0, 'NO', 'YES') accepted,
+       DECODE(BITAND(o.flags, 4),   0, 'NO', 'YES') fixed,
+       DECODE(BITAND(o.flags, 64),  0, 'YES', 'NO') reproduced,
+       --DECODE(BITAND(o.flags, 256), 0, 'NO', 'YES') adaptive,
+       a.description
+  FROM sqlobj$plan p,
+       sqlobj$ o,
+       sqlobj$auxdata a,
+       sql$text t
+ WHERE p.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND p.id = 1
+   AND p.signature = :signature
+   AND p.other_xml IS NOT NULL
+   AND p.plan_id <> TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   --AND TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) = TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
+   AND o.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND o.signature = p.signature
+   AND o.plan_id = p.plan_id
+   --AND BITAND(o.flags, 1) = 1 /* enabled */
+   AND a.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND a.signature = p.signature
+   AND a.plan_id = p.plan_id
+   AND t.signature = p.signature
+ ORDER BY
+       a.created,
+       o.name
+/
 
 SPO OFF;

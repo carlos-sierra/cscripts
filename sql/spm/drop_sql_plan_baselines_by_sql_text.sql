@@ -52,12 +52,12 @@ COL plan_name FOR A30;
 COL created FOR A30;
 COL last_executed FOR A30;
 COL last_modified FOR A30;
-COL description FOR A60;
+COL description FOR A100;
 BRE ON sql_handle SKIP PAGE ON signature;
 
 
 SELECT sql_handle, signature, plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified, description,
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified, description,
        REPLACE(DBMS_LOB.SUBSTR(sql_text, 100), CHR(10), CHR(32)) sql_text_100
   FROM dba_sql_plan_baselines
  WHERE LOWER(DBMS_LOB.SUBSTR(sql_text, 4000)) LIKE LOWER('&&text_string.%')
@@ -68,7 +68,7 @@ SELECT sql_handle, signature, plan_name,
 /
 
 SELECT plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified
   FROM dba_sql_plan_baselines
  WHERE LOWER(DBMS_LOB.SUBSTR(sql_text, 4000)) LIKE LOWER('&&text_string.%')
     OR LOWER(description) LIKE LOWER('&&text_string.%')
@@ -95,7 +95,7 @@ END;
 /
 
 SELECT plan_name, 
-       created, origin, enabled, accepted, fixed, reproduced, last_executed, last_modified
+       created, origin, enabled, accepted, fixed, reproduced, adaptive, last_executed, last_modified
   FROM dba_sql_plan_baselines
  WHERE LOWER(DBMS_LOB.SUBSTR(sql_text, 4000)) LIKE LOWER('&&text_string.%')
     OR LOWER(description) LIKE LOWER('&&text_string.%')

@@ -31,6 +31,7 @@ SELECT SUM(s.executions) executions, /* EXCLUDE_ME */
        ROUND(SUM(s.elapsed_time)/1e6) elapsed_seconds,
        ROUND(SUM(s.cpu_time)/1e6) cpu_seconds,
        CASE WHEN SUM(s.executions) > 0 THEN ROUND(SUM(s.elapsed_time)/SUM(s.executions)/1e6, 6) END secs_per_exec,
+       CASE WHEN SUM(s.executions) > 0 THEN ROUND(SUM(s.rows_processed)/SUM(s.executions)) END rows_per_exec,
        MIN(s.plan_hash_value) min_phv,
        COUNT(DISTINCT s.plan_hash_value) plns,
        MAX(s.plan_hash_value) max_phv,
@@ -44,8 +45,17 @@ SELECT SUM(s.executions) executions, /* EXCLUDE_ME */
        s.module,
        s.action
   FROM v$sql s
- WHERE ((UPPER(s.sql_text) LIKE UPPER('%&&sql_text_piece.%') AND UPPER(s.sql_text) NOT LIKE '%EXCLUDE_ME%') OR s.sql_id = '&&sql_text_piece.')
+ WHERE (    s.sql_text LIKE '&&sql_text_piece.%'
+         OR s.sql_text LIKE '%&&sql_text_piece.%'
+         OR UPPER(s.sql_text) LIKE UPPER('%&&sql_text_piece.%') 
+         OR s.sql_id = '&&sql_text_piece.'
+         OR TO_CHAR(s.exact_matching_signature) = '&&sql_text_piece.'
+         OR s.sql_plan_baseline = '&&sql_text_piece.'
+         OR TO_CHAR(s.plan_hash_value) = '&&sql_text_piece.'
+       )
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
+   AND UPPER(s.sql_text) NOT LIKE '%EXCLUDE_ME%'
+   --AND s.con_id > 2
  GROUP BY
        s.con_id, s.sql_id, 
        SUBSTR(s.sql_text, 1, 100),
@@ -59,9 +69,14 @@ SELECT SUM(s.executions) executions, /* EXCLUDE_ME */
 SELECT /* EXCLUDE_ME */ (SELECT p.name FROM v$pdbs p WHERE p.con_id = h.con_id) pdb_name, h.con_id,
         h.sql_id, DBMS_LOB.SUBSTR(h.sql_text, 100) sql_text_100
   FROM dba_hist_sqltext h
- WHERE ((UPPER(DBMS_LOB.SUBSTR(h.sql_text, 4000)) LIKE UPPER('%&&sql_text_piece.%') AND UPPER(DBMS_LOB.SUBSTR(h.sql_text, 4000)) NOT LIKE '%EXCLUDE_ME%') OR h.sql_id = '&&sql_text_piece.')
+ WHERE (    DBMS_LOB.SUBSTR(h.sql_text, 4000) LIKE '&&sql_text_piece.%'
+         OR DBMS_LOB.SUBSTR(h.sql_text, 4000) LIKE '%&&sql_text_piece.%'
+         OR UPPER(DBMS_LOB.SUBSTR(h.sql_text, 4000)) LIKE UPPER('%&&sql_text_piece.%') 
+         OR DBMS_LOB.SUBSTR(h.sql_text, 4000) = '&&sql_text_piece.'
+       )
    AND DBMS_LOB.SUBSTR(h.sql_text, 4000) NOT LIKE '/* SQL Analyze(%'
-   AND h.con_id > 2
+   AND UPPER(DBMS_LOB.SUBSTR(h.sql_text, 4000)) NOT LIKE '%EXCLUDE_ME%'
+   --AND h.con_id > 2
  ORDER BY 1, 2
 /
 

@@ -83,6 +83,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN sql_text_100 LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text_100 LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text_100 LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text_100 LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text_100 LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text_100 LIKE '/* deleteBucketGarbage */'||CHR(37) 

@@ -33,6 +33,7 @@ SELECT plan_name, /* exclude_me */
        accepted,
        fixed,
        reproduced,
+       adaptive, 
        autopurge
   FROM dba_sql_plan_baselines
  WHERE sql_handle = '&&sql_handle.'

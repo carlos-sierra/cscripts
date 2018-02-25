@@ -18,7 +18,7 @@ SELECT sql_handle, sql_text /* exclude_me */
  WHERE sql_handle = '&&sql_handle.'
    AND ROWNUM = 1;
 
-SELECT plan_name, enabled, accepted, fixed, reproduced, created /* exclude_me */
+SELECT plan_name, enabled, accepted, fixed, reproduced, adaptive, created /* exclude_me */
   FROM dba_sql_plan_baselines
  WHERE sql_handle = '&&sql_handle.'
  ORDER BY
@@ -26,7 +26,7 @@ SELECT plan_name, enabled, accepted, fixed, reproduced, created /* exclude_me */
 
 ACC plan_name PROMPT 'Enter optional Plan Name: ';
 
-SELECT plan_name, enabled, accepted, fixed, reproduced, created /* exclude_me */
+SELECT plan_name, enabled, accepted, fixed, reproduced, adaptive, created /* exclude_me */
   FROM dba_sql_plan_baselines
  WHERE sql_handle = '&&sql_handle.'
    AND plan_name = NVL('&&plan_name.', plan_name)

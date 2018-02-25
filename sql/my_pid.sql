@@ -1,0 +1,1 @@
+SELECT pid, spid FROM v$process where addr IN (SELECT paddr FROM V$session where sid = (select sid from v$mystat where rownum<2));  

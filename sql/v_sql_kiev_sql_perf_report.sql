@@ -58,6 +58,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -101,12 +102,17 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        CASE WHEN t.sql_text LIKE 'LOCK TABLE%' THEN t.sql_text ELSE SUBSTR(t.sql_text, 1, INSTR(t.sql_text, '*/') + 1) END kiev_api,
        (SELECT COUNT(DISTINCT c.sql_plan_baseline) FROM v$sql c WHERE c.sql_id = s.sql_id AND c.sql_plan_baseline IS NOT NULL) spbs,
        a.name command_name,
-       MIN(s.first_load_time) first_load_time
+       MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time
   FROM gv$sql s,
        my_tx_sql t,
        audit_actions a
  WHERE s.executions > 0
    AND s.elapsed_time > 0
+   AND s.is_obsolete = 'N'
+   AND s.object_status = 'VALID'
+   AND s.is_shareable = 'Y'
+   AND s.last_active_time > SYSDATE - (1/24) -- active on the last 1hr
    AND t.sql_id = s.sql_id
    AND a.action = s.command_type
  GROUP BY
@@ -127,6 +133,7 @@ SELECT q.kiev_tx,
        q.min_phv,
        q.max_phv,
        q.first_load_time,
+       TO_CHAR(q.last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
        q.spbs,
        q.kiev_api
   FROM my_query q

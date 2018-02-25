@@ -1,6 +1,7 @@
 ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET PAGES 200;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -145,12 +146,6 @@ SELECT TO_CHAR(CAST(h.sample_time AS DATE), 'YYYY-MM-DD"T"HH24:MI:SS') sample_da
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sql q WHERE q.sql_id = h.sql_id AND q.con_id = h.con_id AND ROWNUM = 1) sql_text_100_only,
-       h.current_obj#,
-       h.current_file#,
-       h.current_block#,
-       h.current_row#,
-       h.in_parse,
-       h.in_hard_parse,
        h.current_obj#,
        h.current_file#,
        h.current_block#,

@@ -3,6 +3,7 @@ PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+begin
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET PAGES 200;
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -72,6 +73,7 @@ SELECT sql_id, sql_text,
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -162,6 +164,7 @@ SELECT sql_id, sql_text,
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -252,6 +255,7 @@ SELECT sql_id, sql_text,
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -334,6 +338,7 @@ SELECT sql_id, sql_text,
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 

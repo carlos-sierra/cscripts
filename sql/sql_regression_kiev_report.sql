@@ -3,7 +3,7 @@
 -- File name:   sql_regression.sql
 --
 -- Purpose:     Find SQL statements that have had a performance regression or improvement
---              of more than 10x during the past 7 days (10 and 7 are default values)
+--              of more than 10x around a particular date and time
 --
 -- Author:      Carlos Sierra
 --
@@ -15,7 +15,7 @@
 --              Designed to be used on OLTP loads, where transaction rate is high.
 --              
 --              Pass values (when asked) for change threshold (default of 10 times) and 
---              how far back in history you want to review (default of 7 days).
+--              how far back in history you want to review (default is past 14 hrs).
 --
 --              Execute connected into the PDB of interest, or CDB.
 --
@@ -34,7 +34,7 @@
 ---------------------------------------------------------------------------------------
 --
 ACC change_factor PROMPT 'Change factor (i.e. 10, 5, 2) default 10: '
-ACC sample_time PROMPT 'Date and Time (i.e. 2017-09-15T18:00:07): ';
+ACC sample_time PROMPT 'Date and Time (i.e. 2018-01-29T18:00:07): ';
 PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
@@ -117,6 +117,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
            OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
+           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
          THEN 'READ'
          WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
            OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
@@ -233,7 +234,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND s1.snap_id = h.snap_id 
    AND s1.dbid = h.dbid 
    AND s1.instance_number = h.instance_number
-   AND CAST(s1.end_interval_time AS DATE) BETWEEN TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') - 1 AND TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS') + 1 -- +/- 1d
+   AND CAST(s1.end_interval_time AS DATE) BETWEEN NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) - 1 AND NVL(TO_DATE('&&sample_time.', 'YYYY-MM-DD"T"HH24:MI:SS'), SYSDATE) + 1 -- +/- 1d
    AND s2.snap_id(+) = h.lag_snap_id 
    AND s2.dbid(+) = h.dbid 
    AND s2.instance_number(+) = h.instance_number

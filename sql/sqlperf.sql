@@ -58,8 +58,8 @@ COL avg_cpu_ms_awr FOR A11 HEA 'CPU Avg|AWR (ms)';
 COL avg_cpu_ms_mem FOR A11 HEA 'CPU Avg|MEM (ms)';
 COL avg_bg_awr FOR 999,999,990 HEA 'BG Avg|AWR';
 COL avg_bg_mem FOR 999,999,990 HEA 'BG Avg|MEM';
-COL avg_row_awr FOR 999,999,990 HEA 'Rows Avg|AWR';
-COL avg_row_mem FOR 999,999,990 HEA 'Rows Avg|MEM';
+COL avg_row_awr FOR 999,990.000 HEA 'Rows Avg|AWR';
+COL avg_row_mem FOR 999,990.000 HEA 'Rows Avg|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
 COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
@@ -146,7 +146,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time)/SUM(executions) avg_et_us,
        SUM(cpu_time)/SUM(executions) avg_cpu_us,
        ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
-       ROUND(SUM(rows_processed)/SUM(executions)) avg_rows_processed,
+       ROUND(SUM(rows_processed)/SUM(executions), 3) avg_rows_processed,
        SUM(executions) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -161,7 +161,7 @@ SELECT plan_hash_value,
        SUM(elapsed_time_delta)/SUM(executions_delta) avg_et_us,
        SUM(cpu_time_delta)/SUM(executions_delta) avg_cpu_us,
        ROUND(SUM(buffer_gets_delta)/SUM(executions_delta)) avg_buffer_gets,
-       ROUND(SUM(rows_processed_delta)/SUM(executions_delta)) avg_rows_processed,
+       ROUND(SUM(rows_processed_delta)/SUM(executions_delta), 3) avg_rows_processed,
        SUM(executions_delta) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
@@ -232,9 +232,10 @@ PRO ~~~~~~
 SELECT inst_id,
        child_number,
        plan_hash_value,
-       is_shareable shar,
-       is_obsolete obsl,
        SUBSTR(object_status, 1, 7) obj_sta, 
+       is_obsolete obsl,
+       is_shareable shar,
+       TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
        sql_plan_baseline,
        sql_profile,
        sql_patch
@@ -256,11 +257,12 @@ PRO ~~~~~~
 SELECT inst_id,
        child_number,
        plan_hash_value,
+       SUBSTR(object_status, 1, 7) obj_sta, 
+       is_obsolete obsl,
+       is_shareable shar,
+       TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
        is_bind_sensitive sens,
        is_bind_aware aware,
-       is_shareable shar,
-       is_obsolete obsl,
-       SUBSTR(object_status, 1, 7) obj_sta, 
        users_executing u_exec,
        TO_CHAR(ROUND(elapsed_time/executions/1e6,6), '999,990.000000') et_secs_per_exec,
        TO_CHAR(ROUND(cpu_time/executions/1e6,6), '999,990.000000') cpu_secs_per_exec,
@@ -270,7 +272,6 @@ SELECT inst_id,
        ROUND(buffer_gets/executions) buffers_per_exec,
        TO_CHAR(ROUND(rows_processed/executions, 3), '999,999,999,990.000') rows_per_exec,
        last_load_time,
-       TO_CHAR(last_active_time, 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
        invalidations,
        loads
   FROM gv$sql
@@ -356,25 +357,34 @@ SELECT inst_id,
        inst_id,
        stat_name;
 
+COL cursors FOR 9999990;
+COL valid FOR 99990;
+COL invalid FOR 9999990;
+COL obsolete FOR 99999990;
+COL shareable FOR 999999990;
+COL bind_sens FOR 999999990;
+COL bind_aware FOR 9999999990;
+COL executions FOR 999,999,990;
+COL bg_per_exec FOR 99999999999;
+
 PRO
-PRO GV$SQL (summary by phv)
+PRO GV$SQL (summary by phv, order by last_active_time)
 PRO ~~~~~~
 SELECT TO_CHAR(MAX(last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
        plan_hash_value,
+       COUNT(DISTINCT child_number) cursors,
+       SUM(CASE SUBSTR(object_status, 1, 5) WHEN 'VALID' THEN 1 ELSE 0 END) valid,
+       SUM(CASE SUBSTR(object_status, 1, 7) WHEN 'INVALID' THEN 1 ELSE 0 END) invalid,       
+       SUM(CASE is_obsolete WHEN 'Y' THEN 1 ELSE 0 END) obsolete,
+       SUM(CASE is_shareable WHEN 'Y' THEN 1 ELSE 0 END) shareable,
+       SUM(CASE is_bind_sensitive WHEN 'Y' THEN 1 ELSE 0 END) bind_sens,
+       SUM(CASE is_bind_aware WHEN 'Y' THEN 1 ELSE 0 END) bind_aware,
        TO_CHAR(ROUND(SUM(elapsed_time)/SUM(executions)/1e6,6), '999,990.000000') et_secs_per_exec,
        TO_CHAR(ROUND(SUM(cpu_time)/SUM(executions)/1e6,6), '999,990.000000') cpu_secs_per_exec,
        SUM(executions) executions,
        --TO_CHAR(ROUND(SUM(elapsed_time)/1e6,6), '999,999,999,990') et_secs_tot,
        --TO_CHAR(ROUND(SUM(cpu_time)/1e6,6), '999,999,999,990') cpu_secs_tot,
-       COUNT(DISTINCT child_number) cursors,
-       MAX(child_number) max_child,
-       SUM(CASE is_bind_sensitive WHEN 'Y' THEN 1 ELSE 0 END) bind_sens,
-       SUM(CASE is_bind_aware WHEN 'Y' THEN 1 ELSE 0 END) bind_aware,
-       SUM(CASE is_shareable WHEN 'Y' THEN 1 ELSE 0 END) shareable,
-       SUM(CASE is_obsolete WHEN 'Y' THEN 1 ELSE 0 END) obsolete,
-       SUM(CASE object_status WHEN 'VALID' THEN 1 ELSE 0 END) valid,
-       SUM(CASE object_status WHEN 'INVALID_UNAUTH' THEN 1 ELSE 0 END) invalid,       
-       ROUND(SUM(buffer_gets)/SUM(executions)) buffers_per_exec,
+       ROUND(SUM(buffer_gets)/SUM(executions)) bg_per_exec,
        TO_CHAR(ROUND(SUM(rows_processed)/SUM(executions), 3), '999,999,999,990.000') rows_per_exec
   FROM gv$sql
  WHERE sql_id = '&&sql_id.'
