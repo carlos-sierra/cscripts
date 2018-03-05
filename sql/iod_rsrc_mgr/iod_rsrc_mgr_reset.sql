@@ -1,4 +1,4 @@
--- IOD_RSRC_MGR_SET
+-- IOD_REPEATING_RSRC_MGR_RESET
 -- CDB Resource Manager - Setup 
 -- set p_report_only to N to update plan
 --
@@ -14,8 +14,8 @@ SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON 
 SET SERVEROUT ON SIZE UNLIMITED;
 COL zip_file_name NEW_V zip_file_name;
 COL output_file_name NEW_V output_file_name;
-SELECT 'iod_rsrc_mgr_reset_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_')) zip_file_name FROM v$database, v$instance;
-SELECT '&&zip_file_name._'||TO_CHAR(SYSDATE, 'yyyymmdd"T"hh24miss') output_file_name FROM DUAL;
+SELECT '/tmp/iod_rsrc_mgr_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_')) zip_file_name FROM v$database, v$instance;
+SELECT '&&zip_file_name._'||TO_CHAR(SYSDATE, 'dd"T"hh24') output_file_name FROM DUAL;
 --
 SPO &&output_file_name..txt;
 --
@@ -41,18 +41,21 @@ SELECT plan_id,
 /
 --
 SELECT mandatory,
-       pluggable_database, 
-       shares, 
-       utilization_limit,
-       parallel_server_limit,
-       status,
        directive_type,
+       utilization_limit,
+       shares, 
+       parallel_server_limit,
+       pluggable_database, 
+       status,
        comments
   FROM dba_cdb_rsrc_plan_directives
  WHERE plan = UPPER(TRIM('&plan.'))
  ORDER BY 
        mandatory DESC,
-       CASE WHEN pluggable_database LIKE '%$%' THEN 1 ELSE 2 END,
+       directive_type,
+       utilization_limit DESC,
+       shares DESC,
+       parallel_server_limit DESC,
        pluggable_database
 /
 --
@@ -69,18 +72,21 @@ SELECT plan_id,
 /
 --
 SELECT mandatory,
-       pluggable_database, 
-       shares, 
-       utilization_limit,
-       parallel_server_limit,
-       status,
        directive_type,
+       utilization_limit,
+       shares, 
+       parallel_server_limit,
+       pluggable_database, 
+       status,
        comments
   FROM dba_cdb_rsrc_plan_directives
  WHERE plan = UPPER(TRIM('&plan.'))
  ORDER BY 
        mandatory DESC,
-       CASE WHEN pluggable_database LIKE '%$%' THEN 1 ELSE 2 END,
+       directive_type,
+       utilization_limit DESC,
+       shares DESC,
+       parallel_server_limit DESC,
        pluggable_database
 /
 --

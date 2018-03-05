@@ -10,7 +10,6 @@ SET ECHO OFF VER OFF FEED OFF HEA OFF PAGES 0 TAB OFF LINES 300 TRIMS ON SERVERO
 COL zip_file_name NEW_V zip_file_name;
 COL output_file_name NEW_V output_file_name;
 SELECT '/tmp/iod_spm_fpz_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_')) zip_file_name FROM v$database, v$instance;
---SELECT '/tmp/iod_spm_fpz_cdb_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_'))||'_'||TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') output_file_name FROM v$database, v$instance;
 SELECT '&&zip_file_name._'||TO_CHAR(SYSDATE, 'dd"T"hh24') output_file_name FROM DUAL;
 SPO &&output_file_name..txt;
 EXEC c##iod.iod_spm.fpz(p_report_only => '&&report_only.');

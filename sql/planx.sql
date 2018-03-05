@@ -231,6 +231,8 @@ COL p99_cpu_ms FOR A11 HEA 'CPU 99th|Pctl (ms)';
 COL p97_cpu_ms FOR A11 HEA 'CPU 97th|Pctl (ms)';
 COL p95_cpu_ms FOR A11 HEA 'CPU 95th|Pctl (ms)';
 
+COL parsing_schema_name FOR A30;
+
 PRO
 PRO PLANS PERFORMANCE
 PRO ~~~~~~~~~~~~~~~~~

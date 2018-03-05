@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
-/* $Header: iod_spm.pks.sql 2018-02-21T15:33:16 carlos.sierra $ */
+/* $Header: iod_spm.pks.sql 2018-03-05T21:15:31 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */
 --
 -- Purpose:     Implement SQL Plan Management (SPM) on a high-rate OLTP application 

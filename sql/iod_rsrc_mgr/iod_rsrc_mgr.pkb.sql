@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE BODY &&1..iod_rsrc_mgr AS
-/* $Header: iod_rsrc_mgr.pkb.sql 2018-02-05T15:19:48 carlos.sierra $ */
+/* $Header: iod_rsrc_mgr.pkb.sql 2018-02-27T01:15:26 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */  
 PROCEDURE reset (
   p_report_only IN VARCHAR2 DEFAULT gk_report_only,
@@ -257,7 +257,7 @@ BEGIN
         DBMS_RESOURCE_MANAGER.create_cdb_plan_directive (
           plan                      => l_plan,
           pluggable_database        => i.pdb_name,
-          comment                   => 'IOD_RSRC_MGR '||TO_CHAR(SYSDATE, k_date_format),
+          comment                   => 'IOD_RSRC_MGR NEW:'||TO_CHAR(SYSDATE, k_date_format)||' 99th:'||i.aas_p99||' 95th:'||i.aas_p95,
           shares                    => i.shares,
           utilization_limit         => i.utilization_limit,
           parallel_server_limit     => k_parallel_server_limit_def
@@ -283,7 +283,7 @@ BEGIN
         DBMS_RESOURCE_MANAGER.update_cdb_plan_directive (
           plan                      => l_plan,
           pluggable_database        => i.pdb_name,
-          new_comment               => 'IOD_RSRC_MGR '||TO_CHAR(SYSDATE, k_date_format),
+          new_comment               => 'IOD_RSRC_MGR UPD:'||TO_CHAR(SYSDATE, k_date_format)||' 99th:'||i.aas_p99||' 95th:'||i.aas_p95,
           new_shares                => i.shares,
           new_utilization_limit     => i.utilization_limit,
           new_parallel_server_limit => k_parallel_server_limit_def
@@ -334,7 +334,11 @@ BEGIN
   IF l_switch_plan = 'Y' AND l_report_only = 'N' AND NVL(l_value, 'null') <> 'FORCE:'||l_plan THEN
     output('--');
     output('CDB plan: '||l_plan||' - switch');
-    --EXECUTE IMMEDIATE 'ALTER SYSTEM SET resource_manager_plan = ''FORCE:'||l_plan||''';';
+    SELECT value INTO l_value FROM v$parameter WHERE name = 'spfile';
+    IF l_value IS NOT NULL THEN
+      EXECUTE IMMEDIATE 'ALTER SYSTEM SET resource_manager_plan = ''FORCE:'||l_plan||'''';
+    END IF;
+    -- most probably we dont need this api call below, but oem genetrate ddl produces it as well...
     DBMS_RESOURCE_MANAGER.switch_plan (
       plan_name                     => l_plan,
       allow_scheduler_plan_switches => FALSE

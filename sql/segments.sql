@@ -12,6 +12,8 @@ COL percent FOR 990.0;
 COL segment_type HEA 'TYPE';
 COL owner FOR A30;
 COL segment_name FOR A30;
+COL table_name FOR A30;
+COL column_name FOR A30;
 
 CLE BRE;
 BRE ON segment_type SKIP 1;
@@ -37,23 +39,32 @@ SELECT v.segment_type,
        v.owner,
        v.segment_name,
        v.size_gb,
-       v.percent
+       v.percent,
+       v.table_name,
+       v.column_name
   FROM
 (
-SELECT SUBSTR(s.segment_type, 1, 5) segment_type,
+SELECT s.segment_type,
        s.owner,
        s.segment_name,
        SUM(s.bytes) / POWER(2, 30) size_gb,
        RANK() OVER (ORDER BY SUM(s.bytes) DESC) rank,
-       ROUND(100 * SUM(s.bytes) / SUM(SUM(s.bytes)) OVER (), 1) percent
-  FROM dba_segments s
+       ROUND(100 * SUM(s.bytes) / SUM(SUM(s.bytes)) OVER (), 1) percent,
+       l.table_name,
+       l.column_name
+  FROM dba_segments s,
+       dba_lobs l
  WHERE s.tablespace_name = UPPER(TRIM('&&tablespace_name.'))
-   AND SUBSTR(s.segment_type, 1, 5) IN ('TABLE', 'INDEX')
    AND s.segment_name NOT LIKE 'BIN$%' 
+   AND l.owner(+) = s.owner
+   AND l.segment_name(+) = s.segment_name
+   AND l.tablespace_name(+) = s.tablespace_name
  GROUP BY
-       SUBSTR(s.segment_type, 1, 5),
+       s.segment_type,
        s.owner,
-       s.segment_name
+       s.segment_name,
+       l.table_name,
+       l.column_name
 ) v
  WHERE v.rank <= 20 OR v.percent >= 1
  ORDER BY

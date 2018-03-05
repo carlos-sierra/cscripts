@@ -1,3 +1,4 @@
+-- dba_cdb_rsrc_plan_directives.sql
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 
 COL current_resource_manager_plan FOR A128;
@@ -29,19 +30,22 @@ COL parallel_server_limit FOR 99999999 HEA 'PARALLEL|SERVER';
 COL directive_type FOR A20;
 
 SELECT mandatory,
-       pluggable_database, 
-       shares, 
-       utilization_limit,
-       parallel_server_limit,
-       status,
        directive_type,
+       utilization_limit,
+       shares, 
+       parallel_server_limit,
+       pluggable_database, 
+       status,
        comments
   FROM dba_cdb_rsrc_plan_directives
  WHERE plan = UPPER(TRIM('&plan.'))
  ORDER BY 
        mandatory DESC,
-       CASE WHEN pluggable_database LIKE '%$%' THEN 1 ELSE 2 END,
+       directive_type,
+       utilization_limit DESC,
+       shares DESC,
+       parallel_server_limit DESC,
        pluggable_database
- /
+/
  
  

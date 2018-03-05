@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE BODY &&1..iod_spm AS
-/* $Header: iod_spm.pkb.sql 2018-02-21T15:33:16 carlos.sierra $ */
+/* $Header: iod_spm.pkb.sql 2018-03-05T21:15:31 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */  
 gk_date_format                 CONSTANT VARCHAR2(30) := 'YYYY-MM-DD"T"HH24:MI:SS';
 gk_output_part_1_length        CONSTANT INTEGER := 35;
@@ -1664,6 +1664,8 @@ IS
     l2_plan_hash_2 NUMBER;
     l2_plan_hash_full NUMBER;
     l2_other_xml CLOB;
+    self_deadlock EXCEPTION;
+    PRAGMA EXCEPTION_INIT(self_deadlock, -04024); -- ORA-04024: self-deadlock detected while trying to mutex pin cursor
   BEGIN
     l_statement := 
     q'{DECLARE PRAGMA AUTONOMOUS_TRANSACTION; BEGIN }'||CHR(10)||
@@ -1695,6 +1697,9 @@ IS
     DBMS_SQL.VARIABLE_VALUE(c => l_cursor_id, name => ':other_xml', value => r_other_xml);
     DBMS_SQL.CLOSE_CURSOR(c => l_cursor_id);
     DBMS_LOCK.SLEEP(k_secs_after_any_spm_api_call);
+  EXCEPTION
+    WHEN self_deadlock THEN
+      output('ORA-04024: self-deadlock detected while trying to mutex pin cursor - on sql_plan_baseline_other_xml during '||p_signature||' '||p_plan_name||' scan');
   END sql_plan_baseline_other_xml;
   /* ---------------------------------------------------------------------------------- */  
   PROCEDURE get_sql_handle_and_plan_name (p_signature IN NUMBER, p_sysdate IN DATE, p_con_id IN NUMBER, r_sql_handle OUT VARCHAR2, r_plan_name OUT VARCHAR2)

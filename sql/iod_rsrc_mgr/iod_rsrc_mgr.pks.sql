@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE &&1..iod_rsrc_mgr AUTHID CURRENT_USER AS
-/* $Header: iod_rsrc_mgr.pks.sql 2018-02-05T15:19:48 carlos.sierra $ */
+/* $Header: iod_rsrc_mgr.pks.sql 2018-02-27T01:15:26 carlos.sierra $ */
 /* ------------------------------------------------------------------------------------ */
 --
 -- Purpose:     CDB Resource Manager - Setup

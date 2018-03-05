@@ -1,4 +1,6 @@
+-- delete_cdb_plan.sql
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+SET SERVEROUT ON SIZE UNLIMITED;
 
 COL current_resource_manager_plan FOR A128;
 SELECT value current_resource_manager_plan FROM v$parameter WHERE name = 'resource_manager_plan';
@@ -28,7 +30,8 @@ DECLARE
 BEGIN
   SELECT value INTO l_value FROM v$parameter WHERE name = 'resource_manager_plan';
   IF UPPER(l_value) LIKE '%'||UPPER('&plan.') THEN
-    DBMS_RESOURCE_MANAGER.switch_plan(NULL);
+    DBMS_OUTPUT.PUT_LINE('plan &plan. is active, then cannot delete it');
+    --DBMS_RESOURCE_MANAGER.switch_plan(NULL);
   END IF;
   --
   DBMS_RESOURCE_MANAGER.clear_pending_area;

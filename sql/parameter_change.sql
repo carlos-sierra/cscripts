@@ -1,3 +1,9 @@
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+
+COL parameter_name FOR A30;
+COL value FOR A30;
+COL prior_value FOR A30;
+
 WITH
 all_parameters AS (
 SELECT /*+  MATERIALIZE NO_MERGE   DYNAMIC_SAMPLING(4)  */ /* 1a.30 */
@@ -9,9 +15,7 @@ SELECT /*+  MATERIALIZE NO_MERGE   DYNAMIC_SAMPLING(4)  */ /* 1a.30 */
        value,
        isdefault,
        ismodified,
-       lag(value) OVER (PARTITION BY dbid,
-       con_id,
-       instance_number, parameter_hash ORDER BY snap_id) prior_value
+       LAG(value) OVER (PARTITION BY dbid, con_id, instance_number, parameter_hash ORDER BY snap_id) prior_value
   FROM dba_hist_parameter
 )
 SELECT /*+  NO_MERGE  */ /* 1a.30 */
@@ -36,4 +40,5 @@ SELECT /*+  NO_MERGE  */ /* 1a.30 */
        s.begin_interval_time DESC,
        --p.dbid,
        p.instance_number,
-       p.parameter_name;
+       p.parameter_name
+/
