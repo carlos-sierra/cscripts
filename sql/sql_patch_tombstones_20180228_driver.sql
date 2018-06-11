@@ -29,17 +29,19 @@
 SET HEA OFF FEED OFF ECHO OFF VER OFF;
 SET LIN 300 SERVEROUT ON;
 --
+DEF search_string = 'tombstones,HashRange';
 DEF search_string = '/* performScanQuery(%tombstones,HashRange%) */%SELECT sequenceNumber, KievTxnID, ROW_NUMBER%ORDER BY sequenceNumber DESC%';
 DEF cbo_hints = 'FIRST_ROWS(1)';
+DEF report_only = 'Y';
 --
+ALTER SESSION SET container = CDB$ROOT;
 SPO dynamic_sql_patch_tombstones_20180228.sql
 --
 SELECT 'PRO *** '||name||' ***'||CHR(10)||
        'ALTER SESSION SET container = '||name||';'||CHR(10)||
        '@sql_patch_tombstones_20180228.sql'
-  FROM v$pdbs
- WHERE con_id > 2
-   AND open_mode = 'READ WRITE'
+  FROM v$containers
+ WHERE open_mode = 'READ WRITE'
  ORDER BY
        con_id
 /
@@ -52,9 +54,6 @@ COL x_host_name NEW_V x_host_name;
 SELECT host_name x_host_name FROM v$instance;
 COL x_db_name NEW_V x_db_name;
 SELECT name x_db_name FROM v$database;
-COL x_container NEW_V x_container;
-SELECT 'NONE' x_container FROM DUAL;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 --
 SPO dynamic_sql_patch_tombstones_20180228.txt
 --

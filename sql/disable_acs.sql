@@ -7,6 +7,7 @@ SPO disable_acs_dynamic.sql
 SELECT 'PRO *** '||name||' ***'||CHR(10)||
        'ALTER SESSION SET container = '||name||';'||CHR(10)||
        'ALTER SYSTEM SET "_optimizer_adaptive_cursor_sharing" = FALSE;'||CHR(10)||
+       'ALTER SYSTEM SET "_optimizer_extended_cursor_sharing" = "NONE";'||CHR(10)||
        'ALTER SYSTEM SET "_optimizer_extended_cursor_sharing_rel" = "NONE";'||CHR(10)
   FROM v$containers
  WHERE open_mode = 'READ WRITE'

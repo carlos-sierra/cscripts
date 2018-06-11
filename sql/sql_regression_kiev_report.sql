@@ -35,7 +35,7 @@
 --
 ACC change_factor PROMPT 'Change factor (i.e. 10, 5, 2) default 10: '
 ACC sample_time PROMPT 'Date and Time (i.e. 2018-01-29T18:00:07): ';
-PRO KIEV Transaction: C=commitTx | B=beginTx | R=read | G=GC | CB=commitTx+beginTx | <null>=commitTx+beginTx+read+GC
+PRO KIEV Transaction: [{CBSGU}|C|B|S|G|U|CB|SG] (C=CommitTx B=BeginTx S=Scan G=GC U=Unknown)
 ACC kiev_tx PROMPT 'KIEV Transaction (opt): ';
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
@@ -75,6 +75,8 @@ COL change_factor NEW_V change_factor;
 SELECT NVL('&&change_factor.', '10') change_factor FROM DUAL;
 
 SPO sql_regression_kiev_&&kiev_tx._&&current_time..txt;
+PRO sql_regression_kiev_&&kiev_tx._&&current_time..txt
+PRO
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
 PRO CONTAINER: &&x_container.
@@ -86,64 +88,101 @@ PRO
 PRO SQL statements for which seconds per execution seems to have changed more than &&change_factor.x around &&sample_time..
 PRO
 
-WITH
+WITH 
+  FUNCTION application_category (p_sql_text IN VARCHAR2)
+  RETURN VARCHAR2
+  IS
+    gk_appl_cat_1                  CONSTANT VARCHAR2(10) := 'BeginTx'; -- 1st application category
+    gk_appl_cat_2                  CONSTANT VARCHAR2(10) := 'CommitTx'; -- 2nd application category
+    gk_appl_cat_3                  CONSTANT VARCHAR2(10) := 'Scan'; -- 3rd application category
+    gk_appl_cat_4                  CONSTANT VARCHAR2(10) := 'GC'; -- 4th application category
+    k_appl_handle_prefix           CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+    k_appl_handle_suffix           CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
+  BEGIN
+    IF   p_sql_text LIKE k_appl_handle_prefix||'addTransactionRow'||k_appl_handle_suffix 
+      OR p_sql_text LIKE k_appl_handle_prefix||'checkStartRowValid'||k_appl_handle_suffix 
+    THEN RETURN gk_appl_cat_1;
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'SPM:CP'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'findMatchingRow'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'readTransactionsSince'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'setValueByUpdate'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'setValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'exists'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'existsUnique'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'updateIdentityValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE 'LOCK TABLE'||CHR(37) 
+      OR  p_sql_text LIKE '/* null */ LOCK TABLE'||CHR(37)
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getTransactionProgress'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'recordTransactionState'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'checkEndRowValid'||k_appl_handle_suffix
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionCommitID'||k_appl_handle_suffix 
+    THEN RETURN gk_appl_cat_2;
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'getValues'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getNextIdentityValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performScanQuery'||k_appl_handle_suffix
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performFirstRowsScanQuery'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performContinuedScanValues'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketIndexSelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketKeySelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getAutoSequences'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketValueSelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'countTransactions'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch snapshots'||k_appl_handle_suffix 
+    THEN RETURN gk_appl_cat_3;
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'populateBucketGCWorkspace'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteBucketGarbage'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Populate workspace'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage fOR  transaction GC'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage in KTK GC'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'hashBucket'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getGCLogEntries'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventTryInsert'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'countAllRows'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete rows from'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'hashSnapshot'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'countKtkRows'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventMaxId'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'secondsSinceLastGcEvent'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionOlderThan'||k_appl_handle_suffix 
+    THEN RETURN gk_appl_cat_4;
+    ELSE RETURN 'Unknown';
+    END IF;
+  END application_category;
 all_sql AS (
-SELECT /*+ MATERIALIZE NO_MERGE */ 
+SELECT /*+ MATERIALIZE NO_MERGE */
        DISTINCT sql_id, sql_text FROM v$sql
 UNION
 SELECT DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) FROM dba_hist_sqltext
 ),
 all_sql_with_type AS (
-SELECT /*+ MATERIALIZE NO_MERGE */ 
+SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id, sql_text, 
-       CASE 
-         WHEN sql_text LIKE '/* addTransactionRow('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* checkStartRowValid('||CHR(37)||') */'||CHR(37) 
-         THEN 'BEGIN'
-         WHEN sql_text LIKE '/* findMatchingRows('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* readTransactionsSince('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* writeTransactionKeys('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* setValueByUpdate('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* setValue('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* deleteValue('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* exists('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* existsUnique('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* updateIdentityValue('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE 'LOCK TABLE '||CHR(37)||'KievTransactions IN EXCLUSIVE MODE'||CHR(37) 
-           OR sql_text LIKE '/* getTransactionProgress('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* recordTransactionState('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* checkEndRowValid('||CHR(37)||') */'||CHR(37)
-         THEN 'COMMIT'
-         WHEN sql_text LIKE '/* getValues('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* getNextIdentityValue('||CHR(37)||') */'||CHR(37) 
-           OR sql_text LIKE '/* performScanQuery('||CHR(37)||') */'||CHR(37)
-           OR sql_text LIKE '/* performStartScanValues('||CHR(37)||') */'||CHR(37)
-         THEN 'READ'
-         WHEN sql_text LIKE '/* populateBucketGCWorkspace */'||CHR(37) 
-           OR sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) 
-           OR sql_text LIKE '/* Populate workspace for transaction GC */'||CHR(37) 
-           OR sql_text LIKE '/* Delete garbage for transaction GC */'||CHR(37) 
-           OR sql_text LIKE '/* Populate workspace in KTK GC */'||CHR(37) 
-           OR sql_text LIKE '/* Delete garbage in KTK GC */'||CHR(37) 
-           OR sql_text LIKE '/* hashBucket */'||CHR(37) 
-         THEN 'GC'
-        END application_module
+       SUBSTR(CASE WHEN sql_text LIKE '/*'||CHR(37) THEN SUBSTR(sql_text, 1, INSTR(sql_text, '*/') + 1) ELSE sql_text END, 1, 100) sql_text_100,
+       application_category(sql_text) application_module
   FROM all_sql
 ),
 my_tx_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, MAX(sql_text) sql_text, MAX(application_module) application_module
+       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100, MAX(application_module) application_module
   FROM all_sql_with_type
  WHERE application_module IS NOT NULL
   AND (  
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%C%' AND application_module = 'COMMIT') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%B%' AND application_module = 'BEGIN') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%R%' AND application_module = 'READ') OR
-         (NVL('&&kiev_tx.', 'CBRG') LIKE '%G%' AND application_module = 'GC')
+         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'C'||CHR(37) AND application_module = 'CommitTx') OR
+         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'B'||CHR(37) AND application_module = 'BeginTx') OR
+         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'S'||CHR(37) AND application_module = 'Scan') OR
+         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'G'||CHR(37) AND application_module = 'GC') OR
+         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'U'||CHR(37) AND application_module = 'Unknown')
       )
  GROUP BY
        sql_id
 ),
+/****************************************************************************************/
 hist_sqlstat AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        -- gets all history to provision for lag of first row within window,
@@ -274,10 +313,11 @@ SELECT
        h.sql_id,
        h.snap_id
 /
+/****************************************************************************************/
 
 PRO
 PRO Investigate further using SQLd360, else planx.sql, else sqlperf.sql.
 PRO 
-
+PRO sql_regression_kiev_&&kiev_tx._&&current_time..txt
 SPO OFF;
 CL BREAK;

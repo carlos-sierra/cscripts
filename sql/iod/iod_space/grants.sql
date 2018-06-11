@@ -1,0 +1,1 @@
+GRANT SELECT ON sys.wri$_optstat_tab_history TO &&1. CONTAINER=ALL;

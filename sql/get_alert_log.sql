@@ -1,27 +1,15 @@
-COL alert_log NEW_V alert_log;
-SELECT value||'/alert_*.log' alert_log FROM v$diag_info WHERE name = 'Diag Trace';
-!cp &&alert_log. .
-!chmod 777 alert_*.log
-
-COL locale NEW_V locale;
-SELECT LOWER(REPLACE(SUBSTR(LOWER(host_name), 1 + INSTR(LOWER(host_name), '.', 1, 2), 30), '.', '_')) locale FROM v$instance
-/
-
-COL db_name NEW_V db_name;
-SELECT LOWER(name) db_name FROM v$database
-/
-
-COL con_name NEW_V con_name;
-SELECT 'NONE' con_name FROM DUAL;
-SELECT LOWER(SYS_CONTEXT('USERENV', 'CON_NAME')) con_name FROM DUAL
-/
-
-COL output_file_name NEW_V output_file_name;
-SELECT 'alert_&&locale._&&db_name._'||REPLACE('&&con_name.','$') output_file_name FROM DUAL
-/
-
-COL output_file_name NEW_V output_file_name;
-SELECT 'alert_&&locale._&&db_name._'||TO_CHAR(SYSDATE, 'YYYYMMDD"T"HH24MISS') output_file_name FROM DUAL
-/
-
-!rename alert &&output_file_name. alert_*.log
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+COL trace_dir NEW_V trace_dir FOR A100;
+COL alert_log NEW_V alert_log FOR A20;
+SELECT d.value trace_dir, 'alert_'||t.instance||'.log' alert_log FROM v$diag_info d, v$thread t WHERE d.name = 'Diag Trace';
+HOS cp &&trace_dir./&&alert_log. .
+HOS chmod 777 &&alert_log.
+PRO
+PRO Current and prior alert logs
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+HOS ls -lat &&trace_dir./*alert*log*
+PRO
+PRO Copy of current alert log
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
+HOS pwd
+HOS ls -lat &&alert_log.

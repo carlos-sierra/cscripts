@@ -27,8 +27,30 @@
 --
 ---------------------------------------------------------------------------------------
 --
+-- exit graciously if executed on standby
+WHENEVER SQLERROR EXIT SUCCESS;
+DECLARE
+  l_open_mode VARCHAR2(20);
+BEGIN
+  SELECT open_mode INTO l_open_mode FROM v$database;
+  IF l_open_mode <> 'READ WRITE' THEN
+    raise_application_error(-20000, 'Must execute on PRIMARY');
+  END IF;
+END;
+/
+WHENEVER SQLERROR CONTINUE;
+--
+-- warn if executed from CDB$ROOT
+BEGIN
+  IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
+    raise_application_error(-20000, 'Be aware! You are executing this script connected into CDB$ROOT.');
+  END IF;
+END;
+/
+WHENEVER SQLERROR CONTINUE;
+--
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
-
+--
 PRO
 PRO 1. Enter SQL_ID (required)
 DEF sql_id = '&1.';
@@ -46,11 +68,21 @@ SELECT SYS_CONTEXT('USERENV', 'CON_NAME') x_container FROM DUAL;
 
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
 
-SPO sqlperf_&&sql_id._&&current_time..txt;
-PRO SQL_ID: &&sql_id.
-PRO HOST: &&x_host_name.
+COL output_file_name NEW_V output_file_name NOPRI;
+SELECT 'sqlperf_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_'))||'_'||REPLACE(LOWER(SYS_CONTEXT('USERENV','CON_NAME')),'$')||'_&&sql_id._'||TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') output_file_name FROM v$database, v$instance;
+
+SPO &&output_file_name..txt
+PRO
+PRO SQL> @sqlperf.sql &&sql_id.
+PRO
+PRO &&output_file_name..txt
+PRO
+
 PRO DATABASE: &&x_db_name.
-PRO CONTAINER: &&x_container.
+PRO PDB: &&x_container.
+PRO HOST: &&x_host_name.
+PRO SQL: &&sql_id.
+PRO
 
 COL avg_et_ms_awr FOR A11 HEA 'ET Avg|AWR (ms)';
 COL avg_et_ms_mem FOR A11 HEA 'ET Avg|MEM (ms)';
@@ -202,6 +234,8 @@ SELECT
    AND p.plan_hash_value = s.plan_hash_value(+)
  ORDER BY
        NVL(a.avg_et_us, m.avg_et_us), m.avg_et_us;
+
+COL executions FOR 999,999,999,990;
        
 PRO
 PRO DBA_HIST_SQLSTAT (summary by phv)
@@ -364,7 +398,6 @@ COL obsolete FOR 99999990;
 COL shareable FOR 999999990;
 COL bind_sens FOR 999999990;
 COL bind_aware FOR 9999999990;
-COL executions FOR 999,999,990;
 COL bg_per_exec FOR 99999999999;
 
 PRO
@@ -394,4 +427,9 @@ SELECT TO_CHAR(MAX(last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_tim
  ORDER BY
        1 DESC, 2;
 
+PRO
+PRO &&output_file_name..txt
+PRO
 SPO OFF;
+
+UNDEF 1 sql_id

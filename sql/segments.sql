@@ -33,7 +33,7 @@ SPO segments_&&tablespace_name._&&current_time..txt;
 PRO TABLESPACE: &&tablespace_name.
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
-PRO CONTAINER: &&x_container.
+PRO PDB: &&x_container.
 
 SELECT v.segment_type,
        v.owner,
@@ -55,7 +55,7 @@ SELECT s.segment_type,
   FROM dba_segments s,
        dba_lobs l
  WHERE s.tablespace_name = UPPER(TRIM('&&tablespace_name.'))
-   AND s.segment_name NOT LIKE 'BIN$%' 
+   --AND s.segment_name NOT LIKE 'BIN$%' 
    AND l.owner(+) = s.owner
    AND l.segment_name(+) = s.segment_name
    AND l.tablespace_name(+) = s.tablespace_name

@@ -1,0 +1,9 @@
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+
+SELECT COUNT(*), con_id, sid, sql_id
+  FROM v$open_cursor
+ GROUP BY
+       con_id, sid, sql_id
+HAVING COUNT(*) > 50
+ ORDER BY 1 DESC
+/

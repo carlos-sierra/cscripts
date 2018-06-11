@@ -1,0 +1,25 @@
+2018-06-01
+~~~~~~~~~~
+1. Fix ORA-14758: Last partition in the range section cannot be dropped
+
+2018-05-11
+~~~~
+1. Expire 1m earlier, this in order to let OEM job to complete and start next one back to back
+
+2018-04-19
+~~~~~~~~~~
+1. On audit_and_disconnect all inserted rows get same snap_time for ease of aggregation in reports
+
+2018-04-17
+~~~~~~~~~~
+1. Split threshold parameter
+
+2018-03-31
+~~~~~~~~~~
+1. First release
+--
+AUDITs INACTIVE sessions.
+Kills inactive sessions holding a lock on an application table for 
+over N seconds. (e.g. KievTransactions).
+Kills also sniped sessions.
+--

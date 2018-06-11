@@ -93,22 +93,22 @@ SELECT p.signature,
        sql$text t
  WHERE p.obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
    AND p.id = 1
-   AND p.signature IN (13898135509278096992 /*0t6zrcsggvtb8*/ /* performScanQuery(Hypervisors,HashRangeIndex) */,
-                       16377526110906104223 /*93wsbfysd3tu2*/ /* Populate workspace for transaction GC */, 
-                       17601030278524684402 /*4jyfj07t7sfgd*/ /* performScanQuery(leases,HashRangeIndex) */, 
-                       13101497412861498959 /*a967u2ycz6mrt*/ /* performScanQuery(leases,HashRangeIndex) */, 
-                        7187024993226245181 /*bqsbcjgx6gjzh*/ /* performScanQuery(STRUCTURED,HashRangeIndex) */, 
-                        7430609386916687830 /*g9k3tg0hthcb9*/ /* delete from "COMPUTE"."MLOG$_TEST"*/,
-                       -- R3 KIEV02A2
-                       17179354286778768956 /*fwakmqr9jt1nk*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */,
-                       17348404270618741456 /*8mrsx6k7cq2ur*/ /* performScanQuery(HOST_STATES_V3,HashRangeIndex) */,
-                        1308437012027679556 /*grz8rabm79s5j*/ /* performScanQuery(instances,HashRangeIndex) */,
-                       10967614423435453994 /*b5tzhaakzjymc*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */,
-                       -- R3 KIEV02A3
-                         538786350859411508 /*9qjb6vhn0tns0*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */.
-                       -- R1 KIEV02
-                        6880099737422759572 /*3xn2hya2wnyrb*/ /* performScanQuery(instances,instanceCmptNameIdx) */
-                       )
+--   AND p.signature IN (13898135509278096992 /*0t6zrcsggvtb8*/ /* performScanQuery(Hypervisors,HashRangeIndex) */,
+--                       16377526110906104223 /*93wsbfysd3tu2*/ /* Populate workspace for transaction GC */, 
+--                       17601030278524684402 /*4jyfj07t7sfgd*/ /* performScanQuery(leases,HashRangeIndex) */, 
+--                       13101497412861498959 /*a967u2ycz6mrt*/ /* performScanQuery(leases,HashRangeIndex) */, 
+--                        7187024993226245181 /*bqsbcjgx6gjzh*/ /* performScanQuery(STRUCTURED,HashRangeIndex) */, 
+--                        7430609386916687830 /*g9k3tg0hthcb9*/ /* delete from "COMPUTE"."MLOG$_TEST"*/,
+--                       -- R3 KIEV02A2
+--                       17179354286778768956 /*fwakmqr9jt1nk*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */,
+--                       17348404270618741456 /*8mrsx6k7cq2ur*/ /* performScanQuery(HOST_STATES_V3,HashRangeIndex) */,
+--                        1308437012027679556 /*grz8rabm79s5j*/ /* performScanQuery(instances,HashRangeIndex) */,
+--                       10967614423435453994 /*b5tzhaakzjymc*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */,
+--                       -- R3 KIEV02A3
+--                         538786350859411508 /*9qjb6vhn0tns0*/ /* performSnapshotScanQuery(leases,HashRangeIndex(HRK)) */.
+--                       -- R1 KIEV02
+--                        6880099737422759572 /*3xn2hya2wnyrb*/ /* performScanQuery(instances,instanceCmptNameIdx) */
+--                       )
    AND p.other_xml IS NOT NULL
    AND p.plan_id <> TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))
    --AND TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_full"]')) = TO_NUMBER(extractvalue(xmltype(p.other_xml),'/*/info[@type = "plan_hash_2"]'))

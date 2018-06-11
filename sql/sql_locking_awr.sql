@@ -56,13 +56,13 @@ COL snap FOR 9999999 HEA 'Snap ID';
 COL end_time FOR A19 HEA 'Snap End Date';
 COL samples_count FOR 9999999 HEA 'ASH|Samples';
 COL waiting_sessions_count FOR 99999999 HEA 'Waiting|Sessions';
-COL blocking_sessions_count FOR 99999999 HEA 'Blocking|Sessions';
+COL blocking_sessions_count FOR 99999999 HEA 'Blocker|Sessions';
 COL average_active_sessions FOR 9990.0 HEA 'AAS';
 COL container_id FOR 999999 HEA 'CON_ID';
 COL object_number FOR 999999999 HEA 'Object ID';
 COL object_owner_and_name FOR A60 HEA 'Object Owner.Name(Type)';
 COL sql_text_100_only FOR A100 HEA 'SQL Text';
-COL missing_session_serial FOR A16 HEA 'Missing Blocking|Session,Serial';
+COL missing_session_serial FOR A16 HEA 'Blocker|Session,Serial';
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;

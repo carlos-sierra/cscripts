@@ -1,7 +1,14 @@
+-- exit graciously if executed on standby
 WHENEVER SQLERROR EXIT SUCCESS;
-PRO
-PRO Error "ORA-01476: divisor is equal to zero" just means v$database.open_mode is not "READ WRITE"
-SELECT CASE open_mode WHEN 'READ WRITE' THEN open_mode ELSE TO_CHAR(1/0) END open_mode FROM v$database;
+DECLARE
+  l_open_mode VARCHAR2(20);
+BEGIN
+  SELECT open_mode INTO l_open_mode FROM v$database;
+  IF l_open_mode <> 'READ WRITE' THEN
+    raise_application_error(-20000, 'Must execute on PRIMARY');
+  END IF;
+END;
+/
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 

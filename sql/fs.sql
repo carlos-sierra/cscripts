@@ -1,6 +1,7 @@
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
-UNDEF sql_text_piece
-PRO &&sql_text_piece.
+
+PRO 1. Enter SQL Text Piece.
+DEF sql_text_piece = '&1.';
 
 COL current_time NEW_V current_time FOR A15;
 SELECT 'current_time: ' x, TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') current_time FROM DUAL;
@@ -16,7 +17,7 @@ COL cursors FOR 9999999;
 COL spb FOR 999;
 COL sql_id NEW_V sql_id FOR A13;
 COL sql_text_100 FOR A100;
-COL pdb_name FOR A30;
+COL pdb_name FOR A35;
 COL plns FOR 9999;
 COL prof FOR 9999;
 COL pch FOR 999;
@@ -35,7 +36,7 @@ SELECT SUM(s.executions) executions, /* EXCLUDE_ME */
        MIN(s.plan_hash_value) min_phv,
        COUNT(DISTINCT s.plan_hash_value) plns,
        MAX(s.plan_hash_value) max_phv,
-       (SELECT p.name FROM v$pdbs p WHERE p.con_id = s.con_id) pdb_name, 
+       (SELECT p.name||'('||p.con_id||')' FROM v$containers p WHERE p.con_id = s.con_id) pdb_name, 
        s.sql_id, 
        COUNT(*) cursors,
        SUM(CASE WHEN s.sql_plan_baseline IS NULL THEN 0 ELSE 1 END) spb,

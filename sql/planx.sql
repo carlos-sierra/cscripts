@@ -26,7 +26,29 @@
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
 SET LIN 1000;
 SET SERVEROUT OFF;
-
+-- exit graciously if executed on standby
+WHENEVER SQLERROR EXIT SUCCESS;
+DECLARE
+  l_open_mode VARCHAR2(20);
+BEGIN
+  SELECT open_mode INTO l_open_mode FROM v$database;
+  IF l_open_mode <> 'READ WRITE' THEN
+    raise_application_error(-20000, 'Must execute on PRIMARY');
+  END IF;
+END;
+/
+WHENEVER SQLERROR CONTINUE;
+--
+-- exit graciously if executed from CDB$ROOT
+--WHENEVER SQLERROR EXIT SUCCESS;
+BEGIN
+  IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
+    raise_application_error(-20000, 'Be aware! You are executing this script connected into CDB$ROOT.');
+  END IF;
+END;
+/
+WHENEVER SQLERROR CONTINUE;
+--
 PRO
 PRO 1. Enter Oracle Diagnostics Pack License Flag [ Y | N ] (required)
 DEF input_license = '&1.';
@@ -130,10 +152,17 @@ COL sql_handle NEW_V sql_handle;
 SELECT sql_handle FROM dba_sql_plan_baselines WHERE signature = &&signature. AND ROWNUM = 1;
 
 -- spool and sql_text
-SPO planx_&&sql_id._&&current_time..txt;
+COL output_file_name NEW_V output_file_name NOPRI;
+SELECT 'planx_'||LOWER(name)||'_'||LOWER(REPLACE(SUBSTR(host_name, 1 + INSTR(host_name, '.', 1, 2), 30), '.', '_'))||'_'||REPLACE(LOWER(SYS_CONTEXT('USERENV','CON_NAME')),'$')||'_&&sql_id._'||TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') output_file_name FROM v$database, v$instance;
+
+SPO &&output_file_name..txt
+PRO SQL> @planx.sql Y &&sql_id.
+PRO
+PRO &&output_file_name..txt
+PRO
 PRO SQL_ID: &&sql_id.
 PRO SIGNATURE: &&signature.
-PRO SIGNATUREF: &&signaturef.
+--PRO SIGNATUREF: &&signaturef.
 PRO SQL_HANDLE: &&sql_handle.
 PRO HOST: &&x_host_name.
 PRO DATABASE: &&x_db_name.
@@ -171,7 +200,7 @@ COL last_load_time_ff               FOR A20 HEA "Last load time";
 COL line_id_ff                      FOR 9999999 HEA "Line id";
 COL loaded_ff                       FOR A6  HEA "Loaded";
 COL loaded_versions_ff              FOR A15 HEA "Loaded versions";
-COL loads_ff                        FOR A8  HEA "Loads";
+COL loads_ff                        FOR A12  HEA "Loads";
 COL module_ff                       FOR A30 HEA "Module";
 COL open_versions_ff                FOR A15 HEA "Open versions";
 COL operation_ff                    FOR A50 HEA "Operation";
@@ -193,7 +222,7 @@ COL total_sharable_mem_ff           FOR A20 HEA "Total sharable mem";
 COL user_io_wait_secs_ff            FOR A18 HEA "User IO wait secs";
 COL users_executing_ff              FOR A15 HEA "Users executing";
 COL users_opening_ff                FOR A15 HEA "Users opening";
-COL version_count_ff                FOR A8  HEA "Version count";
+COL version_count_ff                FOR A12 HEA "Version count";
 
 COL obsl FOR A4;
 COL sens FOR A4;
@@ -365,7 +394,7 @@ SELECT
 PRO
 PRO GV$SQLSTATS (it shows only one row for SQL, with most recent info)
 PRO ~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   inst_id
        , plan_hash_value
        , LPAD(TO_CHAR(parse_calls, '999,999,999,999,990'), 20) parse_calls_ff
@@ -373,9 +402,9 @@ SELECT   inst_id
        , LPAD(TO_CHAR(px_servers_executions, '999,999,999,999,990'), 20) px_servers_executions_ff
        , LPAD(TO_CHAR(fetches, '999,999,999,999,990'), 20) fetches_ff
        , LPAD(TO_CHAR(rows_processed, '999,999,999,999,990'), 20) rows_processed_ff
-       , LPAD(TO_CHAR(version_count, '999,990'), 8) version_count_ff
-       , LPAD(TO_CHAR(loads, '999,990'), 8) loads_ff
-       , LPAD(TO_CHAR(invalidations, '999,990'), 8) invalidations_ff
+       , LPAD(TO_CHAR(version_count, '999,999,990'), 12) version_count_ff
+       , LPAD(TO_CHAR(loads, '999,999,990'), 12) loads_ff
+       , LPAD(TO_CHAR(invalidations, '999,999,990'), 12) invalidations_ff
        , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes_ff
@@ -405,7 +434,7 @@ BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP P
 PRO
 PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   inst_id
        , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
@@ -422,8 +451,8 @@ SELECT   inst_id
        , LPAD(TO_CHAR(open_versions, '999,999,990'), 15) open_versions_ff
        , LPAD(TO_CHAR(users_opening, '999,999,990'), 15) users_opening_ff
        , LPAD(TO_CHAR(users_executing, '999,999,990'), 15) users_executing_ff
-       , LPAD(TO_CHAR(loads, '999,990'), 8) loads_ff
-       , LPAD(TO_CHAR(invalidations, '999,990'), 8) invalidations_ff
+       , LPAD(TO_CHAR(loads, '999,999,990'), 12) loads_ff
+       , LPAD(TO_CHAR(invalidations, '999,999,990'), 12) invalidations_ff
        , LPAD(TO_CHAR(buffer_gets, '999,999,999,999,990'), 20) buffer_gets_ff
        , LPAD(TO_CHAR(disk_reads, '999,999,999,999,990'), 20) disk_reads_ff
        , LPAD(TO_CHAR(direct_writes, '999,999,999,999,990'), 20) direct_writes_ff
@@ -467,7 +496,7 @@ CLEAR BREAKS;
 PRO
 PRO GV$SQL (grouped by PHV and ordered by et_secs_per_exec)
 PRO ~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   plan_hash_value
        , TO_CHAR(ROUND(SUM(elapsed_time)/SUM(executions)/1e6,6), '999,990.000000') et_secs_per_exec
        , TO_CHAR(ROUND(SUM(cpu_time)/SUM(executions)/1e6,6), '999,990.000000') cpu_secs_per_exec
@@ -497,7 +526,7 @@ BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP P
 PRO
 PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   inst_id
        , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
@@ -532,7 +561,7 @@ BREAK ON inst_id SKIP PAGE ON obj_sta SKIP PAGE ON obsl SKIP PAGE ON shar SKIP P
 PRO
 PRO GV$SQL (ordered by inst_id, object_status, is_obsolete, is_shareable, last_active_time and child_number)
 PRO ~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   inst_id
        , SUBSTR(object_status, 1, 7) obj_sta
        , is_obsolete obsl
@@ -561,7 +590,7 @@ COL current_timed_event FOR A80;
 PRO
 PRO GV$SESSION (active)
 PRO ~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT inst_id,
        sql_child_number child_number,
        sid||','||serial# sid_serial#,
@@ -581,7 +610,7 @@ COL bind_value FOR A120;
 PRO
 PRO GV$SQL_BIND_CAPTURE (sample)
 PRO ~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT inst_id,
        TO_CHAR(last_captured, 'YYYY-MM-DD"T"HH24:MI:SS') last_captured,
        child_number,
@@ -602,7 +631,7 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 PRO
 --BREAK ON inst_child_ff SKIP 2;
 SET PAGES 0;
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 /*
 WITH v AS (
 SELECT /*+ MATERIALIZE * /
@@ -618,20 +647,20 @@ SELECT /*+ ORDERED USE_NL(t) * /
        'inst_id = '||v.inst_id||' AND sql_id = '''||v.sql_id||''' AND child_number = '||v.child_number)) t
 /
 */
-SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ADVANCED ALLSTATS LAST'));
+SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ADVANCED ALLSTATS LAST -PROJECTION -ALIAS'));
 
 PRO
 PRO DBA_HIST_SQLSTAT DELTA (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 SET PAGES 50;
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   s.snap_id
        , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time_ff
        , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time_ff
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
-       , LPAD(TO_CHAR(h.version_count, '999,990'), 8) version_count_ff
+       , LPAD(TO_CHAR(h.version_count, '999,999,990'), 12) version_count_ff
        , LPAD(TO_CHAR(h.parse_calls_delta, '999,999,999,999,990'), 20) parse_calls_ff
        , LPAD(TO_CHAR(h.executions_delta, '999,999,999,999,990'), 20) executions_ff
        , LPAD(TO_CHAR(h.rows_processed_delta, '999,999,999,999,990'), 20) rows_processed_ff
@@ -675,14 +704,14 @@ SELECT   s.snap_id
 PRO
 PRO DBA_HIST_SQLSTAT TOTAL (ordered by snap_id DESC, instance_number and plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT   s.snap_id
        , TO_CHAR(s.begin_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') begin_interval_time_ff
        , TO_CHAR(s.end_interval_time, 'YYYY-MM-DD"T"HH24:MI:SS') end_interval_time_ff
        , s.instance_number
        , h.plan_hash_value
        , DECODE(h.loaded_versions, 1, 'Y', 'N') loaded_ff
-       , LPAD(TO_CHAR(h.version_count, '999,990'), 8) version_count_ff
+       , LPAD(TO_CHAR(h.version_count, '999,999,990'), 12) version_count_ff
        , LPAD(TO_CHAR(h.parse_calls_total, '999,999,999,999,990'), 20) parse_calls_ff
        , LPAD(TO_CHAR(h.executions_total, '999,999,999,999,990'), 20) executions_ff
        , LPAD(TO_CHAR(h.rows_processed_total, '999,999,999,999,990'), 20) rows_processed_ff
@@ -749,7 +778,7 @@ PRO DBA_HIST_SQL_PLAN (ordered by plan_hash_value)
 PRO ~~~~~~~~~~~~~~~~~
 BREAK ON plan_timestamp_ff SKIP 2;
 SET PAGES 0;
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 WITH v AS (
 SELECT /*+ MATERIALIZE */ 
        DISTINCT sql_id, plan_hash_value, dbid, timestamp
@@ -764,302 +793,19 @@ SELECT /*+ ORDERED USE_NL(t) */
   FROM v, TABLE(DBMS_XPLAN.DISPLAY_AWR(v.sql_id, v.plan_hash_value, v.dbid, 'ADVANCED')) t
 /  
 CLEAR BREAK;
-
-PRO
-PRO GV$ACTIVE_SESSION_HISTORY 
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_slices = '10';
-SET PAGES 50;
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ MATERIALIZE */
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM gv$active_session_history h
- WHERE :license = 'Y'
-   AND sql_id = :sql_id
- GROUP BY
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       2 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
-       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
-       FULL(h.sn) 
-       FULL(h.ash) 
-       FULL(h.evt) 
-       USE_HASH(h.sn h.ash h.evt)
-       */
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM dba_hist_active_sess_history h
- WHERE :license = 'Y'
-   AND h.dbid = :dbid 
-   AND h.sql_id = :sql_id
-   AND h.snap_id >= &&x_minimum_snap_id. 
-   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
- GROUP BY
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       2 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
-       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
-       FULL(h.sn) 
-       FULL(h.ash) 
-       FULL(h.evt) 
-       USE_HASH(h.sn h.ash h.evt)
-       */
-       h.sql_plan_hash_value plan_hash_value,
-       NVL(h.sql_plan_line_id, 0) line_id_ff,
-       SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation_ff,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM dba_hist_active_sess_history h
- WHERE :license = 'Y'
-   AND h.dbid = :dbid 
-   AND h.sql_id = :sql_id
-   AND h.snap_id >= &&x_minimum_snap_id. 
-   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
- GROUP BY
-       h.sql_plan_hash_value,
-       h.sql_plan_line_id,
-       h.sql_plan_operation,
-       h.sql_plan_options,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       5 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.plan_hash_value,
-       e.line_id_ff,
-       e.operation_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       TO_NUMBER(NULL) plan_hash_value, 
-       TO_NUMBER(NULL) id, 
-       NULL operation_ff, 
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO GV$ACTIVE_SESSION_HISTORY 
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_slices = '20';
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ MATERIALIZE */
-       h.sql_plan_hash_value plan_hash_value,
-       NVL(h.sql_plan_line_id, 0) line_id_ff,
-       SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation_ff,
-       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END current_obj#,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM gv$active_session_history h
- WHERE :license = 'Y'
-   AND sql_id = :sql_id
- GROUP BY
-       h.sql_plan_hash_value,
-       h.sql_plan_line_id,
-       h.sql_plan_operation,
-       h.sql_plan_options,
-       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       6 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.plan_hash_value,
-       e.line_id_ff,
-       e.operation_ff,
-       SUBSTR(e.current_obj#||' '||TRIM(
-       (SELECT CASE e.current_obj# WHEN 0 THEN ' UNDO' ELSE ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' END
-          FROM dba_objects o WHERE o.object_id(+) = e.current_obj# AND ROWNUM = 1) 
-       ), 1, 60) current_object_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       TO_NUMBER(NULL) plan_hash_value, 
-       TO_NUMBER(NULL) id, 
-       NULL operation_ff, 
-       NULL current_object_ff,
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
-
-PRO
-PRO DBA_HIST_ACTIVE_SESS_HISTORY (past 7 days by plan line, obj and timed event)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-DEF x_days = '7';
-SPO planx_&&sql_id._&&current_time..txt APP;
-WITH
-events AS (
-SELECT /*+ 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.ash) 
-       FULL(h.INT$DBA_HIST_ACT_SESS_HISTORY.evt) 
-       USE_HASH(h.INT$DBA_HIST_ACT_SESS_HISTORY.sn h.INT$DBA_HIST_ACT_SESS_HISTORY.ash h.INT$DBA_HIST_ACT_SESS_HISTORY.evt)
-       FULL(h.sn) 
-       FULL(h.ash) 
-       FULL(h.evt) 
-       USE_HASH(h.sn h.ash h.evt)
-       */
-       h.sql_plan_hash_value plan_hash_value,
-       NVL(h.sql_plan_line_id, 0) line_id_ff,
-       SUBSTR(h.sql_plan_operation||' '||h.sql_plan_options, 1, 50) operation_ff,
-       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END current_obj#,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END timed_event,
-       COUNT(*) samples
-  FROM dba_hist_active_sess_history h
- WHERE :license = 'Y'
-   AND h.dbid = :dbid 
-   AND h.sql_id = :sql_id
-   AND h.snap_id >= &&x_minimum_snap_id. 
-   AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
- GROUP BY
-       h.sql_plan_hash_value,
-       h.sql_plan_line_id,
-       h.sql_plan_operation,
-       h.sql_plan_options,
-       CASE h.session_state WHEN 'ON CPU' THEN -1 ELSE h.current_obj# END,
-       CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' "'||h.event||'"' END
- ORDER BY
-       6 DESC
-),
-total AS (
-SELECT SUM(samples) samples,
-       SUM(CASE WHEN ROWNUM > &&x_slices. THEN samples ELSE 0 END) others
-  FROM events
-)
-SELECT e.samples samples_ff,
-       ROUND(100 * e.samples / t.samples, 1) percent_ff,
-       e.plan_hash_value,
-       e.line_id_ff,
-       e.operation_ff,
-       SUBSTR(e.current_obj#||' '||TRIM(
-       (SELECT CASE e.current_obj# WHEN 0 THEN ' UNDO' ELSE ' '||o.owner||'.'||o.object_name||' ('||o.object_type||')' END
-          FROM dba_objects o WHERE o.object_id(+) = e.current_obj# AND ROWNUM = 1) 
-       ), 1, 60) current_object_ff,
-       e.timed_event timed_event_ff
-  FROM events e,
-       total t
- WHERE ROWNUM <= &&x_slices.
-   AND ROUND(100 * e.samples / t.samples, 1) > 0.1
- UNION ALL
-SELECT others samples_ff,
-       ROUND(100 * others / samples, 1) percent_ff,
-       TO_NUMBER(NULL) plan_hash_value, 
-       TO_NUMBER(NULL) id, 
-       NULL operation_ff, 
-       NULL current_object_ff,
-       'Others' timed_event_ff
-  FROM total
- WHERE others > 0
-   AND ROUND(100 * others / samples, 1) > 0.1
-/
+SET HEA ON PAGES 50;
 
 COL description FOR A100;
-COL last_modified FOR A30;
+COL last_modified FOR A19;
+COL last_executed FOR A19;
 COL plan_name FOR A30;
-COL created FOR A20;
+COL created FOR A19;
 PRO
 PRO SQL Plan Baselines
 PRO ~~~~~~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT TO_CHAR(created, 'YYYY-MM-DD"T"HH24:MI:SS') created, plan_name, origin, enabled, accepted, fixed, reproduced, &&is_10g.&&is_11r1. adaptive,
-       last_executed, last_modified, description
+       TO_CHAR(last_executed, 'YYYY-MM-DD"T"HH24:MI:SS') last_executed, TO_CHAR(last_modified, 'YYYY-MM-DD"T"HH24:MI:SS') last_modified, description
 FROM dba_sql_plan_baselines WHERE signature = :signature
 ORDER BY created, plan_name
 /
@@ -1104,7 +850,7 @@ SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE('&&sql_
 /
 SET HEA ON PAGES 50;
 
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 PRO get list of tables from execution plan
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 VAR tables_list CLOB;
@@ -1160,7 +906,7 @@ BEGIN
   	       AND h.sql_id = :sql_id
   	       AND h.current_obj# >= 0
   	       AND h.snap_id >= &&x_minimum_snap_id.
-  	       AND h.sample_time > SYSTIMESTAMP - &&x_days. -- for performance reasons
+  	       AND h.sample_time > SYSTIMESTAMP - 7 -- for performance reasons
   	       AND o.object_id(+) = h.current_obj#
   	    )
   	    SELECT 'TABLE', t.owner, t.table_name
@@ -1205,7 +951,7 @@ SET HEAD OFF;
 PRO 
 PRO (owner, table) list
 PRO ~~~~~~~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT :tables_list tables_list FROM DUAL
 /
 SET HEAD ON;
@@ -1215,7 +961,7 @@ PRO Tables Accessed
 PRO ~~~~~~~~~~~~~~~
 COL table_name FOR A50;
 COL degree FOR A10;
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT owner||'.'||table_name table_name,
        partitioned,
        degree,
@@ -1238,7 +984,7 @@ PRO
 PRO Indexes 
 PRO ~~~~~~~
 COL table_and_index_name FOR A70;
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name table_and_index_name,
        i.partitioned,
        i.degree,
@@ -1276,7 +1022,7 @@ COL high_value_translated FOR A32;
 PRO
 PRO Index Columns 
 PRO ~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_name,
        c.data_type,
        c.nullable,
@@ -1347,7 +1093,7 @@ SELECT i.index_owner||'.'||i.index_name||' '||c.column_name index_and_column_nam
 PRO
 PRO Table Columns 
 PRO ~~~~~~~~~~~~~
-SPO planx_&&sql_id._&&current_time..txt APP;
+SPO &&output_file_name..txt APP;
 SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
        c.data_type,
        c.nullable,
@@ -1412,6 +1158,8 @@ SELECT c.owner||'.'||c.table_name||' '||c.column_name table_and_column_name,
 /
 -- spool off and cleanup
 PRO
-PRO planx_&&sql_id._&&current_time..txt has been generated
+PRO &&output_file_name..txt
+PRO
 SPO OFF;
 
+UNDEF 1 2 sql_id
