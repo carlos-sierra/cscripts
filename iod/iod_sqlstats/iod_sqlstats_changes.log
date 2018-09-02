@@ -1,0 +1,5 @@
+2018-08-27
+~~~~~~~~~~
+1. Capture SQL with AAS > 0.002 during past 5 minutes
+2. Purge history older than 2 months
+
