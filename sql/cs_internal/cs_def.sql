@@ -6,7 +6,8 @@ DEF cs_datetime_short_format = 'YYYYMMDD_HH24MISS';
 DEF cs_def_reference = 'IOD';
 DEF cs_reference = '';
 DEF cs_reference_sanitized = '';
-DEF cs_def_local_dir = '/Users/csierra/Issues/';
+--DEF cs_def_local_dir = '/Users/csierra/Issues/';
+DEF cs_def_local_dir = '.';
 DEF cs_local_dir = '';
 --
 DEF cs_region = '';
@@ -50,6 +51,7 @@ COL cs_startup_time NEW_V cs_startup_time FOR A19 NOPRI;
 COL cs_startup_days NEW_V cs_startup_days FOR A5 NOPRI;
 COL cs_date_time NEW_V cs_date_time FOR A19 NOPRI;
 COL cs_file_date_time NEW_V cs_file_date_time FOR A15 NOPRI;
+COL cs_easy_connect_string NEW_V cs_easy_connect_string FOR A132 NOPRI;
 --
 COL cs_file_prefix NEW_V cs_file_prefix NOPRI;
 COL cs_file_name NEW_V cs_file_name NOPRI;
@@ -79,12 +81,43 @@ SELECT UPPER(SUBSTR(i.host_name,INSTR(i.host_name,'.',-1)+1)) cs_region,
        i.version cs_db_version,
        i.host_name cs_host_name,
        i.startup_time cs_startup_time,
-       o.value cs_num_cpu_cores,
+       TO_CHAR(o.value) cs_num_cpu_cores,
        TRIM(TO_CHAR(ROUND(SYSDATE - i.startup_time, 1), '990.0')) cs_startup_days,
        TO_CHAR(SYSDATE , '&&cs_datetime_full_format.') cs_date_time,
        TO_CHAR(SYSDATE , '&&cs_datetime_short_format.') cs_file_date_time
   FROM v$database d, v$instance i, v$osstat o
  WHERE o.stat_name = 'NUM_CPU_CORES'
+/
+--
+WITH 
+service AS (
+SELECT CASE WHEN ds.pdb = 'CDB$ROOT' THEN 'oradb' WHEN ts.name = 'KIEV' THEN 'kiev' ELSE 'orapdb' END type,
+       ds.name||'.'||SYS_CONTEXT('USERENV','DB_DOMAIN') name, 
+       vs.con_id, ds.pdb
+  FROM cdb_services ds,
+       v$active_services vs,
+       v$tablespace ts
+ WHERE 1 = 1
+   AND ds.pdb = SYS_CONTEXT ('USERENV', 'CON_NAME')
+   AND ds.name LIKE 's\_%' ESCAPE '\'
+   AND ds.name NOT LIKE '%\_ro' ESCAPE '\'
+   AND vs.con_name = ds.pdb
+   AND vs.name = ds.name
+   AND ts.con_id(+) = vs.con_id
+   AND ts.name(+) = 'KIEV'
+)
+SELECT s.pdb,
+       s.type||'-'||
+       CASE  
+         WHEN s.pdb = 'CDB$ROOT' THEN REPLACE(LOWER(SYS_CONTEXT('USERENV','DB_NAME')),'_','-') 
+         ELSE REPLACE(LOWER(s.pdb),'_','-')
+       END||'.svc.'||       
+       CASE REGEXP_COUNT(REPLACE(REPLACE(LOWER(SYS_CONTEXT('USERENV','DB_DOMAIN')),'regional.',''),'.regional',''),'\.')
+         WHEN 0 THEN SUBSTR(i.host_name,INSTR(i.host_name,'.',-1,1)+1)
+         ELSE SUBSTR(i.host_name,INSTR(i.host_name,'.',-1,2)+1)
+       END||'/'||
+       s.name cs_easy_connect_string
+  FROM service s, v$instance i
 /
 --
 SELECT TO_CHAR(snap_id) cs_max_snap_id,
@@ -105,8 +138,9 @@ SELECT NVL('&&issue_reference.', '&&cs_def_reference.') cs_reference FROM DUAL;
 COL cs_reference_sanitized NEW_V cs_reference_sanitized NOPRI;
 SELECT TRANSLATE('&&cs_reference.', '*()@#$[]{}|/\".,?<>''', '___________________') cs_reference_sanitized FROM DUAL;
 --
-PRO SCP Target Local Directory: (e.g. &&cs_def_local_dir.&&cs_reference_sanitized.)
-DEF target_local_directory = '&&target_local_directory.';
+--PRO SCP Target Local Directory: (e.g. &&cs_def_local_dir.)
+--DEF target_local_directory = '&&target_local_directory.';
+DEF target_local_directory = '&&cs_def_local_dir.';
 COL cs_local_dir NEW_V cs_local_dir NOPRI;
-SELECT NVL('&&target_local_directory.', '&&cs_def_local_dir.&&cs_reference_sanitized.') cs_local_dir FROM DUAL;
+SELECT NVL('&&target_local_directory.', '&&cs_def_local_dir.') cs_local_dir FROM DUAL;
 --

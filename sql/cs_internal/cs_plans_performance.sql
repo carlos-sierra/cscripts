@@ -2,8 +2,8 @@ COL avg_et_ms_awr FOR 99,999,990.000 HEA 'Avg Elapsed|Time AWR (ms)';
 COL avg_et_ms_mem FOR 99,999,990.000 HEA 'Avg Elapsed|Time MEM (ms)';
 COL avg_cpu_ms_awr FOR 99,999,990.000 HEA 'Avg CPU|Time AWR (ms)';
 COL avg_cpu_ms_mem FOR 99,999,990.000 HEA 'Avg CPU|Time MEM (ms)';
-COL avg_bg_awr FOR 999,999,990 HEA 'Avg|Buffer Gets|AWR';
-COL avg_bg_mem FOR 999,999,990 HEA 'Avg|Buffer Gets|MEM';
+COL avg_bg_awr FOR 999,999,999,990 HEA 'Avg|Buffer Gets|AWR';
+COL avg_bg_mem FOR 999,999,999,990 HEA 'Avg|Buffer Gets|MEM';
 COL avg_row_awr FOR 999,999,990.000 HEA 'Avg|Rows Processed|AWR';
 COL avg_row_mem FOR 999,999,990.000 HEA 'Avg|Rows Processed|MEM';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
@@ -89,16 +89,16 @@ SELECT plan_hash_value,
        plan_hash_value ),
 m AS (
 SELECT plan_hash_value,
-       SUM(elapsed_time)/SUM(executions) avg_et_us,
-       SUM(cpu_time)/SUM(executions) avg_cpu_us,
-       ROUND(SUM(buffer_gets)/SUM(executions)) avg_buffer_gets,
-       ROUND(SUM(rows_processed)/SUM(executions), 3) avg_rows_processed,
+       SUM(elapsed_time)/NULLIF(SUM(executions), 0) avg_et_us,
+       SUM(cpu_time)/NULLIF(SUM(executions), 0) avg_cpu_us,
+       ROUND(SUM(buffer_gets)/NULLIF(SUM(executions), 0)) avg_buffer_gets,
+       ROUND(SUM(rows_processed)/NULLIF(SUM(executions), 0), 3) avg_rows_processed,
        SUM(executions) executions,
        MIN(optimizer_cost) min_cost,
        MAX(optimizer_cost) max_cost
   FROM v$sql
  WHERE sql_id = '&&cs_sql_id.'
-   AND executions > 0
+   --AND executions > 0
    AND optimizer_cost > 0
  GROUP BY
        plan_hash_value ),

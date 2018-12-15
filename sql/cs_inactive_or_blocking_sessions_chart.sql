@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/20
+-- Version:     2018/09/06
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -28,6 +28,7 @@ DEF cs_script_name = 'cs_inactive_or_blocking_sessions_chart';
 DEF cs_lock_seconds = '1';
 DEF cs_inactive_seconds = '3600';
 DEF cs_hours_range_default = '24';
+--
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
@@ -40,7 +41,32 @@ DEF cs2_type = '&3';
 COL cs2_type NEW_V cs2_type NOPRI;
 SELECT NVL(UPPER(TRIM('&&cs2_type.')), 'LOCK') cs2_type FROM DUAL;
 --
-SELECT LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count
+COL avg_lock_secs FOR 999,990.0;
+COL max_lock_secs FOR 999,990.0;
+COL max_inactive_secs FOR 999,999,990.0;
+--
+SELECT machine, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs, MAX(last_call_et) max_inactive_secs
+  FROM c##iod.inactive_sessions_audit_trail
+ WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND CASE
+       WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
+       WHEN '&&cs2_type.' IN ('ALL', 'LOCK') AND pty IN (1, 2) THEN 1
+       ELSE 0
+       END = 1
+   AND ((pty IN (1, 2) AND ctime >= TO_NUMBER('&&cs_lock_seconds.')) OR (pty IN (3, 4) AND last_call_et >= TO_NUMBER('&&cs_inactive_seconds.')))
+ GROUP BY
+       machine
+ ORDER BY
+       machine
+/
+PRO
+PRO 4. Machine (opt): 
+DEF cs2_machine = '&4';
+--
+BREAK ON machine SKIP 1;
+COL sid_serial FOR A13 HEA '  SID,SERIAL#';
+SELECT machine, LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
@@ -52,29 +78,11 @@ SELECT LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count
        END = 1
    AND ((pty IN (1, 2) AND ctime >= TO_NUMBER('&&cs_lock_seconds.')) OR (pty IN (3, 4) AND last_call_et >= TO_NUMBER('&&cs_inactive_seconds.')))
  GROUP BY
-       LPAD(sid,5)||','||serial#
+       machine, LPAD(sid,5)||','||serial#
  ORDER BY
-       LPAD(sid,5)||','||serial#
+       machine, LPAD(sid,5)||','||serial#
 /
-PRO
-PRO 4. Machine (opt): 
-DEF cs2_machine = '&4';
---
-COL sid_serial FOR A13 HEA '  SID,SERIAL#';
-SELECT DISTINCT LPAD(sid,5)||','||serial# sid_serial
-  FROM c##iod.inactive_sessions_audit_trail
- WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
-   AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
-   AND CASE
-       WHEN '&&cs2_type.' = 'INACTIVE' AND pty IN (3, 4) THEN 1
-       WHEN '&&cs2_type.' = 'LOCK' AND pty IN (1, 2) THEN 1
-       ELSE 0
-       END = 1
-   --AND ((pty IN (1, 2) AND ctime >= TO_NUMBER('&&cs_lock_seconds.')) OR (pty IN (3, 4) AND last_call_et >= TO_NUMBER('&&cs_inactive_seconds.')))
- ORDER BY
-       LPAD(sid,5)||','||serial#
-/
+CLEAR BREAK;
 PRO
 PRO 5. Sid,Serial (opt):
 DEF cs2_sid_serial = '&5';
@@ -83,13 +91,16 @@ SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_sc
 --
 DEF report_title = "Inactive or Blocking Sessions";
 DEF chart_title = "&&cs2_type. &&cs2_machine. &&cs2_sid_serial.";
-DEF xaxis_title = "";
+DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to.";
 DEF vaxis_title = "Seconds";
 --
-DEF vaxis_baseline = "";;
-DEF chart_foot_note_2 = "<br>2) ";
+-- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
+--DEF is_stacked = "isStacked: false,";
+DEF is_stacked = "isStacked: true,";
+--DEF vaxis_baseline = ", baseline:0";
+DEF vaxis_baseline = "";
+--DEF chart_foot_note_2 = "<br>2) ";
 DEF chart_foot_note_2 = "";
-DEF chart_foot_note_3 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
 DEF report_foot_note = "&&cs_script_name..sql";
@@ -125,6 +136,15 @@ SELECT snap_time,
        ) max_value
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
+   AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
+   AND CASE
+       WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
+       WHEN '&&cs2_type.' IN ('ALL', 'LOCK') AND pty IN (1, 2) THEN 1
+       ELSE 0
+       END = 1
+   AND ((pty IN (1, 2) AND ctime >= TO_NUMBER('&&cs_lock_seconds.')) OR (pty IN (3, 4) AND last_call_et >= TO_NUMBER('&&cs_inactive_seconds.')))
  GROUP BY
        snap_time
 )
@@ -145,6 +165,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
+-- [Line|Area]
 DEF cs_chart_type = 'Line';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
@@ -156,3 +177,4 @@ ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
+--

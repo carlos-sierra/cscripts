@@ -2,6 +2,51 @@ WHENEVER SQLERROR EXIT FAILURE;
 
 /* ------------------------------------------------------------------------------------ */
 
+-- create repository with exceptions (black list)
+DECLARE
+  l_exists NUMBER;
+  l_sql_statement VARCHAR2(32767) := q'[
+CREATE TABLE &&1..exceptions_black_list (
+  iod_api                        VARCHAR2(30), -- TABLE_REDEFINITION | FPZ
+  pdb_name                       VARCHAR2(30),
+  owner                          VARCHAR2(30),
+  table_name                     VARCHAR2(30),
+  reference                      VARCHAR2(128),
+  created                        DATE DEFAULT SYSDATE 
+)
+TABLESPACE USERS
+]';
+  l_sql_statement2 VARCHAR2(32767) := q'[BEGIN
+INSERT INTO &&1..exceptions_black_list (iod_api, table_name, reference) VALUES ('TABLE_REDEFINITION', 'KIEVTRANSACTIONS', 'Until KaaS is implemented and KT and KTK are purged and GC');
+INSERT INTO &&1..exceptions_black_list (iod_api, table_name, reference) VALUES ('TABLE_REDEFINITION', 'KIEVTRANSACTIONKEYS', 'Until KaaS is implemented and KT and KTK are purged and GC');
+INSERT INTO &&1..exceptions_black_list (iod_api, table_name, reference) VALUES ('TABLE_REDEFINITION', 'TIMERS', 'Until we get ORA-600 from IOD-9949 fixed');
+INSERT INTO &&1..exceptions_black_list (iod_api, table_name, reference) VALUES ('TABLE_REDEFINITION', 'MAPUPDATES_AD', 'Until KIEV implements "OR" predicates at the application layer CHANGE-77522');
+END;
+]';
+BEGIN
+  SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('exceptions_black_list');
+  IF l_exists = 0 THEN
+    EXECUTE IMMEDIATE l_sql_statement;
+    EXECUTE IMMEDIATE l_sql_statement2;
+    DBMS_STATS.gather_table_stats(UPPER(TRIM('&&1.')), UPPER('exceptions_black_list'));
+    COMMIT; 
+  END IF;
+END;
+/
+
+SET LONG 40000;
+SET LONGC 400 ;
+SET PAGES 100;
+SET LINE 200;
+SET HEA OFF;
+SELECT DBMS_METADATA.GET_DDL('TABLE', UPPER('exceptions_black_list'), UPPER('&&1.')) rsrc_mgr_plan_config FROM DUAL
+/
+SET HEA ON;
+SELECT * FROM &&1..exceptions_black_list
+/
+
+/* ------------------------------------------------------------------------------------ */
+
 -- table_stats_hist
 -- create repository, partitioned and compressed
 -- code preserves 2 months of data
@@ -275,6 +320,9 @@ CREATE TABLE &&1..table_redefinition_hist (
   all_index_size_mbs_after       NUMBER,
   top_index_size_mbs_before      NUMBER,
   top_index_size_mbs_after       NUMBER,
+  lobs_count                     NUMBER,
+  all_lobs_size_mbs_before       NUMBER,
+  all_lobs_size_mbs_after        NUMBER,
   ddl_begin_time                 DATE,
   ddl_end_time                   DATE,
   snap_time                      DATE,

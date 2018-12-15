@@ -31,7 +31,6 @@ COL pdb_name NEW_V pdb_name FOR A30;
 SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
-COL table_owner NEW_V table_owner FOR A30;
 SELECT DISTINCT owner table_owner
   FROM c##iod.table_stats_hist
  WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
@@ -40,13 +39,7 @@ SELECT DISTINCT owner table_owner
 PRO
 PRO 1. Table Owner:
 DEF table_owner = '&1.';
-SELECT DISTINCT UPPER(owner) table_owner 
-  FROM c##iod.table_stats_hist 
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.')) 
-   AND owner = UPPER(TRIM('&&table_owner.'))
-/
 --
-COL table_name NEW_V table_name FOR A30;
 SELECT DISTINCT table_name
   FROM c##iod.table_stats_hist
  WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
@@ -56,13 +49,6 @@ SELECT DISTINCT table_name
 PRO
 PRO 2. Table Name:
 DEF table_name = '&2.';
-SELECT DISTINCT UPPER(table_name) table_name
-  FROM c##iod.table_stats_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
-   AND owner = UPPER(TRIM('&&table_owner.'))
-   AND table_name = UPPER(TRIM('&&table_name.'))
- ORDER BY 1
-/
 --
 SELECT '&&cs_file_prefix._&&table_owner..&&table_name._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -71,10 +57,13 @@ DEF chart_title = "&&table_owner..&&table_name.";
 DEF xaxis_title = "";
 DEF vaxis_title = "Rows per Hour";
 --
-DEF vaxis_baseline = "";;
-DEF chart_foot_note_2 = "<br>2) ";
+-- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
+--DEF is_stacked = "isStacked: false,";
+DEF is_stacked = "isStacked: true,";
+--DEF vaxis_baseline = ", baseline:0";
+DEF vaxis_baseline = "";
+--DEF chart_foot_note_2 = "<br>2) ";
 DEF chart_foot_note_2 = "";
-DEF chart_foot_note_3 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
 DEF report_foot_note = "&&cs_script_name..sql";
@@ -125,6 +114,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
+-- [Line|Area]
 DEF cs_chart_type = 'Line';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql

@@ -1,3 +1,7 @@
+2018-09-24
+~~~~~~~~~~
+1. Reduce SHARES range from 1-10 to 4-8. (ODSI-1335)
+
 2018-06-08
 ~~~~~~~~~~
 1. Added column end_date to table rsrc_mgr_pdb_config

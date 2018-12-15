@@ -1,3 +1,11 @@
+2018-09-20
+~~~~~~~~~~
+1. Kill "mac" sessions holding such locks even if the session is ACTIVE.
+
+2018-09-12
+~~~~~~~~~~
+1. Kill inactive user sessions holding locks
+
 2018-08-22
 ~~~~~~~~~~
 1. Capture also ACTIVE or KILLED sessions if blocking others

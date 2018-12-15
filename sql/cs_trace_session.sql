@@ -46,7 +46,7 @@ PRO SECONDS      : &&seconds.
 --
 EXEC DBMS_MONITOR.session_trace_enable(session_id => TO_NUMBER(SUBSTR('&&sid_serial.', 1, INSTR('&&sid_serial.', ',') - 1)), serial_num => TO_NUMBER(SUBSTR('&&sid_serial.', INSTR('&&sid_serial.', ',') + 1)), waits => TRUE, binds => TRUE, plan_stat => 'ALL_EXECUTIONS');
 --
-COL trace_filename NEW_V trace_filename FOR A80;
+COL trace_filename NEW_V trace_filename FOR A200;
 SELECT d.value||'/'||i.instance_name||'_ora_'||spid||CASE WHEN pr.traceid IS NOT NULL THEN '_'||pr.traceid END||'.trc' trace_filename
   FROM v$session se, 
        v$process pr,
@@ -64,6 +64,7 @@ PRO tracing session &&sid_serial. for &&seconds. seconds...
 PRO
 EXEC DBMS_LOCK.sleep(seconds => &&seconds.);
 EXEC DBMS_MONITOR.session_trace_disable(session_id => TO_NUMBER(SUBSTR('&&sid_serial.', 1, INSTR('&&sid_serial.', ',') - 1)), serial_num => TO_NUMBER(SUBSTR('&&sid_serial.', INSTR('&&sid_serial.', ',') + 1)));
+HOST tkprof &&trace_filename. &&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._tkprof.txt
 --
 PRO
 PRO &&trace_filename.
@@ -80,6 +81,7 @@ PRO SQL> @&&cs_script_name..sql
 --
 @@cs_internal/cs_spool_tail.sql
 PRO scp &&cs_host_name.:&&trace_filename. &&cs_local_dir.
+PRO scp &&cs_host_name.:&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._tkprof.txt &&cs_local_dir.
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --

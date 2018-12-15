@@ -559,6 +559,10 @@ BEGIN
     l_byhour   := l_byhour||','||(l_hh24 + 6)||','||(l_hh24 + 12)||','||(l_hh24 + 18);
   END IF;
   --
+  IF p_maintenance_windows_per_day = 6 THEN
+    l_byhour   := l_byhour||','||(l_hh24 + 4)||','||(l_hh24 + 8)||','||(l_hh24 + 12)||','||(l_hh24 + 16)||','||(l_hh24 + 20);
+  END IF;
+  --
   RETURN l_byhour||l_byminute||l_bysecond;
 END schedule_all_windows;
 /* ------------------------------------------------------------------------------------ */
@@ -825,6 +829,52 @@ BEGIN
     p_pdb_name    => p_pdb_name
   );
 END reset;
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE reset_amw (
+  p_report_only IN VARCHAR2 DEFAULT gk_report_only,
+  p_pdb_name    IN VARCHAR2 DEFAULT NULL,
+  p_windows     IN VARCHAR2 DEFAULT gk_maintenance_windows_per_day /* [{4}|1|0|2|3|6] */
+)
+IS
+BEGIN
+  IF p_windows NOT IN (4, 1, 0, 2, 3, 6) THEN
+    RETURN;
+  END IF;
+  --
+  IF p_windows IN (4, 2, 3, 6) THEN
+    autotasks_and_maint_windows (
+      p_report_only                 => p_report_only,
+      p_pdb_name                    => p_pdb_name,
+      p_mon_fri_maintenance_windows => p_windows,
+      p_mon_fri_first_window_offset => 0,
+      p_sat_sun_maintenance_windows => p_windows,
+      p_sat_sun_first_window_offset => 0
+    );
+  ELSIF p_windows = 1 THEN
+    autotasks_and_maint_windows (
+      p_report_only                 => p_report_only,
+      p_pdb_name                    => p_pdb_name,
+      p_mon_fri_maintenance_windows => 1,
+      p_mon_fri_first_window_offset => 12,
+      p_sat_sun_maintenance_windows => 1,
+      p_sat_sun_first_window_offset => 12
+    );
+  ELSIF p_windows = 0 THEN -- same as 1 but disable cbo stats gathering (and just in case, everything else)
+    autotasks_and_maint_windows (
+      p_report_only                 => p_report_only,
+      p_pdb_name                    => p_pdb_name,
+      p_accept_sql_profiles         => 'DISABLE',
+      p_auto_spm_evolve             => 'DISABLE',
+      p_optimizer_stats             => 'DISABLE',
+      p_sql_tune_advisor            => 'DISABLE',
+      p_segment_advisor             => 'DISABLE',
+      p_mon_fri_maintenance_windows => 1,
+      p_mon_fri_first_window_offset => 12,
+      p_sat_sun_maintenance_windows => 1,
+      p_sat_sun_first_window_offset => 12
+    );
+  END IF;
+END reset_amw;
 /* ------------------------------------------------------------------------------------ */
 END iod_amw;
 /

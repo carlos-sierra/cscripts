@@ -27,6 +27,9 @@ CREATE OR REPLACE PACKAGE &&1..iod_spm AUTHID DEFINER AS
 --                  use "sentinel" API
 --
 /* ------------------------------------------------------------------------------------ */
+gk_workaround_ora_13831        CONSTANT BOOLEAN := TRUE;
+gk_workaround_ora_06512        CONSTANT BOOLEAN := TRUE;
+/* ------------------------------------------------------------------------------------ */
 FUNCTION application_category (p_sql_text IN VARCHAR2)
 RETURN VARCHAR2;
 /* ------------------------------------------------------------------------------------ */
@@ -40,6 +43,7 @@ PROCEDURE workaround_ora_06512 (
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE maintain_plans (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
+  p_kiev_pdbs_only               IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then execute only on KIEV PDBs
   p_create_spm_limit             IN NUMBER   DEFAULT NULL, -- limits the number of SPMs to be created in one execution
   p_promote_spm_limit            IN NUMBER   DEFAULT NULL, -- limits the number of SPMs to be promoted to "FIXED" in one execution
   p_disable_spm_limit            IN NUMBER   DEFAULT NULL, -- limits the number of SPMs to be demoted to "DISABLE" in one execution
@@ -68,12 +72,14 @@ PROCEDURE maintain_plans (
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE fpz (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
+  p_kiev_pdbs_only               IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then execute only on KIEV PDBs
   p_pdb_name                     IN VARCHAR2 DEFAULT NULL, -- evaluate only this one PDB
   p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL
 );
 /* ------------------------------------------------------------------------------------ */
 PROCEDURE sentinel (
   p_report_only                  IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then only produces report and changes nothing
+  p_kiev_pdbs_only               IN VARCHAR2 DEFAULT NULL, -- (Y|N) when Y then execute only on KIEV PDBs
   p_pdb_name                     IN VARCHAR2 DEFAULT NULL, -- evaluate only this one PDB
   p_sql_id                       IN VARCHAR2 DEFAULT NULL  -- evaluate only this one SQL
 );

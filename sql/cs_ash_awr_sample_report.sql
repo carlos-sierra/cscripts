@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/06
+-- Version:     2018/10/17
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -43,13 +43,12 @@ PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
 PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
 --
 CL BREAK
-COL sql_text_100_only FOR A100 HEA 'SQL Text';
+COL sql_text_100_only FOR A100 HEA 'SQL Text or Program Module Action';
 COL sample_date_time FOR A20 HEA 'Sample Date and Time';
 COL samples FOR 9999,999 HEA 'Sessions';
 COL on_cpu_or_wait_class FOR A14 HEA 'ON CPU or|Wait Class';
 COL on_cpu_or_wait_event FOR A50 HEA 'ON CPU or Timed Event';
 COL session_serial FOR A16 HEA 'Session,Serial';
-COL blocking_session_serial FOR A16 HEA 'Blocking|Session,Serial';
 COL machine FOR A60 HEA 'Application Server';
 COL con_id FOR 999999;
 COL plans FOR 99999 HEA 'Plans';
@@ -147,7 +146,7 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END
 /
 --
-COL blocking_session_status FOR A11 HEA 'Blocking|Session|Status';
+COL blocking_session_status FOR A11 HEA 'Blocker|Session|Status';
 COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL sql_plan_line_id FOR 9999 HEA 'Plan|Line';
 COL sql_child_number FOR 999999 HEA 'Child|Number';
@@ -169,16 +168,50 @@ COL in_cursor_close FOR A6 HEA 'In|Cursor|Close';
 COL in_sequence_load FOR A6 HEA 'In|Seq|Load';
 COL top_level_sql_id FOR A13 HEA 'Top Level|SQL_ID';
 COL is_sqlid_current FOR A4 HEA 'Is|SQL|Exec';
+COL blocking_session_serial FOR A16 HEA 'Blocker|Session,Serial';
+COL blocking2_session_serial FOR A16 HEA 'Blocker(2)|Session,Serial';
+COL blocking3_session_serial FOR A16 HEA 'Blocker(3)|Session,Serial';
+COL blocking4_session_serial FOR A16 HEA 'Blocker(4)|Session,Serial';
+COL blocking_machine FOR A60 HEA 'Application Server (blocker)';
+COL deadlock FOR A4 HEA 'Dead|Lock';
+COL p1_p2_p3 FOR A100 HEA 'P1, P2, P3';
 --
+SET PAGES 1000;
 BREAK ON sample_date_time SKIP PAGE ON machine SKIP 1;
 PRO
 PRO ASH by sample time, appl server, session and SQL_ID
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WITH
+ash AS (
+SELECT /*+ NO_MERGE */ *
+  FROM dba_hist_active_sess_history
+ WHERE sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+),
+sess AS (
+SELECT /*+ NO_MERGE */
+       session_id,
+       session_serial#,
+       MAX(machine) machine
+  FROM ash
+ GROUP BY
+       session_id,
+       session_serial#
+)
 SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        h.machine,
        's:'||h.session_id||','||h.session_serial# session_serial,
        h.blocking_session_status,
+       CASE WHEN (h.session_id, h.session_serial#) IN ((b.blocking_session, b.blocking_session_serial#), (b2.blocking_session, b2.blocking_session_serial#)) THEN 'DL' END deadlock,
        CASE WHEN h.blocking_session IS NOT NULL THEN 'b:'||h.blocking_session||','||h.blocking_session_serial# END blocking_session_serial,
+       CASE WHEN b.blocking_session IS NOT NULL THEN 'b2:'||b.blocking_session||','||b.blocking_session_serial# END blocking2_session_serial,
+       CASE WHEN b2.blocking_session IS NOT NULL THEN 'b3:'||b2.blocking_session||','||b2.blocking_session_serial# END blocking3_session_serial,
+       CASE WHEN b3.blocking_session IS NOT NULL THEN 'b4:'||b3.blocking_session||','||b3.blocking_session_serial# END blocking4_session_serial,
+       CASE
+       WHEN b3.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b3.blocking_session AND s.session_serial# = b3.blocking_session_serial#) 
+       WHEN b2.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b2.blocking_session AND s.session_serial# = b2.blocking_session_serial#) 
+       WHEN b.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b.blocking_session AND s.session_serial# = b.blocking_session_serial#) 
+       WHEN h.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = h.blocking_session AND s.session_serial# = h.blocking_session_serial#) 
+       END blocking_machine,
        h.sql_id,
        h.is_sqlid_current,
        h.sql_plan_hash_value,
@@ -188,7 +221,10 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        h.top_level_sql_id,
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
-       (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only,
+       CASE 
+         WHEN h.sql_id IS NOT NULL THEN (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) 
+         ELSE h.program||' '||h.module||' '||h.action
+       END sql_text_100_only,
        h.current_obj#,
        h.current_file#,
        h.current_block#,
@@ -203,9 +239,21 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        h.in_java_execution,
        h.in_bind,
        h.in_cursor_close,
-       h.in_sequence_load
-  FROM dba_hist_active_sess_history h
- WHERE h.sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+       h.in_sequence_load,
+       NVL2(TRIM(h.p1text), h.p1text||':'||h.p1, NULL)||NVL2(TRIM(h.p2text), ', '||h.p2text||':'||h.p2, NULL)||NVL2(TRIM(h.p3text), ', '||h.p3text||':'||h.p3, NULL) p1_p2_p3
+  FROM ash h,
+       ash b,
+       ash b2,
+       ash b3
+ WHERE b.sample_id(+) = h.sample_id
+   AND b.session_id(+) = h.blocking_session
+   AND b.session_serial#(+) = h.blocking_session_serial#
+   AND b2.sample_id(+) = b.sample_id
+   AND b2.session_id(+) = b.blocking_session
+   AND b2.session_serial#(+) = b.blocking_session_serial#
+   AND b3.sample_id(+) = b2.sample_id
+   AND b3.session_id(+) = b2.blocking_session
+   AND b3.session_serial#(+) = b2.blocking_session_serial#
  ORDER BY
        h.sample_time,
        h.machine,

@@ -30,7 +30,7 @@
 DEF cs_script_name = 'cs_spch_create';
 --
 PRO 1. SQL_ID: 
-DEF cs_sql_id = '&1.';
+DEF cs_sql_id = "&1.";
 --
 SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -40,12 +40,12 @@ SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanit
 @@cs_internal/cs_spch_internal_list.sql
 --
 PRO
-PRO 2. CBO_HINTS (required) e.g.: FIRST_ROWS(1) GATHER_PLAN_STATISTICS MONITOR BIND_AWARE NO_BIND_AWARE
+PRO 2. CBO_HINTS (required) e.g.: GATHER_PLAN_STATISTICS MONITOR FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF') NO_BIND_AWARE
 DEF hints_text = "&2.";
 --
 -- gets some hash on hints to allow multiple patches
 COL hash NEW_V hash;
-SELECT TO_CHAR(ORA_HASH('&&hints_text.',9999)) hash FROM DUAL;
+SELECT TO_CHAR(ORA_HASH(q'[&&hints_text.]',9999)) hash FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&hints_text." 
@@ -54,7 +54,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&hints_text."
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO CBO HINTS    : &&hints_text. 
+PRO CBO HINTS    : "&&hints_text."
 --
 SET HEA OFF;
 PRINT :cs_sql_text

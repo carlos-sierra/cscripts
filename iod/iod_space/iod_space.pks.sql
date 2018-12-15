@@ -45,6 +45,7 @@ gk_package_version            CONSTANT VARCHAR2(30)  := '&&library_version.'; --
 gk_report_only                CONSTANT VARCHAR2(1)   := 'Y';
 gk_only_if_ref_by_full_scans  CONSTANT VARCHAR2(1)   := 'Y'; -- to perform DDL oprration
 gk_min_size_mb                CONSTANT NUMBER        := 10; -- of segment to perform DDL oprration
+gk_max_size_gb                CONSTANT NUMBER        := 100; -- of segment to perform DDL oprration
 gk_min_savings_perc           CONSTANT NUMBER        := 25; -- for segment to perform DDL oprration
 gk_min_ts_used_percent        CONSTANT NUMBER        := 85; -- to perform DDL operation
 gk_min_obj_age_days           CONSTANT NUMBER        := 8; -- to perform DDL operation
@@ -69,6 +70,7 @@ PROCEDURE index_rebuild (
   p_report_only               IN VARCHAR2 DEFAULT gk_report_only,
   p_only_if_ref_by_full_scans IN VARCHAR2 DEFAULT gk_only_if_ref_by_full_scans,
   p_min_size_mb               IN NUMBER   DEFAULT gk_min_size_mb,
+  p_max_size_gb               IN NUMBER   DEFAULT gk_max_size_gb,
   p_min_savings_perc          IN NUMBER   DEFAULT gk_min_savings_perc,
   p_min_obj_age_days          IN NUMBER   DEFAULT gk_min_obj_age_days,
   p_sleep_seconds             IN NUMBER   DEFAULT gk_sleep_seconds,
@@ -80,6 +82,7 @@ PROCEDURE table_redefinition (
   p_report_only               IN VARCHAR2 DEFAULT gk_report_only,
   p_only_if_ref_by_full_scans IN VARCHAR2 DEFAULT gk_only_if_ref_by_full_scans,
   p_min_size_mb               IN NUMBER   DEFAULT gk_min_size_mb,
+  p_max_size_gb               IN NUMBER   DEFAULT gk_max_size_gb,
   p_min_savings_perc          IN NUMBER   DEFAULT gk_min_savings_perc,
   p_min_ts_used_percent       IN NUMBER   DEFAULT gk_min_ts_used_percent,
   p_min_obj_age_days          IN NUMBER   DEFAULT gk_min_obj_age_days,

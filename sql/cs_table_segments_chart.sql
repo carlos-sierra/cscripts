@@ -1,0 +1,169 @@
+----------------------------------------------------------------------------------------
+--
+-- File name:   cs_table_segments_chart.sql
+--
+-- Purpose:     Chart of Table, Index(es) and Lob(s) Segments for given Table
+--
+-- Author:      Carlos Sierra
+--
+-- Version:     2018/10/29
+--
+-- Usage:       Execute connected to PDB.
+--
+--              Enter Table when requested.
+--
+-- Example:     $ sqlplus / as sysdba
+--              SQL> @cs_table_segments_chart.sql
+--
+-- Notes:       Developed and tested on 12.1.0.2.
+--
+---------------------------------------------------------------------------------------
+--
+@@cs_internal/cs_primary.sql
+@@cs_internal/cs_cdb_warn.sql
+@@cs_internal/cs_set.sql
+@@cs_internal/cs_def.sql
+@@cs_internal/cs_file_prefix.sql
+--
+DEF cs_script_name = 'cs_table_segments_chart';
+--
+COL pdb_name NEW_V pdb_name FOR A30;
+SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
+ALTER SESSION SET container = CDB$ROOT;
+--
+SELECT DISTINCT owner table_owner
+  FROM c##iod.segments_hist
+ WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ ORDER BY 1
+/
+PRO
+PRO 1. Table Owner:
+DEF table_owner = '&1.';
+--
+SELECT DISTINCT segment_name table_name
+  FROM c##iod.segments_hist
+ WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND owner = UPPER(TRIM('&&table_owner.'))
+   AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
+ ORDER BY 1
+/
+PRO
+PRO 2. Table Name:
+DEF table_name = '&2.';
+--
+SELECT '&&cs_file_prefix._&&table_owner..&&table_name._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+--
+DEF report_title = "&&table_owner..&&table_name.";
+DEF chart_title = "&&table_owner..&&table_name.";
+DEF xaxis_title = "";
+DEF vaxis_title = "";
+--
+-- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
+--DEF is_stacked = "isStacked: false,";
+DEF is_stacked = "isStacked: true,";
+--DEF vaxis_baseline = ", baseline:0";
+DEF vaxis_baseline = "";
+DEF chart_foot_note_2 = "<br>2) ";
+DEF chart_foot_note_2 = "";
+DEF chart_foot_note_3 = "";
+DEF chart_foot_note_3 = "";
+DEF chart_foot_note_4 = "";
+DEF report_foot_note = "&&cs_script_name..sql";
+--
+@@cs_internal/cs_spool_head_chart.sql
+--
+PRO ,'Table MBs'
+PRO ,'Index(es) MBs'
+PRO ,'LOB(s) MBs'
+PRO ]
+--
+SET HEA OFF PAGES 0;
+/****************************************************************************************/
+WITH
+table_ts AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       snap_time,
+       SUM(bytes) bytes
+  FROM c##iod.segments_hist
+ WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND owner = UPPER(TRIM('&&table_owner.'))
+   AND segment_name = UPPER(TRIM('&&table_name.'))
+   AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
+ GROUP BY
+       snap_time
+),
+indexes_ts AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.snap_time,
+       SUM(h.bytes) bytes
+  FROM cdb_indexes i,
+       c##iod.segments_hist h
+ WHERE i.table_owner = UPPER(TRIM('&&table_owner.'))
+   AND i.table_name = UPPER(TRIM('&&table_name.'))
+   AND h.con_id = i.con_id 
+   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.owner = i.owner
+   AND h.segment_name = i.index_name
+   AND h.segment_type IN ('INDEX', 'INDEX PARTITION', 'INDEX SUBPARTITION', 'LOBINDEX')
+ GROUP BY
+       h.snap_time
+),
+lobs_ts AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.snap_time,
+       SUM(h.bytes) bytes
+  FROM cdb_lobs l,
+       c##iod.segments_hist h
+ WHERE l.owner = UPPER(TRIM('&&table_owner.'))
+   AND l.table_name = UPPER(TRIM('&&table_name.'))
+   AND h.con_id = l.con_id 
+   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.owner = l.owner
+   AND h.segment_name = l.segment_name
+   AND h.segment_type = 'LOBSEGMENT'
+ GROUP BY
+       h.snap_time
+),
+my_query AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       t.snap_time,
+       NVL(ROUND(t.bytes/POWER(2,20),3),0) table_mbs,
+       NVL(ROUND(i.bytes/POWER(2,20),3),0) indexes_mbs,
+       NVL(ROUND(l.bytes/POWER(2,20),3),0) lobs_mbs
+  FROM table_ts t,
+       indexes_ts i,
+       lobs_ts l
+ WHERE i.snap_time(+) = t.snap_time
+   AND l.snap_time(+) = t.snap_time
+)
+SELECT ', [new Date('||
+       TO_CHAR(q.snap_time, 'YYYY')|| /* year */
+       ','||(TO_NUMBER(TO_CHAR(q.snap_time, 'MM')) - 1)|| /* month - 1 */
+       ','||TO_CHAR(q.snap_time, 'DD')|| /* day */
+       ','||TO_CHAR(q.snap_time, 'HH24')|| /* hour */
+       ','||TO_CHAR(q.snap_time, 'MI')|| /* minute */
+       ','||TO_CHAR(q.snap_time, 'SS')|| /* second */
+       ')'||
+       ','||q.table_mbs|| 
+       ','||q.indexes_mbs|| 
+       ','||q.lobs_mbs|| 
+       ']'
+  FROM my_query q
+ ORDER BY
+       q.snap_time
+/
+/****************************************************************************************/
+SET HEA ON PAGES 100;
+--
+-- [Line|Area]
+DEF cs_chart_type = 'Area';
+@@cs_internal/cs_spool_id_chart.sql
+@@cs_internal/cs_spool_tail_chart.sql
+PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
+PRO
+PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."
+--
+ALTER SESSION SET CONTAINER = &&pdb_name.;
+--
+@@cs_internal/cs_undef.sql
+@@cs_internal/cs_reset.sql

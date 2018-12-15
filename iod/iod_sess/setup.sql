@@ -39,3 +39,6 @@ show errors package body &&1..iod_sess
 WHENEVER SQLERROR EXIT FAILURE;
 COL package_version FOR A80;
 SELECT '&&1..iod_sess version: '||&&1..iod_sess.get_package_version package_version FROM DUAL;
+
+prompt creating jobs
+@@jobs.sql

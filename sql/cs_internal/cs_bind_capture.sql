@@ -4,7 +4,7 @@ COL position FOR 99999999 HEA 'Position';
 COL bind_name FOR A30 HEA 'Bind Name';
 COL bind_value FOR A200 HEA 'Bind Value';
 --
-BRE ON last_captured SKIP 1 ON child_number;
+BRE ON last_captured SKIP PAGE ON child_number;
 --
 PRO
 PRO CAPTURED BINDS (v$sql_bind_capture)

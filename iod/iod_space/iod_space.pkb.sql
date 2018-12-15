@@ -177,8 +177,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SPACE.table_stats_hist: ALTER TABLE &&1..table_stats_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..table_stats_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..table_stats_hist DROP PARTITION '||i.partition_name;
@@ -355,8 +355,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SPACE.tab_modifications_hist: ALTER TABLE &&1..tab_modifications_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..tab_modifications_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..tab_modifications_hist DROP PARTITION '||i.partition_name;
@@ -456,8 +456,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SPACE.segments_hist: ALTER TABLE &&1..segments_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..segments_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..segments_hist DROP PARTITION '||i.partition_name;
@@ -619,8 +619,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SPACE.tablespaces_hist: ALTER TABLE &&1..tablespaces_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..tablespaces_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..tablespaces_hist DROP PARTITION '||i.partition_name;
@@ -640,6 +640,7 @@ PROCEDURE index_rebuild (
   p_report_only               IN VARCHAR2 DEFAULT gk_report_only,
   p_only_if_ref_by_full_scans IN VARCHAR2 DEFAULT gk_only_if_ref_by_full_scans,
   p_min_size_mb               IN NUMBER   DEFAULT gk_min_size_mb,
+  p_max_size_gb               IN NUMBER   DEFAULT gk_max_size_gb,
   p_min_savings_perc          IN NUMBER   DEFAULT gk_min_savings_perc,
   p_min_obj_age_days          IN NUMBER   DEFAULT gk_min_obj_age_days,
   p_sleep_seconds             IN NUMBER   DEFAULT gk_sleep_seconds,
@@ -650,6 +651,7 @@ IS
   l_report_only VARCHAR2(1) := NVL(UPPER(TRIM(p_report_only)),gk_report_only);
   l_only_if_ref_by_full_scans VARCHAR2(1) := NVL(UPPER(TRIM(p_only_if_ref_by_full_scans)),gk_only_if_ref_by_full_scans);
   l_min_size_mb NUMBER := NVL(p_min_size_mb,gk_min_size_mb);
+  l_max_size_gb NUMBER := NVL(p_max_size_gb,gk_max_size_gb);
   l_min_savings_perc NUMBER := NVL(p_min_savings_perc,gk_min_savings_perc);
   l_min_obj_age_days NUMBER := NVL(p_min_obj_age_days,gk_min_obj_age_days);
   l_timeout DATE := NVL(p_timeout,(SYSDATE + (gk_timeout_hours/24)));
@@ -715,7 +717,8 @@ BEGIN
              WHERE i.owner <> 'SYS'
                AND i.index_type LIKE '%NORMAL%'
                AND i.table_owner <> 'SYS'
-               AND i.table_name <> 'KIEVTRANSACTIONS' -- For as long as KIEV application does a LOCK TABLE IN EXCLUSIVE MODE, exclude its indexes!
+               AND i.table_name <> 'KIEVTRANSACTIONS' -- For as long as KIEV application does a LOCK TABLE IN EXCLUSIVE MODE, exclude its indexes! (CAPA-67)
+               AND i.table_name <> 'MAPUPDATES_AD' -- Until KIEV implements "OR" predicates at the application layer (CHANGE-77522)
                AND i.tablespace_name NOT IN ('SYSTEM','SYSAUX')
                AND i.table_type = 'TABLE'
                AND i.status = 'VALID'
@@ -795,6 +798,7 @@ BEGIN
                AND s.segment_name = i.index_name
                AND s.tablespace_name = i.tablespace_name
                AND s.blocks * t.block_size / POWER(2,20) > l_min_size_mb 
+               AND s.blocks * t.block_size / POWER(2,30) < l_max_size_gb 
                AND o.con_id = i.con_id
                AND o.owner = i.owner
                AND o.object_name = i.index_name
@@ -1079,8 +1083,8 @@ BEGIN
     )
     LOOP
       EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-      output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+        output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
         output('-- &&1..IOD_SPACE.index_rebuild: ALTER TABLE &&1..index_rebuild_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
         EXECUTE IMMEDIATE q'[ALTER TABLE &&1..index_rebuild_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
         EXECUTE IMMEDIATE 'ALTER TABLE &&1..index_rebuild_hist DROP PARTITION '||i.partition_name;
@@ -1101,6 +1105,7 @@ PROCEDURE table_redefinition (
   p_report_only               IN VARCHAR2 DEFAULT gk_report_only,
   p_only_if_ref_by_full_scans IN VARCHAR2 DEFAULT gk_only_if_ref_by_full_scans,
   p_min_size_mb               IN NUMBER   DEFAULT gk_min_size_mb,
+  p_max_size_gb               IN NUMBER   DEFAULT gk_max_size_gb,
   p_min_savings_perc          IN NUMBER   DEFAULT gk_min_savings_perc,
   p_min_ts_used_percent       IN NUMBER   DEFAULT gk_min_ts_used_percent,
   p_min_obj_age_days          IN NUMBER   DEFAULT gk_min_obj_age_days,
@@ -1112,6 +1117,7 @@ IS
   l_report_only VARCHAR2(1) := NVL(UPPER(TRIM(p_report_only)),gk_report_only);
   l_only_if_ref_by_full_scans VARCHAR2(1) := NVL(UPPER(TRIM(p_only_if_ref_by_full_scans)),gk_only_if_ref_by_full_scans);
   l_min_size_mb NUMBER := NVL(p_min_size_mb,gk_min_size_mb);
+  l_max_size_gb NUMBER := NVL(p_max_size_gb,gk_max_size_gb);
   l_min_savings_perc NUMBER := NVL(p_min_savings_perc,gk_min_savings_perc);
   l_min_ts_used_percent NUMBER := NVL(p_min_ts_used_percent,gk_min_ts_used_percent);
   l_min_obj_age_days NUMBER := NVL(p_min_obj_age_days,gk_min_obj_age_days);
@@ -1188,10 +1194,12 @@ BEGIN
                    t.blocks,
                    t.compression,
                    t.compress_for
-              FROM cdb_tables t
+              FROM cdb_tables t,
+                   v$containers c
              WHERE t.owner <> 'SYS'
-               AND t.table_name NOT IN ('KIEVTRANSACTIONS', 'KIEVTRANSACTIONKEYS') -- For as long as GC is not aware of Table Redefinition.
-               AND t.table_name <> 'TIMERS' -- Until we get ORA-600 from IOD-9949 fixed
+               --AND t.table_name NOT IN ('KIEVTRANSACTIONS', 'KIEVTRANSACTIONKEYS') -- For as long as GC is not aware of Table Redefinition.
+               --AND t.table_name <> 'TIMERS' -- Until we get ORA-600 from IOD-9949 fixed
+               --AND t.table_name <> 'MAPUPDATES_AD' -- Until KIEV implements "OR" predicates at the application layer (CHANGE-77522)
                AND t.tablespace_name NOT IN ('SYSTEM','SYSAUX')
                AND t.cluster_name IS NULL
                AND t.iot_name IS NULL
@@ -1205,6 +1213,14 @@ BEGIN
                AND t.num_rows > 0
                AND t.avg_row_len > 0
                AND t.pct_free >= 0
+               AND c.con_id = t.con_id
+               AND c.open_mode = 'READ WRITE'
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name = c.name AND b.owner IS NULL AND b.table_name IS NULL) -- exclude PDB
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name = c.name AND b.owner = t.owner AND b.table_name IS NULL) -- exclude PDB+OWNER
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name = c.name AND b.owner = t.owner AND b.table_name = t.table_name) -- exclude PDB+OWNER+TABLE
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name IS NULL AND b.owner = t.owner AND b.table_name IS NULL) -- exclude OWNER
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name IS NULL AND b.owner = t.owner AND b.table_name = t.table_name) -- exclude OWNER+TABLE
+               AND NOT EXISTS (SELECT NULL FROM &&1..exceptions_black_list b WHERE b.iod_api = 'TABLE_REDEFINITION' AND b.pdb_name IS NULL AND b.owner IS NULL AND b.table_name = t.table_name) -- exclude TABLE
             ),
             identity_columns AS (
             SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(identity1) */
@@ -1318,6 +1334,7 @@ BEGIN
              WHERE s.owner <> 'SYS'
                AND s.segment_type = 'TABLE'
                AND s.bytes / POWER(2,20) > l_min_size_mb
+               AND s.bytes / POWER(2,30) < l_max_size_gb
             ),
             lobs AS (
             SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS QB_NAME(lobs) */
@@ -1438,7 +1455,6 @@ BEGIN
                AND l.table_name(+) = t.table_name
                AND l.tablespace_name(+) = t.tablespace_name 
                -- table + indexes + lobs < tablespace available
-               --AND (s.bytes + NVL(i.sum_bytes, 0))/POWER(2,30) < ts.max_size_gbs - ts.used_space_gbs
                AND (s.bytes + NVL(i.sum_bytes, 0) + NVL(l.bytes, 0))/POWER(2,30) < ts.max_size_gbs - ts.used_space_gbs
                -- used_space + table + indexes + lobs < tablespace threshold
                -- this predicate is needed so a table redef does not push the hwm on ts beyond utilization threshold causing then an alert
@@ -1493,6 +1509,7 @@ BEGIN
                    rc.top_index_size_mbs,
                    rc.lobs_count,
                    rc.all_lobs_size_mbs,
+                   ROUND((rc.table_size_mbs + rc.all_index_size_mbs + rc.all_lobs_size_mbs) / POWER(2,10), 3) all_segments_size_gbs,
                    rc.ts_used_space_gbs,
                    rc.ts_max_size_gbs,
                    rc.ts_used_percent,
@@ -1504,6 +1521,7 @@ BEGIN
                AND rc.redef_log_cnt = 0 -- skip candiadates from pdb that has table redefinition materialized view logs
                AND rc.redef_mv_cnt = 0 -- skip candiadates from pdb that has table redefinition materialized views
                AND rc.redef_tbl_cnt = 0 -- skip candiadates from pdb that has table redefinition materialized view tables
+               AND (rc.table_size_mbs + rc.all_index_size_mbs + rc.all_lobs_size_mbs) / POWER(2,10) < l_max_size_gb -- skip if table+index(es)+lob(s) > threhold (CHANGE-94325)
                AND fs.con_id(+) = rc.con_id
                AND fs.owner(+) = rc.owner
                AND fs.table_name(+) = rc.table_name
@@ -1540,8 +1558,9 @@ BEGIN
     THEN
       output('-- ');
       output('-- '||TO_CHAR(SYSDATE, gk_date_format));
-      output('-- pdb:'||l_table_redefinition_hist_rec.pdb_name||'('||l_table_redefinition_hist_rec.con_id||'). tbl:'||l_table_redefinition_hist_rec.owner||'.'||l_table_redefinition_hist_rec.table_name||'. created:'||TO_CHAR(i.created,gk_date_format)||'. fs:'||l_table_redefinition_hist_rec.full_scan||
-             '. lobs:'||NVL(l_table_redefinition_hist_rec.lobs_count,0)||'. all_lobs:'||NVL(l_table_redefinition_hist_rec.all_lobs_size_mbs_before,0)||'MBs. idx:'||l_table_redefinition_hist_rec.index_count||'. all_idx:'||l_table_redefinition_hist_rec.all_index_size_mbs_before||'MBs. top_idx:'||l_table_redefinition_hist_rec.top_index_size_mbs_before||'MBs.');
+      output('-- pdb:'||l_table_redefinition_hist_rec.pdb_name||'('||l_table_redefinition_hist_rec.con_id||'). tbl:'||l_table_redefinition_hist_rec.owner||'.'||l_table_redefinition_hist_rec.table_name||'. created:'||TO_CHAR(i.created,gk_date_format)||'. fs:'||l_table_redefinition_hist_rec.full_scan||'. '||
+             'lobs:'||NVL(l_table_redefinition_hist_rec.lobs_count,0)||'. all_lobs:'||NVL(l_table_redefinition_hist_rec.all_lobs_size_mbs_before,0)||'MBs. idx:'||l_table_redefinition_hist_rec.index_count||'. all_idx:'||l_table_redefinition_hist_rec.all_index_size_mbs_before||'MBs. top_idx:'||l_table_redefinition_hist_rec.top_index_size_mbs_before||'MBs. '||
+             'all_segments:'||NVL(i.all_segments_size_gbs,0)||'GBs.');
       IF i.compression = 'ENABLED' THEN
         output('-- compression:'||i.compress_for);
       END IF;
@@ -1863,9 +1882,9 @@ BEGIN
     output('-- ~~~ nothing to do! ~~~');
   END IF;
   output('-- ');
-  -- validate there are no table redefinition materialized view logs
+  -- validate there are no table redefinition materialized view logs (from failed table redefinition prior to this executiion e.g. from the day before)
   l_count := 0;
-  output('-- cdb_mview_logs validation (table redefinition materialized view logs)');
+  output('-- &&1..IOD_SPACE.table_redefinition DBMS_REDEFINITION.REDEF_TABLE cdb_mview_logs validation (table redefinition materialized view logs)', p_alert_log => 'Y');
   FOR i IN (SELECT c.name pdb_name,
                    c.con_id,
                    lg.log_owner,
@@ -1882,11 +1901,11 @@ BEGIN
                    lg.master)
   LOOP
     l_count := l_count + 1;
-    output('pdb:'||i.pdb_name||'('||i.con_id||') log_owner:'||i.log_owner||' master:'||i.master);
+    output('pdb:'||i.pdb_name||'('||i.con_id||') cdb_mview_logs log_owner:'||i.log_owner||' master:'||i.master, p_alert_log => 'Y');
   END LOOP;
   --
   -- validate there are no table redefinition materialized views
-  output('-- cdb_mviews validation (table redefinition materialized views)');
+  output('-- &&1..IOD_SPACE.table_redefinition DBMS_REDEFINITION.REDEF_TABLE cdb_mviews validation (table redefinition materialized views)', p_alert_log => 'Y');
   FOR i IN (SELECT c.name pdb_name,
                    c.con_id,
                    mv.owner,
@@ -1903,10 +1922,10 @@ BEGIN
                    mv.mview_name)
   LOOP
     l_count := l_count + 1;
-    output('pdb:'||i.pdb_name||'('||i.con_id||') owner:'||i.owner||' mview_name:'||i.mview_name);
+    output('pdb:'||i.pdb_name||'('||i.con_id||') cdb_mviews owner:'||i.owner||' mview_name:'||i.mview_name, p_alert_log => 'Y');
   END LOOP;
   -- validate there are no table redefinition materialized view tables
-  output('-- cdb_tables validation (table redefinition materialized view tables)');
+  output('-- &&1..IOD_SPACE.table_redefinition DBMS_REDEFINITION.REDEF_TABLE cdb_tables validation (table redefinition materialized view tables)', p_alert_log => 'Y');
   FOR i IN (SELECT c.name pdb_name,
                    c.con_id,
                    tb.owner,
@@ -1923,12 +1942,22 @@ BEGIN
                    tb.table_name)
   LOOP
     l_count := l_count + 1;
-    output('pdb:'||i.pdb_name||'('||i.con_id||') owner:'||i.owner||' table_name:'||i.table_name);
+    output('pdb:'||i.pdb_name||'('||i.con_id||') cdb_tables owner:'||i.owner||' table_name:'||i.table_name, p_alert_log => 'Y');
   END LOOP;
   output('-- ');
   -- exit if there are unexpected objects from a failed or inflight table redefinition
   IF l_count > 0 THEN
     output('*** &&1..IOD_SPACE.table_redefinition failed. There are '||l_count||' unexpected schema objects from a failed or inflight table redefinition.', p_alert_log => 'Y');
+    output('---', p_alert_log => 'Y');
+    output('--- Remediation steps (replace owner, pdb_name, table_name and "nnnnn" accordingly):', p_alert_log => 'Y');
+    output('--- 1. ALTER SESSION SET CONTAINER = <pdb_name>;', p_alert_log => 'Y');
+    output('--- 2. SELECT log_owner owner, master table_name FROM dba_mview_logs;', p_alert_log => 'Y');
+    output('--- 3. DROP MATERIALIZED VIEW LOG ON <owner>.<table_name>;', p_alert_log => 'Y');
+    output('--- 4. SELECT mview_name FROM dba_mviews WHERE owner = ''<owner>'';', p_alert_log => 'Y');
+    output('--- 5. DROP MATERIALIZED VIEW <owner>.REDEF$_Tnnnnn;', p_alert_log => 'Y');
+    output('--- 6. DROP TABLE <owner>.REDEF$_Tnnnnn;', p_alert_log => 'Y');
+    output('--- Note: alternatively use *drop_redef_table*.sql cs scripts', p_alert_log => 'Y');
+    output('---', p_alert_log => 'Y');
     raise_application_error(-20000, 'There are '||l_count||' unexpected schema objects from a failed or inflight table redefinition.');
   END IF;
   --  
@@ -1944,8 +1973,8 @@ BEGIN
     )
     LOOP
       EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-      output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+        output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
         output('-- &&1..IOD_SPACE.table_redefinition: ALTER TABLE &&1..table_redefinition_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
         EXECUTE IMMEDIATE q'[ALTER TABLE &&1..table_redefinition_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
         EXECUTE IMMEDIATE 'ALTER TABLE &&1..table_redefinition_hist DROP PARTITION '||i.partition_name;
@@ -2320,8 +2349,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -12) THEN
+      output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('-- &&1..IOD_SPACE.tablespaces_resize: ALTER TABLE &&1..tablespace_resize_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..tablespace_resize_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..tablespace_resize_hist DROP PARTITION '||i.partition_name;

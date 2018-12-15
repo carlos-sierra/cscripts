@@ -43,6 +43,7 @@ IS
   l_sql_statement VARCHAR2(32767);
   l_kill_session_requested VARCHAR2(1);
   l_killed VARCHAR2(1);
+  l_killed_count NUMBER := 0;
   l_high_value DATE;
   l_insert_count NUMBER := 0;
 --  
@@ -246,7 +247,11 @@ IS
     -- TM DML enqueue locks on specific table (or table lock)
     --
     SELECT /*+ ORDERED */
-           CASE WHEN s.status = 'INACTIVE' AND l.ctime >= c_lock_secs_thres AND s.last_call_et >= c_lock_secs_thres THEN 'Y' ELSE 'N' END death_row,
+           CASE 
+             WHEN s.status = 'INACTIVE' AND l.ctime >= c_lock_secs_thres AND s.last_call_et >= c_lock_secs_thres THEN 'Y' 
+             WHEN /* CHANGE-77369 s.status = 'INACTIVE' AND */ LOWER(s.osuser) NOT IN ('root', '?', 'nobody') AND LOWER(s.machine)||'.' LIKE '%-mac.%' AND l.ctime >= 1 THEN 'Y' -- ODSI-1333
+             ELSE 'N' 
+           END death_row,
            s.sid,
            s.serial#,
            p.spid,
@@ -311,7 +316,11 @@ IS
     --
     SELECT /*+ ORDERED */
            DISTINCT -- needed since one session could be blocking several others (thus expecting duplicates)
-           CASE WHEN bs.status = 'INACTIVE' AND b.ctime >= c_lock_secs_thres AND bs.last_call_et >= c_lock_secs_thres AND w.ctime >= c_lock_secs_thres AND ws.last_call_et >= c_lock_secs_thres THEN 'Y' ELSE 'N' END death_row,
+           CASE 
+             WHEN bs.status = 'INACTIVE' AND b.ctime >= c_lock_secs_thres AND bs.last_call_et >= c_lock_secs_thres AND w.ctime >= c_lock_secs_thres AND ws.last_call_et >= c_lock_secs_thres THEN 'Y' 
+             WHEN /* CHANGE-77369 bs.status = 'INACTIVE' AND */ LOWER(bs.osuser) NOT IN ('root', '?', 'nobody') AND LOWER(bs.machine)||'.' LIKE '%-mac.%' AND b.ctime >= 1 THEN 'Y' -- ODSI-1333
+             ELSE 'N' 
+           END death_row,
            bs.sid,
            bs.serial#,
            bp.spid,
@@ -454,7 +463,11 @@ BEGIN
   -- main cursor
   FOR i IN candidate_sessions (l_table_name, l_lock_secs_thres, l_inac_secs_thres, l_snip_secs_thres, l_snip_idle_profile, l_snip_candidates, l_sniped_sessions, l_tm_locks, l_tx_locks)
   LOOP
-    IF i.status IN ('INACTIVE', 'SNIPED') AND ((i.type IN ('TM', 'TX') AND l_kill_locked = 'Y') OR (i.type IS NULL AND l_kill_idle = 'Y')) THEN
+    IF i.status IN ('INACTIVE', 'SNIPED') AND i.type IN ('TM', 'TX') AND l_kill_locked = 'Y' THEN
+      l_kill_session_requested := 'Y';
+    ELSIF i.status IN ('INACTIVE', 'SNIPED') AND i.type IS NULL AND l_kill_idle = 'Y' THEN
+      l_kill_session_requested := 'Y';
+    ELSIF i.status = 'ACTIVE' AND i.type IN ('TM', 'TX') AND i.death_row = 'Y' /* mac machines */ AND l_kill_locked = 'Y' THEN -- CHANGE-77369
       l_kill_session_requested := 'Y';
     ELSE
       l_kill_session_requested := 'N';
@@ -467,6 +480,7 @@ BEGIN
     END IF;
     --
     -- insert into audit table once
+    l_insert_count := l_insert_count + 1;
     INSERT /* &&1.iod_sess.audit_and_disconnect */
     INTO &&1..inactive_sessions_audit_trail (
       pty         ,
@@ -528,12 +542,12 @@ BEGIN
       i.pdb_name    ,
       i.reason
     FROM DUAL;
-    l_insert_count := l_insert_count + 1;
     --WHERE NOT EXISTS (SELECT NULL FROM &&1..disconnected_sessions e WHERE e.sid = i.sid AND e.serial# = i.serial# AND e.logon_time = i.logon_time);    
     COMMIT; -- expected super low volume (then commit within loop)
     --
     l_message := 'pty:'||i.pty||' dead?:'||i.death_row||' kill?:'||l_kill_session_requested||' killed:'||l_killed||' stat:'||i.status||' et:'||i.last_call_et||'s sess:('||i.sid||','||i.serial#||')';
     IF l_killed = 'Y' THEN
+      l_killed_count := l_killed_count + 1;
       output('&&1..iod_sess.audit_and_disconnect: '||l_message, p_alert_log => 'Y');
       l_sql_statement := 'ALTER SYSTEM DISCONNECT SESSION '''||i.sid||','||i.serial#||''' IMMEDIATE';
       output('&&1..iod_sess.audit_and_disconnect: '||l_sql_statement||'; at '||TO_CHAR(SYSDATE, gk_date_format), p_alert_log => 'Y');
@@ -547,13 +561,15 @@ BEGIN
         WHEN session_id_does_not_exist THEN
           output('&&1..iod_sess.audit_and_disconnect: '||sqlerrm, p_alert_log => 'Y');
       END;
-    ELSE
-      output(l_message, p_alert_log => 'N');
+    --ELSE
+      --output(l_message, p_alert_log => 'N');
     END IF;
   END LOOP;
   COMMIT; -- expected some volume (then commit outside loop)
+  --
+  output(l_insert_count||' rows inserted to &&1..inactive_sessions_audit_trail. '||l_killed_count||' sessions killed.');
   -- drop partitions with data older than 2 months (i.e. preserve between 2 and 3 months of history)
-  IF l_insert_count > 1 THEN
+  IF /*l_insert_count > 1 AND*/ l_killed_count > 0 THEN -- optimization (no need to do this on every execution of this API)
     FOR i IN (
       SELECT partition_name, high_value, blocks
         FROM dba_tab_partitions
@@ -564,8 +580,8 @@ BEGIN
     )
     LOOP
       EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN
+        output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
         output('&&1..iod_sess.audit_and_disconnect: ALTER TABLE &&1..inactive_sessions_audit_trail DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
         EXECUTE IMMEDIATE q'[ALTER TABLE &&1..inactive_sessions_audit_trail SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
         EXECUTE IMMEDIATE 'ALTER TABLE &&1..inactive_sessions_audit_trail DROP PARTITION '||i.partition_name;
@@ -575,6 +591,12 @@ BEGIN
   DBMS_APPLICATION_INFO.SET_MODULE(NULL,NULL);
   output('end '||TO_CHAR(SYSDATE, gk_date_format));
 END audit_and_disconnect;
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE killer
+IS
+BEGIN
+  audit_and_disconnect;
+END killer;
 /* ------------------------------------------------------------------------------------ */
 END iod_sess;
 /

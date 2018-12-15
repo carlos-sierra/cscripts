@@ -1,3 +1,13 @@
+2018-11-15
+~~~~~~~~~~
+1. Include in alert log instructions how to drop staging objects from a prior failed table redefinition.
+2. New exclusions table for TABLE_REDEFINITION API, allowing black list PDBs, OWNERs and TABLE_NAMEs (CHANGE-94325)
+3. New upper limit parameter for TABLE_REDEFINITION API, with default of 100GBs (CHANGE-94325)
+
+2018-09-20
+~~~~~~~~~~
+1. Exclude mapUpdates_ad from Table Redefinition and Index Rebuild. (CHANGE-77522)
+
 2018-08-29
 ~~~~~~~~~~
 1. Extend range of existing max allocations to 2T (CHANGE-70936)

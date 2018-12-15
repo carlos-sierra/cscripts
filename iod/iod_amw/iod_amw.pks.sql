@@ -32,14 +32,14 @@ gk_sql_tune_advisor_status     CONSTANT VARCHAR2(8) := 'DISABLE';
 gk_segment_advisor_status      CONSTANT VARCHAR2(8) := 'DISABLE';
 /* ------------------------------------------------------------------------------------ */
 gk_maintenance_windows_per_day CONSTANT NUMBER := 4; -- 1-4, 4 is recommended (how many times per day we open all maintenance windows)
-gk_first_window_offset_hours   CONSTANT NUMBER := 0; -- 1 means 1AM, 13 is fine if there is only 1 window, else set to 0
+gk_first_window_offset_hours   CONSTANT NUMBER := 0; -- 1 means 1AM, 12 is fine if there is only 1 window, else set to 0
 gk_opening_window_size_hours   CONSTANT NUMBER := 2; -- >= 2 is recommended (all pdbs get staggered open during this time)
 gk_window_duration_in_hours    CONSTANT NUMBER := 4; -- must be >= 4, 4 is recommended (all pdbs have same maintenance window duration)
 /* ------------------------------------------------------------------------------------ */
 /*
 -- MON-FRI - one window
 gk_mon_fri_maintenance_windows CONSTANT NUMBER := 1; 
-gk_mon_fri_first_window_offset CONSTANT NUMBER := gk_first_window_offset_hours + 13; 
+gk_mon_fri_first_window_offset CONSTANT NUMBER := gk_first_window_offset_hours + 12; 
 gk_mon_fri_opening_window_size CONSTANT NUMBER := gk_opening_window_size_hours; 
 gk_mon_fri_window_duration_in  CONSTANT NUMBER := gk_window_duration_in_hours; 
 */
@@ -52,9 +52,9 @@ gk_mon_fri_window_duration_in  CONSTANT NUMBER := gk_window_duration_in_hours;
 /*
 -- SAT-SUN - one window
 gk_sat_sun_maintenance_windows CONSTANT NUMBER := 1; 
-gk_sat_sun_first_window_offset CONSTANT NUMBER := gk_first_window_offset_hours + 13; 
+gk_sat_sun_first_window_offset CONSTANT NUMBER := gk_first_window_offset_hours + 12; 
 gk_sat_sun_opening_window_size CONSTANT NUMBER := gk_opening_window_size_hours; 
-gk_sat_sun_window_duration_in  CONSTANT NUMBER := 2 * gk_window_duration_in_hours; 
+gk_sat_sun_window_duration_in  CONSTANT NUMBER := gk_window_duration_in_hours; 
 */
 -- SAT-SUN - multiple windows
 gk_sat_sun_maintenance_windows CONSTANT NUMBER := gk_maintenance_windows_per_day; 
@@ -85,6 +85,12 @@ PROCEDURE autotasks_and_maint_windows (
 PROCEDURE reset (
   p_report_only IN VARCHAR2 DEFAULT gk_report_only,
   p_pdb_name    IN VARCHAR2 DEFAULT NULL
+);
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE reset_amw (
+  p_report_only IN VARCHAR2 DEFAULT gk_report_only,
+  p_pdb_name    IN VARCHAR2 DEFAULT NULL,
+  p_windows     IN VARCHAR2 DEFAULT gk_maintenance_windows_per_day /* [{4}|1|0|2|3|6] */
 );
 /* ------------------------------------------------------------------------------------ */
 END iod_amw;

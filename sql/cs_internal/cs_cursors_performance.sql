@@ -19,10 +19,10 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
        child_number,
        plan_hash_value,
        users_executing,
-       elapsed_time/executions/1e3 avg_et_ms,
-       cpu_time/executions/1e3 avg_cpu_ms,
-       buffer_gets/executions avg_bg,
-       rows_processed/executions avg_row,
+       elapsed_time/NULLIF(executions,0)/1e3 avg_et_ms,
+       cpu_time/NULLIF(executions,0)/1e3 avg_cpu_ms,
+       buffer_gets/NULLIF(executions,0) avg_bg,
+       rows_processed/NULLIF(executions,0) avg_row,
        executions,
        elapsed_time/1e6 tot_et_secs,
        cpu_time/1e6 tot_cpu_secs,
@@ -30,7 +30,7 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
        rows_processed tot_rows_processed
   FROM v$sql
  WHERE sql_id = '&&cs_sql_id.'
-   AND executions > 0
+   --AND executions > 0
  ORDER BY
        last_active_time,
        child_number

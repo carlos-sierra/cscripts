@@ -363,8 +363,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SQLSTATS.sqlstats_snapshot: ALTER TABLE &&1..sqlstats_snapshot DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..sqlstats_snapshot SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..sqlstats_snapshot DROP PARTITION '||i.partition_name;
@@ -381,8 +381,8 @@ BEGIN
   )
   LOOP
     EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-    output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
     IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN
+      output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SQLSTATS.active_session_hist: ALTER TABLE &&1..active_session_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..active_session_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
       EXECUTE IMMEDIATE 'ALTER TABLE &&1..active_session_hist DROP PARTITION '||i.partition_name;

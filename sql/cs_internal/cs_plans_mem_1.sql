@@ -1,7 +1,7 @@
 COL last_active_time FOR A19 HEA 'Last Active Time';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL child_number FOR 999999 HEA 'Child|Number';
-COL obj_sta FOR A7 HEA 'Object|Status';
+COL object_status FOR A14 HEA 'Object Status';
 COL is_obsolete FOR A8 HEA 'Is|Obsolete';
 COL is_shareable FOR A9 HEA 'Is|Shareable';
 COL is_bind_aware FOR A9 HEA 'Is Bind|Aware';
@@ -41,7 +41,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
        plan_hash_value,
        child_number,
-       SUBSTR(object_status, 1, 7) obj_sta,
+       object_status, 
        is_obsolete,
        is_shareable,
        is_bind_aware,

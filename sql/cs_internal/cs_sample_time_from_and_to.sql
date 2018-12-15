@@ -1,5 +1,6 @@
 --
 PRO
+COL snap_id FOR 9999999;
 COL cs_time_from_default NEW_V cs_time_from_default NOPRI;
 COL cs_time_to_default NEW_V cs_time_to_default NOPRI;
 SELECT TO_CHAR(SYSDATE-(&&cs_hours_range_default./24),'&&cs_datetime_full_format.') cs_time_from_default, TO_CHAR(SYSDATE,'&&cs_datetime_full_format.') cs_time_to_default FROM DUAL

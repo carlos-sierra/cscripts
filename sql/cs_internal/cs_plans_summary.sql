@@ -9,8 +9,8 @@ COL bind_sens FOR 9,999,990 HEA 'Bind|Sensitive|Cursors';
 COL bind_aware FOR 9,999,990 HEA 'Bind|Aware|Cursors';
 COL avg_et_ms FOR 99,999,990.000 HEA 'Avg Elapsed|Time (ms)';
 COL avg_cpu_ms FOR 99,999,990.000 HEA 'Avg CPU|Time (ms)';
-COL avg_bg FOR 999,999,990 HEA 'Avg|Buffer Gets';
-COL avg_row FOR 999,990.000 HEA 'Avg|Rows Processed';
+COL avg_bg FOR 999,999,999,990 HEA 'Avg|Buffer Gets';
+COL avg_row FOR 999,999,990.000 HEA 'Avg|Rows Processed';
 COL executions FOR 999,999,999,990 HEA 'Executions';
 --
 PRO
@@ -25,14 +25,14 @@ SELECT TO_CHAR(MAX(last_active_time), '&&cs_datetime_full_format.') last_active_
        SUM(CASE is_shareable WHEN 'Y' THEN 1 ELSE 0 END) shareable,
        SUM(CASE is_bind_sensitive WHEN 'Y' THEN 1 ELSE 0 END) bind_sens,
        SUM(CASE is_bind_aware WHEN 'Y' THEN 1 ELSE 0 END) bind_aware,
-       SUM(elapsed_time)/SUM(executions)/1e3 avg_et_ms,
-       SUM(cpu_time)/SUM(executions)/1e3 avg_cpu_ms,
-       SUM(buffer_gets)/SUM(executions) avg_bg,
-       SUM(rows_processed)/SUM(executions) avg_row,
+       SUM(elapsed_time)/NULLIF(SUM(executions), 0)/1e3 avg_et_ms,
+       SUM(cpu_time)/NULLIF(SUM(executions), 0)/1e3 avg_cpu_ms,
+       SUM(buffer_gets)/NULLIF(SUM(executions), 0) avg_bg,
+       SUM(rows_processed)/NULLIF(SUM(executions), 0) avg_row,
        SUM(executions) executions
   FROM v$sql
  WHERE sql_id = '&&cs_sql_id.'
-   AND executions > 0
+   --AND executions > 0
  GROUP BY
        plan_hash_value
  ORDER BY

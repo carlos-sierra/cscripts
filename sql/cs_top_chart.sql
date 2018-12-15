@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/19
+-- Version:     2018/10/23
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -52,30 +52,34 @@ PRO Top SQL is computed for selected metric within range of snaphots.
 PRO
 PRO Computed Metric
 PRO ~~~~~~~~~~~~~~~
-PRO db_time_exec        : Latency   - Database Time per Exec - (MS)
-PRO cpu_time_exec       : Latency   - CPU Time per Exec - (MS)
-PRO io_time_exec        : Latency   - IO Wait Time per Exec - (MS)
-PRO appl_time_exec      : Latency   - Application Wait Time per Exec - (MS)
-PRO conc_time_exec      : Latency   - Concurrency Wait Time per Exec - (MS)
-PRO db_time_aas         : DB Time   - Elapsed Time - (AAS)
-PRO cpu_time_aas        : DB Time   - CPU Time - (AAS)
-PRO io_time_aas         : DB Time   - IO Wait Time - (AAS)
-PRO appl_time_aas       : DB Time   - Application Wait Time - (AAS)
-PRO conc_time_aas       : DB Time   - Concurrency Wait Time - (AAS)
-PRO parses_sec          : Calls     - Parses per Second - Calls
-PRO executions_sec      : Calls     - Execs per Second - Calls
-PRO fetches_sec         : Calls     - Fetches per Second - Calls
-PRO rows_processed_sec  : Resources - Rows Processed per Second - Count
-PRO buffer_gets_sec     : Resources - Buffer Gets    per Second - Count
-PRO disk_reads_sec      : Resources - Disk Reads     per Second - Count
-PRO rows_processed_exec : Resources - Rows Processed per Exec - Count
-PRO buffer_gets_exec    : Resources - Buffer Gets    per Exec - Count
-PRO disk_reads_exec     : Resources - Disk Reads     per Exec - Count
-PRO loads               : Cursors   - Loads - Count
-PRO invalidations       : Cursors   - Invalidations - Count
-PRO version_count       : Cursors   - Versions - Count
-PRO sharable_mem_mb     : Cursors   - Sharable Memory - (MBs)
-PRO *                   : All
+PRO db_time_exec              : Latency   - Database Time         per Exec   - (MS)
+PRO cpu_time_exec             : Latency   - CPU Time              per Exec   - (MS)
+PRO io_time_exec              : Latency   - IO Wait Time          per Exec   - (MS)
+PRO appl_time_exec            : Latency   - Application Wait Time per Exec   - (MS)
+PRO conc_time_exec            : Latency   - Concurrency Wait Time per Exec   - (MS)
+PRO db_time_aas               : DB Time   - Elapsed Time          - (AAS)
+PRO cpu_time_aas              : DB Time   - CPU Time              - (AAS)
+PRO io_time_aas               : DB Time   - IO Wait Time          - (AAS)
+PRO appl_time_aas             : DB Time   - Application Wait Time - (AAS)
+PRO conc_time_aas             : DB Time   - Concurrency Wait Time - (AAS)
+PRO parses_sec                : Calls     - Parses                per Second - Calls
+PRO executions_sec            : Calls     - Execs                 per Second - Calls
+PRO fetches_sec               : Calls     - Fetches               per Second - Calls
+PRO rows_processed_sec        : Resources - Rows Processed        per Second - Count
+PRO buffer_gets_sec           : Resources - Buffer Gets           per Second - Count
+PRO disk_reads_sec            : Resources - Disk Reads            per Second - Count
+PRO physical_read_bytes_sec   : Resources - Physical Read Bytes   per Second - Bytes
+PRO physical_write_bytes_sec  : Resources - Physical Write Bytes  per Second - Bytes
+PRO rows_processed_exec       : Resources - Rows Processed        per Exec   - Count
+PRO buffer_gets_exec          : Resources - Buffer Gets           per Exec   - Count
+PRO disk_reads_exec           : Resources - Disk Reads            per Exec   - Count
+PRO physical_read_bytes_exec  : Resources - Physical Read Bytes   per Exec   - Bytes
+PRO physical_write_bytes_exec : Resources - Physical Write Bytes  per Exec   - Bytes
+PRO loads                     : Cursors   - Loads                 - Count
+PRO invalidations             : Cursors   - Invalidations         - Count
+PRO version_count             : Cursors   - Versions              - Count
+PRO sharable_mem_mb           : Cursors   - Sharable Memory       - (MBs)
+PRO *                         : All
 PRO
 PRO 3. Computed Metric: [{db_time_exec}|<computed_metric>|*]
 DEF computed_metric = '&3.';
@@ -135,6 +139,10 @@ UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "buffer_gets_sec"' FRO
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "buffer_gets_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('buffer_gets_exec', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "disk_reads_sec"' FROM DUAL WHERE '&&computed_metric.' IN ('disk_reads_sec', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "disk_reads_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('disk_reads_exec', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "physical_read_bytes_sec"' FROM DUAL WHERE '&&computed_metric.' IN ('physical_read_bytes_sec', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "physical_read_bytes_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('physical_read_bytes_exec', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "physical_write_bytes_sec"' FROM DUAL WHERE '&&computed_metric.' IN ('physical_write_bytes_sec', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "physical_write_bytes_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('physical_write_bytes_exec', '*')
 /
 SPO OFF;
 SET HEA ON;

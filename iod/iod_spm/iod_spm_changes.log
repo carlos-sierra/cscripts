@@ -1,3 +1,15 @@
+2018-09-24
+~~~~~~~~~~
+1. Eliminate SLEEP times between SPM API calls
+
+2018-09-24
+~~~~~~~~~~
+1. Update SQL categories for KIEV on Zapper and all KIEV related scripts (ODSI-1325)
+2. Zapper to stop avoiding known ORA-13831 signature on R1 UNSTABLE (ODSI-1304)
+3. Zapper to consider plan candidate only if it has valid, sharable and not obsolete cursors (ODSI-1341)
+4. Zapper to produce a persistent log (ODSI-1344)
+5. Zapper to execute only on KIEV databases (by default)
+
 2018-07-26
 ~~~~~~~~~~
 1. Fix performance issue on main cursor of MAINTAIN_PLANS (IOD-10402)
@@ -110,11 +122,11 @@ ORA-06512: at line 1
 Pending
 ~~~~~~~
 1. Un-fix plans that haven't executed for over 14 days.
-2. Validate at all PDBs: EXEC DBMS_SPM.CONFIGURE('plan_retention_weeks', 13); -- default 53
-3. Validate at CDB: EXEC DBMS_WORKLOAD_REPOSITORY.MODIFY_SNAPSHOT_SETTINGS(topnsql=>300); -- default 30
-4. Validate at CDB: ALTER SYSTEM SET "_awr_sql_child_limit" = 2000; -- defualt 200
-5. Validate at CDB and all PDBs: ALTER SYSTEM SET optimizer_adaptive_plans = FALSE; -- default TRUE
-6. Validate at CDB and all PDBs: ALTER SYSTEM SET optimizer_adaptive_statistics = FALSE; -- default FALSE
-7. Validate at CDB and all PDBs: ALTER SYSTEM SET "_optimizer_adaptive_cursor_sharing" = FALSE; -- default TRUE
-8. Validate at CDB and all PDBs: ALTER SYSTEM SET "_optimizer_extended_cursor_sharing_rel" = "NONE"; -- default SIMPLE
-9. Validate at CDB and all PDBs: ALTER SYSTEM SET "_optimizer_extended_cursor_sharing" = "NONE"; -- default UDO
+2. Validate at CDB (default): EXEC DBMS_WORKLOAD_REPOSITORY.MODIFY_SNAPSHOT_SETTINGS(topnsql=>300); -- default 30
+3. Validate at CDB (kiev): ALTER SYSTEM SET "_awr_sql_child_limit" = 2000; -- defualt 200
+4. Validate at CDB and all PDBs (kiev): EXEC DBMS_SPM.CONFIGURE('plan_retention_weeks', 13); -- default 53
+5. Validate at CDB and all PDBs (default): ALTER SYSTEM SET optimizer_adaptive_plans = FALSE; -- default TRUE
+6. Validate at CDB and all PDBs (default): ALTER SYSTEM SET optimizer_adaptive_statistics = FALSE; -- default FALSE
+7. Validate at CDB and all PDBs (kiev): ALTER SYSTEM SET "_optimizer_adaptive_cursor_sharing" = FALSE; -- default TRUE
+8. Validate at CDB and all PDBs (kiev): ALTER SYSTEM SET "_optimizer_extended_cursor_sharing_rel" = "NONE"; -- default SIMPLE
+9. Validate at CDB and all PDBs (kiev): ALTER SYSTEM SET "_optimizer_extended_cursor_sharing" = "NONE"; -- default UDO

@@ -2,11 +2,11 @@
 --
 -- File name:   cs_sqlperf.sql
 --
--- Purpose:     SQL performance metrics for a given SQL
+-- Purpose:     SQL performance metrics for a given SQL_ID
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/28
+-- Version:     2018/11/25
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -54,6 +54,7 @@ SET HEA ON;
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_plans_stability.sql
 @@cs_internal/cs_cursors_performance.sql
+@@cs_internal/cs_cursors_not_shared.sql
 @@cs_internal/cs_bind_capture.sql
 @@cs_internal/cs_acs_internal.sql
 @@cs_internal/cs_os_load.sql
@@ -74,6 +75,7 @@ SET HEA ON;
 --@@cs_internal/cs_dependency_indexes.sql
 --@@cs_internal/cs_dependency_index_columns.sql
 --@@cs_internal/cs_dependency_table_columns.sql
+--@@cs_internal/cs_dependency_lobs.sql
 --@@cs_internal/cs_dependency_kievlive.sql
 --@@cs_internal/cs_top_keys.sql
 --

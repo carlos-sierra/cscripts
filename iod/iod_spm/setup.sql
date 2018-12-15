@@ -24,6 +24,9 @@ SELECT CASE COUNT(*) WHEN 2 THEN '--skip--' END conditional_skip
    AND text LIKE '%&&library_version.%'
 /
 
+prompt creating objects
+@@objects.sql
+
 prompt compiling package specification (if there is a new version)
 @@&&conditional_skip.iod_spm.pks.sql
 SHOW ERRORS PACKAGE &&1..iod_spm;

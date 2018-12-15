@@ -464,16 +464,36 @@ BEGIN
              a.aas_p99,
              a.aas_p95,
              CASE
-               WHEN c.utilization_limit IS NOT NULL THEN c.utilization_limit -- pdb configuration
-               WHEN SYSDATE - h.creation_date < gk_pdb_age_days OR SYSDATE - a.min_sample_date < gk_pdb_age_days THEN gk_utilization_limit_default -- too recent to know
-               WHEN a.aas_p99 IS NULL OR a.aas_p99 <= 1 THEN gk_utilization_limit_low -- pdb is not used
-               ELSE GREATEST(LEAST(ROUND(100 * LEAST(a.aas_p99 * gk_utilization_adjust_factor, l_num_cpus) / l_num_cpus), gk_utilization_limit_high), gk_utilization_limit_low) -- bounded
-             END  utilization_limit,
+               WHEN c.utilization_limit IS NOT NULL 
+                 THEN c.utilization_limit -- pdb configuration
+               WHEN SYSDATE - h.creation_date < gk_pdb_age_days 
+                 OR SYSDATE - a.min_sample_date < gk_pdb_age_days 
+                 THEN gk_utilization_limit_default -- too recent to know
+               WHEN a.aas_p99 IS NULL OR a.aas_p99 <= 1 
+                 THEN gk_utilization_limit_low -- pdb is not used
+               ELSE GREATEST ( LEAST (  ROUND (100 * LEAST (  a.aas_p99 * gk_utilization_adjust_factor
+                                                            , l_num_cpus
+                                                            ) / l_num_cpus
+                                              )
+                                      , gk_utilization_limit_high
+                                      )
+                              , gk_utilization_limit_low
+                              ) -- bounded
+             END utilization_limit,
              CASE 
-               WHEN c.shares IS NOT NULL THEN c.shares  -- pdb configuration
-               WHEN SYSDATE - h.creation_date < gk_pdb_age_days OR SYSDATE - a.min_sample_date < gk_pdb_age_days THEN gk_shares_default  -- too recent to know
-               WHEN a.aas_p95 IS NULL OR a.aas_p95 <= 1 THEN gk_shares_low -- pdb is not used
-               ELSE GREATEST(LEAST(a.aas_p95, gk_shares_high), gk_shares_low) -- bounded
+               WHEN c.shares IS NOT NULL 
+                 THEN c.shares  -- pdb configuration
+               WHEN SYSDATE - h.creation_date < gk_pdb_age_days 
+                 OR SYSDATE - a.min_sample_date < gk_pdb_age_days 
+                 THEN gk_shares_default  -- too recent to know
+               WHEN a.aas_p95 IS NULL 
+                 OR a.aas_p95 <= 1 
+                 THEN gk_shares_low -- pdb is not used
+               ELSE GREATEST (  LEAST (  a.aas_p95
+                                       , gk_shares_high
+                                     )
+                              , gk_shares_low
+                              ) -- bounded
              END shares,
              c.parallel_server_limit
         FROM pdbs p,
@@ -618,11 +638,20 @@ BEGIN
     )
     LOOP
       EXECUTE IMMEDIATE 'SELECT '||i.high_value||' FROM DUAL' INTO l_high_value;
-      output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       IF l_high_value <= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN
+        output('-- PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
         output('-- &&1..IOD_RSRC_MGR.reset: ALTER TABLE &&1..rsrc_mgr_pdb_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
         EXECUTE IMMEDIATE q'[ALTER TABLE &&1..rsrc_mgr_pdb_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
-        EXECUTE IMMEDIATE 'ALTER TABLE &&1..rsrc_mgr_pdb_hist DROP PARTITION '||i.partition_name;
+        --
+        DECLARE
+         last_partition EXCEPTION;
+         PRAGMA EXCEPTION_INIT(last_partition, -14758); -- ORA-14758: Last partition in the range section cannot be dropped
+        BEGIN
+          EXECUTE IMMEDIATE 'ALTER TABLE &&1..rsrc_mgr_pdb_hist DROP PARTITION '||i.partition_name;
+        EXCEPTION 
+          WHEN last_partition THEN
+            output('** '||SQLERRM);
+        END;
       END IF;
     END LOOP;
   END IF;

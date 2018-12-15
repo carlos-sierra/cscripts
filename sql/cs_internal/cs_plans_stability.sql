@@ -4,7 +4,7 @@ COL child_number FOR 999999 HEA 'Child|Number';
 COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL loads FOR 99999 HEA 'Loads';
 COL invalidations FOR 99999 HEA 'Inval';
-COL obj_sta FOR A7 HEA 'Object|Status';
+COL object_status FOR A14 HEA 'Object Status';
 COL is_obsolete FOR A8 HEA 'Is|Obsolete';
 COL is_shareable FOR A9 HEA 'Is|Shareable';
 COL is_bind_aware FOR A9 HEA 'Is Bind|Aware';
@@ -26,7 +26,7 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
        REPLACE(last_load_time, '/', 'T') last_load_time,
        loads,
        invalidations,
-       SUBSTR(object_status, 1, 7) obj_sta, 
+       object_status,  
        is_obsolete,
        is_shareable,
        is_bind_aware,
@@ -40,7 +40,7 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
        parsing_schema_name
   FROM v$sql
  WHERE sql_id = '&&cs_sql_id.'
-   AND executions > 0
+   --AND executions > 0
  ORDER BY
        last_active_time,
        child_number

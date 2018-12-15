@@ -1,6 +1,6 @@
 PRO ]);
 PRO
-PRO var options = {isStacked: true,
+PRO var options = {&&is_stacked.
 PRO chartArea:{left:90, top:75, width:'65%', height:'70%'},
 PRO backgroundColor: {fill: 'white', stroke: '#336699', strokeWidth: 1},
 PRO explorer: {actions: ['dragToZoom', 'rightClickToReset'], maxZoomIn: 0.01},
@@ -30,6 +30,7 @@ PRO LOCALE       : &&cs_locale.
 PRO DATABASE     : &&cs_db_name. (&&cs_db_version.)
 PRO CONTAINER    : &&cs_con_name. (&&cs_con_id.)
 PRO HOST         : &&cs_host_name.
+PRO EASY_CONNECT : &&cs_easy_connect_string.
 PRO </pre>
 PRO <div id="chart_div" class="google-chart"></div>
 PRO <font class="n">Notes:</font>

@@ -27,6 +27,10 @@ SELECT CASE LOWER(TRIM('&&computed_metric.'))
        WHEN 'buffer_gets_exec' THEN 'Buffer Gets per Execution'
        WHEN 'disk_reads_sec' THEN 'Disk Reads per Second'
        WHEN 'disk_reads_exec' THEN 'Disk Reads per Execution'
+       WHEN 'physical_read_bytes_sec' THEN 'Physical Read Bytes per Second'
+       WHEN 'physical_read_bytes_exec' THEN 'Physical Read Bytes per Execution'
+       WHEN 'physical_write_bytes_sec' THEN 'Physical Write Bytes per Second'
+       WHEN 'physical_write_bytes_exec' THEN 'Physical Write Bytes per Execution'
        ELSE 'Database Time per Execution'
        END metric_display
   FROM DUAL
@@ -92,7 +96,14 @@ COL buffer_gets_perc FOR 9,990.000 HEA 'BUFFER|GETS|(PERC)';
 COL disk_reads_sec FOR 999,999,990.000 HEA 'DISK|READS|PER SECOND';
 COL disk_reads_exec FOR 999,999,990.000 HEA 'DISK|READS|PER EXEC';
 COL disk_reads_perc FOR 9,990.000 HEA 'DISK|READS|(PERC)';
+COL physical_read_bytes_sec FOR 999,999,999,990.000 HEA 'PHYSICAL|READ BYTES|PER SECOND';
+COL physical_read_bytes_exec FOR 999,999,999,990.000 HEA 'PHYSICAL|READ BYTES|PER EXEC';
+COL physical_read_bytes_perc FOR 9,990.000 HEA 'PHYSICAL|READS|(PERC)';
+COL physical_write_bytes_sec FOR 999,999,999,990.000 HEA 'PHYSICAL|WRITE BYTES|PER SECOND';
+COL physical_write_bytes_exec FOR 999,999,999,990.000 HEA 'PHYSICAL|WRITE BYTES|PER EXEC';
+COL physical_write_bytes_perc FOR 9,990.000 HEA 'PHYSICAL|WRITE|(PERC)';
 COL sql_text_100 FOR A100 HEA 'SQL TEXT';
+COL sql_length FOR 99,990 HEA 'LENGTH';
 COL sql_text FOR A200;
 COL application_module FOR A8 HEA 'KIEV TX';
 COL min_plan_hash_value FOR 9999999999 HEA 'MIN PLAN|HASH VALUE';
@@ -124,7 +135,7 @@ COL sql_id_11 NEW_V sql_id_11 NOPRI;
 COL sql_id_12 NEW_V sql_id_12 NOPRI;
 --
 BRE ON REPORT;
-COMP SUM LABEL 'TOTAL' OF db_time_aas db_time_perc cpu_time_aas cpu_time_perc io_time_aas io_time_perc appl_time_aas appl_time_perc conc_time_aas conc_time_perc parses parses_sec parses_perc executions_sec executions executions_perc fetches fetches_sec fetches_perc loads loads_perc invalidations invalidations_perc version_count version_count_perc sharable_mem_mb sharable_mem_perc rows_processed_sec rows_processed_perc buffer_gets_sec buffer_gets_perc disk_reads_sec disk_reads_perc ON REPORT;
+COMP SUM LABEL 'TOTAL' OF db_time_aas db_time_perc cpu_time_aas cpu_time_perc io_time_aas io_time_perc appl_time_aas appl_time_perc conc_time_aas conc_time_perc parses parses_sec parses_perc executions_sec executions executions_perc fetches fetches_sec fetches_perc loads loads_perc invalidations invalidations_perc version_count version_count_perc sharable_mem_mb sharable_mem_perc rows_processed_sec rows_processed_perc buffer_gets_sec buffer_gets_perc disk_reads_sec disk_reads_perc physical_read_bytes_sec physical_write_bytes_sec physical_read_bytes_exec physical_write_bytes_exec ON REPORT;
 --
 PRO
 PRO Top &&top_what. by "&&metric_display."
@@ -174,93 +185,103 @@ COL sharable_mem_perc NOPRI;
 COL rows_processed_sec NOPRI;
 COL buffer_gets_sec NOPRI;
 COL disk_reads_sec NOPRI;
+COL physical_read_bytes_sec NOPRI;
+COL physical_write_bytes_sec NOPRI;
 --
 COL rows_processed_exec NOPRI;
 COL buffer_gets_exec NOPRI;
 COL disk_reads_exec NOPRI;
+COL physical_read_bytes_exec NOPRI;
+COL physical_write_bytes_exec NOPRI;
 --
 COL rows_processed_perc NOPRI;
 COL buffer_gets_perc NOPRI;
 COL disk_reads_perc NOPRI;
+COL physical_read_bytes_perc NOPRI;
+COL physical_write_bytes_perc NOPRI;
 --
 COL min_plan_hash_value PRI;
 COL max_plan_hash_value PRI;
 COL application_module PRI;
+COL sql_length PRI;
 COL sql_text_100 PRI;
 --
 /****************************************************************************************/
 WITH 
-  FUNCTION application_category (p_sql_text IN VARCHAR2)
-  RETURN VARCHAR2
-  IS
-    gk_appl_cat_1                  CONSTANT VARCHAR2(10) := 'BeginTx'; -- 1st application category
-    gk_appl_cat_2                  CONSTANT VARCHAR2(10) := 'CommitTx'; -- 2nd application category
-    gk_appl_cat_3                  CONSTANT VARCHAR2(10) := 'Scan'; -- 3rd application category
-    gk_appl_cat_4                  CONSTANT VARCHAR2(10) := 'GC'; -- 4th application category
-    k_appl_handle_prefix           CONSTANT VARCHAR2(30) := '/*'||CHR(37);
-    k_appl_handle_suffix           CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
-  BEGIN
+FUNCTION application_category (p_sql_text IN VARCHAR2)
+RETURN VARCHAR2
+IS
+  gk_appl_cat_1                  CONSTANT VARCHAR2(10) := 'BeginTx'; -- 1st application category
+  gk_appl_cat_2                  CONSTANT VARCHAR2(10) := 'CommitTx'; -- 2nd application category
+  gk_appl_cat_3                  CONSTANT VARCHAR2(10) := 'Scan'; -- 3rd application category
+  gk_appl_cat_4                  CONSTANT VARCHAR2(10) := 'GC'; -- 4th application category
+  k_appl_handle_prefix           CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_suffix           CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
+BEGIN
     IF   p_sql_text LIKE k_appl_handle_prefix||'addTransactionRow'||k_appl_handle_suffix 
       OR p_sql_text LIKE k_appl_handle_prefix||'checkStartRowValid'||k_appl_handle_suffix 
     THEN RETURN gk_appl_cat_1;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'SPM:CP'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'findMatchingRow'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'readTransactionsSince'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'setValueByUpdate'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'setValue'||k_appl_handle_suffix 
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'checkEndRowValid'||k_appl_handle_suffix
       OR  p_sql_text LIKE k_appl_handle_prefix||'deleteValue'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'exists'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'existsUnique'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'updateIdentityValue'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE 'LOCK TABLE'||CHR(37) 
-      OR  p_sql_text LIKE '/* null */ LOCK TABLE'||CHR(37)
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getTransactionProgress'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'recordTransactionState'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'checkEndRowValid'||k_appl_handle_suffix
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch commit by idempotency token'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'findMatchingRow'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionCommitID'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getTransactionProgress'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'lockForCommit'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'lockKievTransactor'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'putBucket'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'readTransactionsSince'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'recordTransactionState'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'setValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'updateIdentityValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'updateNextKievTransID'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'SPM:CP'||k_appl_handle_suffix 
+      OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
     THEN RETURN gk_appl_cat_2;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'getValues'||k_appl_handle_suffix 
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'bucketIndexSelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketKeySelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketValueSelect'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'countTransactions'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch snapshots'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getAutoSequences'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'getNextIdentityValue'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getValues'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'performContinuedScanValues'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'performScanQuery'||k_appl_handle_suffix
       OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'performFirstRowsScanQuery'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performContinuedScanValues'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketIndexSelect'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketKeySelect'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getAutoSequences'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketValueSelect'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'countTransactions'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch snapshots'||k_appl_handle_suffix 
     THEN RETURN gk_appl_cat_3;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'populateBucketGCWorkspace'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteBucketGarbage'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Populate workspace'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage fOR  transaction GC'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage in KTK GC'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'hashBucket'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getGCLogEntries'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventTryInsert'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'countAllRows'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete rows from'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'hashSnapshot'||k_appl_handle_suffix 
+    ELSIF p_sql_text LIKE k_appl_handle_prefix||'countAllRows'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'countKtkRows'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete rows from'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteBucketGarbage'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventMaxId'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'secondsSinceLastGcEvent'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventTryInsert'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'getGCLogEntries'||k_appl_handle_suffix 
       OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionOlderThan'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'hashBucket'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'hashSnapshot'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'Populate workspace'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'populateBucketGCWorkspace'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'secondsSinceLastGcEvent'||k_appl_handle_suffix 
+      OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
     THEN RETURN gk_appl_cat_4;
     ELSE RETURN 'Unknown';
     END IF;
-  END application_category;
+END application_category;
 all_sql AS (
 --SELECT /*+ MATERIALIZE NO_MERGE */
 --      DISTINCT sql_id, command_type, sql_text FROM v$sql
 --UNION
 SELECT /*+ MATERIALIZE NO_MERGE */ 
-       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text 
+       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text, DBMS_LOB.GETLENGTH(sql_text) sql_length
   FROM dba_hist_sqltext
  WHERE 1 = 1
    AND ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.SUBSTR(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
@@ -269,14 +290,14 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 ),
 all_sql_with_type AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, sql_text, 
+       sql_id, sql_text, sql_length,
        REPLACE(SUBSTR(CASE WHEN sql_text LIKE '/*'||CHR(37) THEN SUBSTR(sql_text, 1, INSTR(sql_text, '*/') + 1) ELSE sql_text END, 1, 100), CHR(10), CHR(32)) sql_text_100,
        application_category(sql_text) application_module
   FROM all_sql
 ),
 my_tx_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100, MAX(application_module) application_module
+       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100,MAX(sql_length) sql_length, MAX(application_module) application_module
   FROM all_sql_with_type
  WHERE application_module IS NOT NULL
   AND  (  
@@ -322,7 +343,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        SUM(h.sharable_mem) sharable_mem,
        SUM(h.rows_processed_delta) rows_processed_delta,
        SUM(h.buffer_gets_delta) buffer_gets_delta,
-       SUM(h.disk_reads_delta) disk_reads_delta
+       SUM(h.disk_reads_delta) disk_reads_delta,
+       SUM(h.physical_read_bytes_delta) physical_read_bytes_delta,
+       SUM(h.physical_write_bytes_delta) physical_write_bytes_delta
   FROM dba_hist_sqlstat h /* sys.wrh$_sqlstat */
  WHERE h.dbid = &&cs_dbid.
    AND h.instance_number = &&cs_instance_number.
@@ -357,6 +380,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(100*SUM(h.rows_processed_delta)/GREATEST(SUM(SUM(h.rows_processed_delta)) OVER (),1),3) rows_processed_perc,
        ROUND(100*SUM(h.buffer_gets_delta)/GREATEST(SUM(SUM(h.buffer_gets_delta)) OVER (),1),3) buffer_gets_perc,
        ROUND(100*SUM(h.disk_reads_delta)/GREATEST(SUM(SUM(h.disk_reads_delta)) OVER (),1),3) disk_reads_perc,
+       ROUND(100*SUM(h.physical_read_bytes_delta)/GREATEST(SUM(SUM(h.physical_read_bytes_delta)) OVER (),1),3) physical_read_bytes_perc,
+       ROUND(100*SUM(h.physical_write_bytes_delta)/GREATEST(SUM(SUM(h.physical_write_bytes_delta)) OVER (),1),3) physical_write_bytes_perc,
        --
        ROUND(SUM(h.elapsed_time_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) db_time_exec,
        ROUND(SUM(h.elapsed_time_delta)/SUM(s.interval_seconds)/1e6,3) db_time_aas,
@@ -383,7 +408,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(SUM(h.buffer_gets_delta)/SUM(s.interval_seconds),3) buffer_gets_sec,
        ROUND(SUM(h.buffer_gets_delta)/GREATEST(SUM(h.executions_delta),1),3) buffer_gets_exec,
        ROUND(SUM(h.disk_reads_delta)/SUM(s.interval_seconds),3) disk_reads_sec,
-       ROUND(SUM(h.disk_reads_delta)/GREATEST(SUM(h.executions_delta),1),3) disk_reads_exec
+       ROUND(SUM(h.disk_reads_delta)/GREATEST(SUM(h.executions_delta),1),3) disk_reads_exec,
+       ROUND(SUM(h.physical_read_bytes_delta)/SUM(s.interval_seconds),3) physical_read_bytes_sec,
+       ROUND(SUM(h.physical_read_bytes_delta)/GREATEST(SUM(h.executions_delta),1),3) physical_read_bytes_exec,
+       ROUND(SUM(h.physical_write_bytes_delta)/SUM(s.interval_seconds),3) physical_write_bytes_sec,
+       ROUND(SUM(h.physical_write_bytes_delta)/GREATEST(SUM(h.executions_delta),1),3) physical_write_bytes_exec
        --
   FROM sqlstat h, /* dba_hist_sqlstat */
        snapshots s /* dba_hist_snapshot */
@@ -441,6 +470,12 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.disk_reads_sec,
        h.disk_reads_exec,
        h.disk_reads_perc,
+       h.physical_read_bytes_sec,
+       h.physical_read_bytes_exec,
+       h.physical_read_bytes_perc,
+       h.physical_write_bytes_sec,
+       h.physical_write_bytes_exec,
+       h.physical_write_bytes_perc,
        ROW_NUMBER() OVER (ORDER BY h.&&computed_metric. DESC NULLS LAST, h.db_time_aas DESC NULLS LAST, h.executions_sec DESC NULLS LAST, h.rows_processed_sec DESC NULLS LAST, h.con_id, h.sql_id, CASE WHEN '&&sql_id.' IS NULL THEN -666 ELSE h.plan_hash_value END) rank
   FROM sqlstat_extended h
 ),
@@ -492,7 +527,13 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.buffer_gets_perc,
        h.disk_reads_sec,
        h.disk_reads_exec,
-       h.disk_reads_perc
+       h.disk_reads_perc,
+       h.physical_read_bytes_sec,
+       h.physical_read_bytes_exec,
+       h.physical_read_bytes_perc,
+       h.physical_write_bytes_sec,
+       h.physical_write_bytes_exec,
+       h.physical_write_bytes_perc
   FROM sqlstat_ranked h
  WHERE h.rank <= &&cs_top_n.
 ),
@@ -564,18 +605,25 @@ SELECT t.rank,
        t.rows_processed_sec,
        t.buffer_gets_sec,
        t.disk_reads_sec,
+       t.physical_read_bytes_sec,
+       t.physical_write_bytes_sec,
        --
        t.rows_processed_exec,
        t.buffer_gets_exec,
        t.disk_reads_exec,
+       t.physical_read_bytes_exec,
+       t.physical_write_bytes_exec,
        --
        t.rows_processed_perc,
        t.buffer_gets_perc,
        t.disk_reads_perc,
+       t.physical_read_bytes_perc,
+       t.physical_write_bytes_perc,
        --
        CASE WHEN t.min_plan_hash_value = t.max_plan_hash_value THEN NULL ELSE t.min_plan_hash_value END min_plan_hash_value,
        CASE WHEN t.min_plan_hash_value = t.max_plan_hash_value THEN NULL ELSE t.max_plan_hash_value END max_plan_hash_value,
        s.application_module,
+       s.sql_length,
        s.sql_text_100,
        t.sql_id,
        CASE WHEN '&&sql_id.' IS NULL THEN (CASE WHEN t.min_plan_hash_value = t.max_plan_hash_value THEN TO_CHAR(t.max_plan_hash_value) ELSE 'MULTIPLE' END) ELSE TO_CHAR(t.plan_hash_value) END plan_hash_value_c
@@ -636,18 +684,25 @@ COL sharable_mem_perc NOPRI;
 COL rows_processed_sec NOPRI;
 COL buffer_gets_sec NOPRI;
 COL disk_reads_sec NOPRI;
+COL physical_read_bytes_sec NOPRI;
+COL physical_write_bytes_sec NOPRI;
 --
 COL rows_processed_exec NOPRI;
 COL buffer_gets_exec NOPRI;
 COL disk_reads_exec NOPRI;
+COL physical_read_bytes_exec NOPRI;
+COL physical_write_bytes_exec NOPRI;
 --
 COL rows_processed_perc NOPRI;
 COL buffer_gets_perc NOPRI;
 COL disk_reads_perc NOPRI;
+COL physical_read_bytes_perc NOPRI;
+COL physical_write_bytes_perc NOPRI;
 --
 COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
+COL sql_length NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -700,18 +755,25 @@ COL sharable_mem_perc NOPRI;
 COL rows_processed_sec NOPRI;
 COL buffer_gets_sec NOPRI;
 COL disk_reads_sec NOPRI;
+COL physical_read_bytes_sec NOPRI;
+COL physical_write_bytes_sec NOPRI;
 --
 COL rows_processed_exec NOPRI;
 COL buffer_gets_exec NOPRI;
 COL disk_reads_exec NOPRI;
+COL physical_read_bytes_exec NOPRI;
+COL physical_write_bytes_exec NOPRI;
 --
 COL rows_processed_perc NOPRI;
 COL buffer_gets_perc NOPRI;
 COL disk_reads_perc NOPRI;
+COL physical_read_bytes_perc NOPRI;
+COL physical_write_bytes_perc NOPRI;
 --
 COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
+COL sql_length NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -764,18 +826,25 @@ COL sharable_mem_perc NOPRI;
 COL rows_processed_sec PRI;
 COL buffer_gets_sec PRI;
 COL disk_reads_sec PRI;
+COL physical_read_bytes_sec PRI;
+COL physical_write_bytes_sec PRI;
 --
 COL rows_processed_exec PRI;
 COL buffer_gets_exec PRI;
 COL disk_reads_exec PRI;
+COL physical_read_bytes_exec PRI;
+COL physical_write_bytes_exec PRI;
 --
 COL rows_processed_perc PRI;
 COL buffer_gets_perc PRI;
 COL disk_reads_perc PRI;
+COL physical_read_bytes_perc PRI;
+COL physical_write_bytes_perc PRI;
 --
 COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
+COL sql_length NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -828,18 +897,25 @@ COL sharable_mem_perc PRI;
 COL rows_processed_sec NOPRI;
 COL buffer_gets_sec NOPRI;
 COL disk_reads_sec NOPRI;
+COL physical_read_bytes_sec NOPRI;
+COL physical_write_bytes_sec NOPRI;
 --
 COL rows_processed_exec NOPRI;
 COL buffer_gets_exec NOPRI;
 COL disk_reads_exec NOPRI;
+COL physical_read_bytes_exec NOPRI;
+COL physical_write_bytes_exec NOPRI;
 --
 COL rows_processed_perc NOPRI;
 COL buffer_gets_perc NOPRI;
 COL disk_reads_perc NOPRI;
+COL physical_read_bytes_perc NOPRI;
+COL physical_write_bytes_perc NOPRI;
 --
 COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
+COL sql_length NOPRI;
 COL sql_text_100 NOPRI;
 --
 /

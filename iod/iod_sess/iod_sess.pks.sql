@@ -14,21 +14,16 @@ CREATE OR REPLACE PACKAGE &&1..iod_sess AUTHID CURRENT_USER AS
 --                  over N seconds. (e.g. KievTransactions).
 --                  Kills also sniped sessions.
 --
--- Example:     Execute 120 times, 30 seconds apart, during a 1hr interval.
---              Interval must be consistent with OEM job frequency (e.g. 1h, or 4h, or 1d)
---              (For 1h interval, 30s apart, you need 60m x 2pm = 120 executions.)
---              (For 24h interval, 20s appart, you need 1440m x 3pm = 4320 executions.)
---  
 -- Note:        Parameter expire date is to allow short executions of API(s), so a 
 --              potential new version of this library can be compiled between two
---              consecutive calls when the gap between them is short (e.g. 30 secs).
+--              consecutive calls when the gap between them is short (e.g. 15 secs).
 -- 
 /* ------------------------------------------------------------------------------------ */
 gk_package_version            CONSTANT VARCHAR2(30)  := '&&library_version.'; -- used to circumvent ORA-04068: existing state of packages has been discarded
 gk_table_name                 CONSTANT VARCHAR2(30)  := 'KIEVTRANSACTIONS'; -- table for TM and TX locks
-gk_lock_secs_thres            CONSTANT NUMBER        := 30; -- kill inactive sessions with TM or TX locks on gk_table_name over this time (in secs)
+gk_lock_secs_thres            CONSTANT NUMBER        := 15; -- kill inactive sessions with TM or TX locks on gk_table_name over this time (in secs)
 gk_inac_secs_thres            CONSTANT NUMBER        := 3600; -- kill inactive sessions over this time (in secs)
-gk_snip_secs_thres            CONSTANT NUMBER        := 300; -- seconds for an inactive session to become snip candidate
+gk_snip_secs_thres            CONSTANT NUMBER        := 600; -- seconds for an inactive session to become snip candidate
 gk_snip_idle_profile          CONSTANT VARCHAR2(30)  := 'APP_PROFILE'; -- application profile with idle_time set to gk_snip_secs_thres (in mins)
 gk_snip_candidates            CONSTANT VARCHAR2(1)   := 'Y'; -- include snip candidates
 gk_sniped_sessions            CONSTANT VARCHAR2(1)   := 'Y'; -- include snipped sessions regardless of lock type and object
@@ -56,6 +51,8 @@ PROCEDURE audit_and_disconnect (
   p_kill_idle         IN VARCHAR2 DEFAULT gk_kill_idle, -- kill sessions waiting long or sniped
   p_expire_date       IN DATE     DEFAULT gk_expire_date -- execute this api only if SYSDATE < p_expire_date
 );
+/* ------------------------------------------------------------------------------------ */
+PROCEDURE killer;
 /* ------------------------------------------------------------------------------------ */
 END iod_sess;
 /

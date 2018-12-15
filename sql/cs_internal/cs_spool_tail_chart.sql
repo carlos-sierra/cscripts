@@ -1,4 +1,5 @@
 SPO OFF;
+HOS chmod 644 &&cs_file_name..html
 PRO
 DEF cs_reference;
 DEF cs_local_dir;
