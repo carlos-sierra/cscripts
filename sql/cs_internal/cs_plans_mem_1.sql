@@ -15,8 +15,9 @@ WITH
 ranked_child_cursors AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id,
+       con_id,
        child_number,
-       ROW_NUMBER () OVER (PARTITION BY plan_hash_value ORDER BY 
+       ROW_NUMBER () OVER (PARTITION BY con_id, plan_hash_value ORDER BY 
        CASE 
          WHEN object_status = 'VALID' AND is_obsolete = 'N' AND is_shareable = 'Y' THEN 1
          WHEN object_status = 'VALID' AND is_obsolete = 'N' AND is_shareable = 'N' THEN 2
@@ -35,10 +36,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
   FROM v$sql 
  WHERE sql_id = '&&cs_sql_id.'
    AND ('&&cs_plan_hash_value.' IS NULL OR plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
- ORDER BY
-       last_active_time DESC
 )
 SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
+       con_id,
        plan_hash_value,
        child_number,
        object_status, 
@@ -50,6 +50,7 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
   FROM ranked_child_cursors r
  WHERE r.row_number = 1
  ORDER BY
-       last_active_time
+       last_active_time,
+       con_id
 /
 --

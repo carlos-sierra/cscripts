@@ -44,6 +44,8 @@ SELECT m.value, /* Seconds (number) */
 /
 -- [%metric_id%] SQL operation over %value% seconds (warning threshold is %warning_threshold%) %keyValue%  
 
+/* ************************************************************************************ */
+
 -- ME$LONGREPS
 -- Long Reports (KIEV)
 -- KIEV Monitored SQL taking over 1 minute
@@ -87,5 +89,64 @@ SELECT m.value, /* Seconds (number) */
   FROM metric m
 /
 -- [%metric_id%] SQL execution lasted %value% seconds (warning threshold is %warning_threshold%) %keyValue%  
+
+/* ************************************************************************************ */
+
+-- ME$KIEVGC
+-- GC Heart Beat (KIEV)
+-- Seconds since last KIEV GC execution
+-- every 1 hour
+-- Warning: > 3600
+WITH
+kiev_pdbs AS (
+SELECT /*+ NO_MERGE */
+       COUNT(DISTINCT con_id) cnt
+  FROM cdb_tables
+ WHERE table_name = 'KIEVBUCKETS'
+),
+kiev_gc_state AS (
+SELECT /*+ NO_MERGE */
+       COUNT(DISTINCT s.con_id) pdbs,
+       COUNT(DISTINCT s.parsing_user_id||'.'||s.parsing_schema_id||'.'||s.con_id||'.'||s.sql_id) tables,
+       TO_CHAR(MAX(s.last_active_time), 'YYYY-MM-DD"T"HH24:MI:SS') last_active_time,
+       NVL(GREATEST((SYSDATE - MAX(s.last_active_time)) * 24 * 3600, 0), 999999999) seconds_since_last_active
+  FROM v$sql s, 
+       audit_actions a,
+       v$containers c
+ WHERE s.sql_id IS NOT NULL
+   AND s.object_status = 'VALID'
+   AND s.is_obsolete = 'N'
+   AND s.is_shareable = 'Y'
+   AND s.parsing_user_id > 0
+   AND s.parsing_schema_id > 0
+   AND s.sql_text LIKE '/* deleteBucketGarbage */'||CHR(37) -- KIEV
+   AND s.last_active_time > SYSDATE - (6/24) -- look last 6h only
+   AND a.action = s.command_type
+   AND a.name = 'DELETE'
+   AND c.con_id = s.con_id
+   AND c.open_mode = 'READ WRITE' /* only DG PRIMARY */
+),
+metric AS (
+SELECT /*+ NO_MERGE */
+         s.seconds_since_last_active 
+       value,
+         'kiev_pdbs:'||k.cnt||', '||
+         'kiev_gc_tables:'||s.tables||', '||
+         'last_kiev_gc:'||NVL(s.last_active_time, 'NEVER')
+       key_value
+  FROM kiev_gc_state s,
+       kiev_pdbs k
+ WHERE s.seconds_since_last_active >= 0
+   AND k.cnt > 0
+)
+SELECT m.value, /* Seconds (number) */
+       m.key_value /* Key (string) */
+  FROM metric m
+/
+-- [%metric_id%] KIEV GC has not executed for %value% seconds (warning threshold is %warning_threshold%) %keyValue%  
+
+/* ************************************************************************************ */
+
+
 
 

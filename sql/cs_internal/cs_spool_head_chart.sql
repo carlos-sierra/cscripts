@@ -22,7 +22,8 @@ PRO td               {vertical-align:top; border:1px solid #336699;}
 PRO td.c             {text-align:center;}
 PRO font.n           {font-size:8pt; font-style:italic; color:#336699;}
 PRO font.f           {font-size:8pt; color:#999999; border-top:1px solid #336699; margin-top:30pt;}
-PRO div.google-chart {width:809px; height:500px;}
+--PRO div.google-chart {width:809px; height:500px;}
+PRO div.google-chart {width:1200px; height:500px;}
 PRO </style>
 PRO
 PRO <script type="text/javascript" src="https://www.google.com/jsapi"></script>

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/09/19
+-- Version:     2019/01/18
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -33,22 +33,29 @@ ALTER SESSION SET container = CDB$ROOT;
 --
 DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
---
+--   
 PRO 3. SQL_ID: 
 DEF cs_sql_id = '&3.';
+--
+PRO
+PRO 4. Include NULL actions?: [{Y}|N] 
+DEF cs_null = '&4.';
+COL cs_null NEW_V cs_null;
+SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
 --
 SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_null." 
 @@cs_internal/cs_spool_id.sql
 --
 PRO TIME_FROM    : &&cs_sample_time_from. 
 PRO TIME_TO      : &&cs_sample_time_to. 
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
+PRO INCLUDE_NULL : "&&cs_null." [{Y}|N]
 --
 COL snap_id FOR 99999 HEA 'RUNID';
 COL zapper_aggressiveness FOR 99999 HEA 'LEVEL';
@@ -93,6 +100,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
  ORDER BY
        snap_id,
        zapper_aggressiveness,
@@ -121,6 +129,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
    AND spb_plan_name IS NOT NULL
  ORDER BY
        snap_id,
@@ -147,6 +156,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
    AND spb_description IS NOT NULL
  ORDER BY
        snap_id,
@@ -175,6 +185,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
    AND zapper_message1||zapper_message2||zapper_message3 IS NOT NULL
  ORDER BY
        snap_id,
@@ -185,7 +196,7 @@ SELECT snap_id,
 SET RECSEP WR;
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_null." 
 --
 @@cs_internal/cs_spool_tail.sql
 --

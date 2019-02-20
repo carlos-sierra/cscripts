@@ -44,7 +44,7 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
 )
 SELECT 'SELECT COUNT(*), SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) kievlive_n, '||
        LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' FROM '||t.owner||'.'||t.table_name||' GROUP BY '||
-       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC, 2 DESC, 3 DESC FETCH FIRST 10 ROWS ONLY;' dynamic_sql
+       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC, 2 DESC, 3 DESC FETCH FIRST 20 ROWS ONLY;' dynamic_sql
   FROM dba_tables_m t,
        dba_indexes i,
        dba_ind_columns c

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/09/19
+-- Version:     2019/01/18
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -37,6 +37,12 @@ DEF cs_hours_range_default = '24';
 PRO 3. SQL_ID: 
 DEF cs_sql_id = '&3.';
 --
+PRO
+PRO 4. Include NULL actions?: [{Y}|N] 
+DEF cs_null = '&4.';
+COL cs_null NEW_V cs_null;
+SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
+--
 @@cs_internal/cs_signature.sql
 --
 COL snap_id FOR 99999 HEA 'RUNID';
@@ -61,6 +67,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
  GROUP BY
        snap_id,
        zapper_aggressiveness
@@ -69,20 +76,21 @@ SELECT snap_id,
        zapper_aggressiveness
 /
 PRO
-PRO 4. RUNID (opt):
-DEF cs_snap_id = '&4.';
+PRO 5. RUNID (opt):
+DEF cs_snap_id = '&5.';
 --
 SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_snap_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_snap_id."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_null." "&&cs_snap_id."
 @@cs_internal/cs_spool_id.sql
 --
 PRO TIME_FROM    : &&cs_sample_time_from. 
 PRO TIME_TO      : &&cs_sample_time_to. 
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
-PRO RUN_ID       : &&cs_snap_id.
+PRO INCLUDE_NULL : "&&cs_null." [{Y}|N]
+PRO RUN_ID       : "&&cs_snap_id."
 PRO
 --
 SELECT snap_id,
@@ -99,6 +107,7 @@ SELECT snap_id,
    AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
  GROUP BY
        snap_id,
        zapper_aggressiveness
@@ -116,6 +125,7 @@ SELECT zapper_report
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
    AND (snap_id = TO_NUMBER('&&cs_snap_id.') OR '&&cs_snap_id.' IS NULL)
+   AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
  ORDER BY
        snap_id,
        snap_time
@@ -123,7 +133,7 @@ SELECT zapper_report
 SET HEA ON PAGES 100 RECSEP WR;
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_snap_id."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_null." "&&cs_snap_id."
 --
 @@cs_internal/cs_spool_tail.sql
 --

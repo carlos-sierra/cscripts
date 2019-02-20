@@ -16,7 +16,7 @@ CREATE TABLE &&1..rsrc_mgr_plan_config (
   parallel_server_limit_default  NUMBER,
   parallel_server_imit_pdb_cap   NUMBER
 )
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
   l_sql_statement2 VARCHAR2(32767) := q'[
 INSERT INTO &&1..rsrc_mgr_plan_config (plan) VALUES ('IOD_CDB_PLAN')
@@ -55,7 +55,7 @@ CREATE TABLE &&1..rsrc_mgr_pdb_config (
   utilization_limit              NUMBER,
   parallel_server_limit          NUMBER
 )
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
   l_sql_statement2 VARCHAR2(32767) := q'[
 ALTER TABLE &&1..rsrc_mgr_pdb_config ADD (
@@ -116,7 +116,7 @@ INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
 PARTITION before_2018_04_01 VALUES LESS THAN (TO_DATE('2018-04-01', 'YYYY-MM-DD'))
 )
 ROW STORE COMPRESS ADVANCED
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
 BEGIN
   SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('rsrc_mgr_pdb_hist');

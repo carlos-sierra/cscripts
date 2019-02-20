@@ -42,7 +42,7 @@ CREATE OR REPLACE PACKAGE &&1..iod_space AUTHID CURRENT_USER AS
 --
 /* ------------------------------------------------------------------------------------ */
 gk_package_version            CONSTANT VARCHAR2(30)  := '&&library_version.'; -- used to circumvent ORA-04068: existing state of packages has been discarded
-gk_report_only                CONSTANT VARCHAR2(1)   := 'Y';
+gk_report_only                CONSTANT VARCHAR2(1)   := 'N';
 gk_only_if_ref_by_full_scans  CONSTANT VARCHAR2(1)   := 'Y'; -- to perform DDL oprration
 gk_min_size_mb                CONSTANT NUMBER        := 10; -- of segment to perform DDL oprration
 gk_max_size_gb                CONSTANT NUMBER        := 100; -- of segment to perform DDL oprration

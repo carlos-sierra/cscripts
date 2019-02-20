@@ -1,3 +1,13 @@
+
+2019-01-11
+~~~~~~~~~
+1. rrighett - tablespace_resize() - added smallfile support
+2. rrighett - purge_recyclebin() - changed to support lower case table_name
+
+2019-01-03
+~~~~~~~~~~
+1. rrighett - table_stats_hist() - added filter |AND o.object_type = 'TABLE'| on s_cdb_table view to remove duplicate for Partitioned tables 
+
 2018-11-15
 ~~~~~~~~~~
 1. Include in alert log instructions how to drop staging objects from a prior failed table redefinition.

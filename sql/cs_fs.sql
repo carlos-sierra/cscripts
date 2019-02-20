@@ -28,7 +28,9 @@ DEF executions_max = '&&high_value.';
 DEF ms_per_exec_min = '&&low_value.';
 DEF ms_per_exec_max = '&&high_value.';
 DEF rows_per_exec_min = '&&low_value.';
-DEF rows_per_exec_max = '&&high_value.'
+DEF rows_per_exec_max = '&&high_value.';
+DEF valid = 'Y';
+DEF invalid = 'N';
 --
 @@cs_internal/cs_primary.sql
 @@cs_internal/cs_cdb_warn.sql
@@ -96,6 +98,7 @@ SELECT /* &&cs_script_name. */
  WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
+   AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
    AND c.con_id = s.con_id
    AND c.open_mode = 'READ WRITE'
    -- by sql_id
@@ -140,6 +143,7 @@ SELECT /* &&cs_script_name. */
  WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
+   AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
    AND c.con_id = s.con_id
    AND c.open_mode = 'READ WRITE'
    -- by phv
@@ -180,6 +184,138 @@ SELECT /* &&cs_script_name. */
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sql s,
+       v$containers c
+ WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+   AND s.sql_text NOT LIKE '/* SQL Analyze(%'
+   AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
+   AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
+   AND c.con_id = s.con_id
+   AND c.open_mode = 'READ WRITE'
+   -- by sql_text
+   AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
+   AND UPPER(s.sql_text) LIKE UPPER('%&&search_string.%') -- case insensitive
+ GROUP BY
+       s.sql_id,
+       DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       s.sql_text,
+       s.plan_hash_value,
+       s.con_id,
+       c.name
+HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
+   AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
+   AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
+ ORDER BY
+       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+/
+--
+SELECT /* &&cs_script_name. */
+       s.sql_id,
+       DBMS_LOB.getlength(s.sql_fulltext) len,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUM(s.elapsed_time)/1e6 db_time_secs,
+       SUM(s.executions) executions,
+       SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       s.plan_hash_value,
+       COUNT(*) curs,
+       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
+       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
+       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
+       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
+       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
+       --COUNT(DISTINCT s.sql_profile) sprf,
+       --COUNT(DISTINCT s.sql_patch) spch,
+       c.name||'('||s.con_id||')' pdb_name,
+       'Y' please_stop
+  FROM v$sqlstats s,
+       v$containers c
+ WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+   AND s.sql_text NOT LIKE '/* SQL Analyze(%'
+   AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
+   AND c.con_id = s.con_id
+   AND c.open_mode = 'READ WRITE'
+   -- by sql_id
+   AND LENGTH('&&search_string.') = 13 
+   AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
+   AND s.sql_id = '&&search_string.'
+ GROUP BY
+       s.sql_id,
+       DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       s.sql_text,
+       s.plan_hash_value,
+       s.con_id,
+       c.name
+HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
+   AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
+   AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
+ ORDER BY
+       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+/
+--
+SELECT /* &&cs_script_name. */
+       s.sql_id,
+       DBMS_LOB.getlength(s.sql_fulltext) len,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUM(s.elapsed_time)/1e6 db_time_secs,
+       SUM(s.executions) executions,
+       SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       s.plan_hash_value,
+       COUNT(*) curs,
+       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
+       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
+       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
+       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
+       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
+       --COUNT(DISTINCT s.sql_profile) sprf,
+       --COUNT(DISTINCT s.sql_patch) spch,
+       c.name||'('||s.con_id||')' pdb_name,
+       'Y' please_stop
+  FROM v$sqlstats s,
+       v$containers c
+ WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+   AND s.sql_text NOT LIKE '/* SQL Analyze(%'
+   AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
+   AND c.con_id = s.con_id
+   AND c.open_mode = 'READ WRITE'
+   -- by phv
+   AND LENGTH('&&search_string.') <= 10 
+   AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NULL -- number
+   AND TO_CHAR(s.plan_hash_value) = '&&search_string.'
+ GROUP BY
+       s.sql_id,
+       DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       s.sql_text,
+       s.plan_hash_value,
+       s.con_id,
+       c.name
+HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
+   AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
+   AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
+ ORDER BY
+       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+/
+--
+SELECT /* &&cs_script_name. */
+       s.sql_id,
+       DBMS_LOB.getlength(s.sql_fulltext) len,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUM(s.elapsed_time)/1e6 db_time_secs,
+       SUM(s.executions) executions,
+       SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       s.plan_hash_value,
+       COUNT(*) curs,
+       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
+       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
+       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
+       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
+       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
+       --COUNT(DISTINCT s.sql_profile) sprf,
+       --COUNT(DISTINCT s.sql_patch) spch,
+       c.name||'('||s.con_id||')' pdb_name,
+       'Y' please_stop
+  FROM v$sqlstats s,
        v$containers c
  WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'

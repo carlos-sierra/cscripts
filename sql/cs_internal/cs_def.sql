@@ -1,9 +1,10 @@
 DEF cs_stgtab_owner = 'c##iod';
 DEF cs_stgtab_prefix = 'iod';
 DEF cs_file_dir = '/tmp/';
+DEF cs_timestamp_full_format = 'YYYY-MM-DD"T"HH24:MI:SS.FF3';
 DEF cs_datetime_full_format = 'YYYY-MM-DD"T"HH24:MI:SS';
 DEF cs_datetime_short_format = 'YYYYMMDD_HH24MISS';
-DEF cs_def_reference = 'IOD';
+DEF cs_def_reference = 'KPT';
 DEF cs_reference = '';
 DEF cs_reference_sanitized = '';
 --DEF cs_def_local_dir = '/Users/csierra/Issues/';
@@ -31,6 +32,13 @@ DEF cs_script_name = '';
 DEF cs_max_snap_id = '';
 DEF cs_max_snap_end_time = '';
 DEF cs_last_snap_mins = '';
+DEF cs_snap_interval_seconds = '';
+DEF cs_ash_interval_ms = '';
+--
+DEF cs_1h_snap_id = '';
+DEF cs_1d_snap_id = '';
+DEF cs_7d_snap_id = '';
+DEF cs_30d_snap_id = '';
 --
 DEF cs_sql_id = '';
 DEF cs_signature = '';
@@ -41,8 +49,11 @@ COL cs_region NEW_V cs_region FOR A14 NOPRI;
 COL cs_locale NEW_V cs_locale FOR A6 NOPRI;
 COL cs_dbid NEW_V cs_dbid FOR A12 NOPRI;
 COL cs_db_name NEW_V cs_db_name FOR A9 NOPRI;
+COL cs_db_open_mode NEW_V cs_db_open_mode FOR A10 NOPRI;
 COL cs_con_id NEW_V cs_con_id FOR A4 NOPRI;
 COL cs_con_name NEW_V cs_con_name FOR A30 NOPRI;
+COL cs_current_schema NEW_V cs_current_schema FOR A30 NOPRI;
+COL cs_pdb_open_mode NEW_V cs_pdb_open_mode FOR A10 NOPRI;
 COL cs_instance_number NEW_V cs_instance_number FOR A1 NOPRI;
 COL cs_num_cpu_cores NEW_V cs_num_cpu_cores FOR A3 NOPRI;
 COL cs_db_version NEW_V cs_db_version FOR A17 NOPRI;
@@ -60,6 +71,13 @@ COL cs_script_name NEW_V cs_script_name NOPRI;
 COL cs_max_snap_id NEW_V cs_max_snap_id FOR A6 NOPRI;
 COL cs_max_snap_end_time NEW_V cs_max_snap_end_time FOR A19 NOPRI;
 COL cs_last_snap_mins NEW_V cs_last_snap_mins FOR A7 NOPRI;
+COL cs_snap_interval_seconds NEW_V cs_snap_interval_seconds FOR A4 NOPRI;
+COL cs_ash_interval_ms NEW_V cs_ash_interval_ms FOR A5 NOPRI;
+--
+COL cs_1h_snap_id NEW_V cs_1h_snap_id FOR A6 NOPRI;
+COL cs_1d_snap_id NEW_V cs_1d_snap_id FOR A6 NOPRI;
+COL cs_7d_snap_id NEW_V cs_7d_snap_id FOR A6 NOPRI;
+COL cs_30d_snap_id NEW_V cs_30d_snap_id FOR A6 NOPRI;
 --
 COL cs_signature NEW_V cs_signature FOR A20 NOPRI;
 COL cs_sql_handle NEW_V cs_sql_handle FOR A20 NOPRI;
@@ -73,20 +91,24 @@ SELECT UPPER(SUBSTR(i.host_name,INSTR(i.host_name,'.',-1)+1)) cs_region,
        WHEN UPPER(SUBSTR(i.host_name,INSTR(i.host_name,'.',-1)+1)) = 'R2' AND d.name IN ('KIEV02', 'KIEV1R2') THEN 'RGN'
        ELSE UPPER(SUBSTR(i.host_name,INSTR(i.host_name,'.',-1,2)+1,INSTR(i.host_name,'.',-1)-INSTR(i.host_name,'.',-1,2)-1))
        END cs_locale,
-       TO_CHAR(d.dbid) cs_dbid,
+       TRIM(TO_CHAR(d.dbid)) cs_dbid,
        d.name cs_db_name,
+       d.open_mode cs_db_open_mode,
        SYS_CONTEXT('USERENV', 'CON_ID') cs_con_id,
        SYS_CONTEXT('USERENV', 'CON_NAME') cs_con_name,
-       TO_CHAR(i.instance_number) cs_instance_number,
+       SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') cs_current_schema,
+       c.open_mode cs_pdb_open_mode,
+       TRIM(TO_CHAR(i.instance_number)) cs_instance_number,
        i.version cs_db_version,
        i.host_name cs_host_name,
        i.startup_time cs_startup_time,
-       TO_CHAR(o.value) cs_num_cpu_cores,
+       TRIM(TO_CHAR(o.value)) cs_num_cpu_cores,
        TRIM(TO_CHAR(ROUND(SYSDATE - i.startup_time, 1), '990.0')) cs_startup_days,
-       TO_CHAR(SYSDATE , '&&cs_datetime_full_format.') cs_date_time,
-       TO_CHAR(SYSDATE , '&&cs_datetime_short_format.') cs_file_date_time
-  FROM v$database d, v$instance i, v$osstat o
- WHERE o.stat_name = 'NUM_CPU_CORES'
+       TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_full_format.')) cs_date_time,
+       TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_short_format.')) cs_file_date_time
+  FROM v$database d, v$instance i, v$containers c, v$osstat o
+ WHERE c.con_id = SYS_CONTEXT('USERENV', 'CON_ID')
+   AND o.stat_name = 'NUM_CPU_CORES'
 /
 --
 WITH 
@@ -120,8 +142,8 @@ SELECT s.pdb,
   FROM service s, v$instance i
 /
 --
-SELECT TO_CHAR(snap_id) cs_max_snap_id,
-       TO_CHAR(end_interval_time, '&&cs_datetime_full_format.') cs_max_snap_end_time,
+SELECT TRIM(TO_CHAR(snap_id)) cs_max_snap_id,
+       TRIM(TO_CHAR(end_interval_time, '&&cs_datetime_full_format.')) cs_max_snap_end_time,
        TRIM(TO_CHAR(ROUND((SYSDATE - CAST(end_interval_time AS DATE)) * 24 * 60, 1), '99990.0')) cs_last_snap_mins
   FROM dba_hist_snapshot
  WHERE dbid = TO_NUMBER('&&cs_dbid.')
@@ -131,7 +153,41 @@ SELECT TO_CHAR(snap_id) cs_max_snap_id,
  FETCH FIRST 1 ROW ONLY
 /
 --
-PRO Issue Reference: (e.g. IOD-10439, ODSI-1153)
+SELECT TRIM(TO_CHAR((24 * 3600 * EXTRACT(day FROM snap_interval)) + (3600 * EXTRACT(hour FROM snap_interval)) + (60 * EXTRACT(minute FROM snap_interval)) + EXTRACT(second FROM snap_interval))) cs_snap_interval_seconds
+  FROM dba_hist_wr_control
+/
+SELECT TRIM(TO_CHAR(sampling_interval)) cs_ash_interval_ms
+  FROM v$ash_info
+/
+--
+SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_1h_snap_id
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND end_interval_time > SYSDATE - (1/24)
+/
+SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_1d_snap_id
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND end_interval_time > SYSDATE - 1
+/
+SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_7d_snap_id
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND end_interval_time > SYSDATE - 7
+/
+SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_30d_snap_id
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND end_interval_time > SYSDATE - 30
+/
+--
+--CLEAR SCREEN;
+PRO
+PRO Issue Reference: (e.g. KPT-1234, KIEV-1234, IOD-1234, ODSI-1234)
 DEF issue_reference = '&&issue_reference.';
 COL cs_reference NEW_V cs_reference NOPRI;
 SELECT NVL('&&issue_reference.', '&&cs_def_reference.') cs_reference FROM DUAL;

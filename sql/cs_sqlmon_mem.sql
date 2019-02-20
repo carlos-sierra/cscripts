@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/11/25
+-- Version:     2019/01/27
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -32,24 +32,25 @@ DEF cs_script_name = 'cs_sqlmon_mem';
 COL seconds FOR 999,999,990;
 COL secs_avg FOR 999,990;
 COL secs_max FOR 999,999,990;
-COL sql_text_60 FOR A60 HEA 'SQL_TEXT';
+COL sql_text FOR A100 HEA 'SQL_TEXT' TRUNC;
 COL reports FOR 999,990;
+COL pdb_name FOR A30 TRUNC;
 --
 WITH
 individual_executions AS (
-SELECT sql_id,
-       sql_exec_id,
-       sql_exec_start,
-       MAX(last_refresh_time) last_refresh_time,
-       MAX(sql_text) sql_text,
-       MAX(status) status,
-       SUM(elapsed_time)/1e6 seconds
-  FROM gv$sql_monitor
- WHERE sql_id IS NOT NULL
+SELECT r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start,
+       MAX(r.last_refresh_time) last_refresh_time,
+       MAX(r.sql_text) sql_text,
+       MAX(r.status) status,
+       MAX(r.elapsed_time)/1e6 seconds
+  FROM v$sql_monitor r
+ WHERE r.sql_id IS NOT NULL
  GROUP BY
-       sql_id,
-       sql_exec_id,
-       sql_exec_start
+       r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start
 )
 SELECT SUM(seconds) seconds,
        COUNT(*) reports,
@@ -58,7 +59,7 @@ SELECT SUM(seconds) seconds,
        MIN(sql_exec_start) min_sql_exec_start,
        MAX(last_refresh_time) max_last_refresh_time,
        sql_id,
-       REPLACE(SUBSTR(MAX(sql_text), 1, 60), CHR(10), CHR(32)) sql_text_60
+       REPLACE(MAX(sql_text), CHR(10), CHR(32)) sql_text
   FROM individual_executions
  GROUP BY
        sql_id
@@ -74,27 +75,34 @@ COL sql_exec_id NEW_V sql_exec_id FOR A12;
 --
 WITH
 individual_executions AS (
-SELECT sql_id,
-       sql_exec_id,
-       sql_exec_start,
-       MAX(last_refresh_time) last_refresh_time,
-       MAX(sql_text) sql_text,
-       MAX(status) status,
-       SUM(elapsed_time)/1e6 seconds
-  FROM gv$sql_monitor
- WHERE sql_id = '&&cs_sql_id.'
+SELECT /*+ NO_MERGE */
+       r.con_id,
+       r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start,
+       MAX(r.last_refresh_time) last_refresh_time,
+       MAX(r.sql_text) sql_text,
+       MAX(r.status) status,
+       SUM(r.elapsed_time)/1e6 seconds
+  FROM v$sql_monitor r
+ WHERE r.sql_id = '&&cs_sql_id.'
  GROUP BY
-       sql_id,
-       sql_exec_id,
-       sql_exec_start
+       r.con_id,
+       r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start
 )
-SELECT sql_exec_start,
-       last_refresh_time,
-       seconds,
-       TO_CHAR(sql_exec_id) sql_exec_id
-  FROM individual_executions
+SELECT r.sql_exec_start,
+       r.last_refresh_time,
+       r.seconds,
+       TO_CHAR(r.sql_exec_id) sql_exec_id,
+       c.name pdb_name
+  FROM individual_executions r,
+       v$containers c
+ WHERE c.con_id = r.con_id
+   AND c.open_mode = 'READ WRITE'
  ORDER BY
-       1 DESC, 2 DESC
+       1, 2
 /
 --
 PRO

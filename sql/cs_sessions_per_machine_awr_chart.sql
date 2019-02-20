@@ -49,7 +49,7 @@ SELECT machine, 10*COUNT(*) db_time_secs
 /
 PRO
 PRO 3. Machine (opt): 
-DEF cs2_machine = '&3';
+DEF cs2_machine = '&3.';
 --
 SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --

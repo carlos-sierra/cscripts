@@ -6,9 +6,9 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/11/25
+-- Version:     2019/01/27
 --
--- Usage:       Execute connected to PDB.
+-- Usage:       Execute connected to PDB or CDB.
 --
 --              Enter SQL_ID when requested.
 --
@@ -22,7 +22,7 @@
 ---------------------------------------------------------------------------------------
 --
 @@cs_internal/cs_primary.sql
-@@cs_internal/cs_cdb_warn.sql
+--@@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
@@ -33,22 +33,25 @@ COL key1 FOR A13 HEA 'SQL_ID';
 COL seconds FOR 999,999,990;
 COL secs_avg FOR 999,990;
 COL secs_max FOR 999,999,990;
-COL sql_text_60 FOR A60 HEA 'SQL_TEXT';
+COL sql_text FOR A100 HEA 'SQL_TEXT' TRUNC;
 COL reports FOR 999,990;
+COL pdbs FOR 9,990;
+COL pdb_name FOR A30 TRUNC;
 --
-SELECT SUM(period_end_time - period_start_time) * 24 * 3600 seconds,
+SELECT SUM(r.period_end_time - r.period_start_time) * 24 * 3600 seconds,
        COUNT(*) reports,
-       MAX(period_end_time - period_start_time) * 24 * 3600 secs_max,
-       ROUND(SUM(period_end_time - period_start_time) * 24 * 3600 / COUNT(*)) secs_avg,
-       MIN(period_start_time) min_start_time,
-       MAX(period_end_time) max_end_time,
-       key1,
-       (SELECT SUBSTR(sql_text, 1, 60) FROM v$sql WHERE sql_id = key1 AND ROWNUM = 1) sql_text_60
-  FROM dba_hist_reports
- WHERE component_name = 'sqlmonitor'
-   AND EXISTS (SELECT NULL FROM v$sql WHERE sql_id = key1)
+       COUNT(DISTINCT r.con_id) pdbs,
+       MAX(r.period_end_time - r.period_start_time) * 24 * 3600 secs_max,
+       ROUND(SUM(r.period_end_time - r.period_start_time) * 24 * 3600 / COUNT(*)) secs_avg,
+       MIN(r.period_start_time) min_start_time,
+       MAX(r.period_end_time) max_end_time,
+       r.key1,
+       (SELECT s.sql_text FROM v$sql s WHERE s.sql_id = r.key1 AND ROWNUM = 1) sql_text
+  FROM cdb_hist_reports r
+ WHERE r.component_name = 'sqlmonitor'
+   AND EXISTS (SELECT NULL FROM v$sql s WHERE s.sql_id = r.key1)
  GROUP BY
-       key1
+       r.key1
  ORDER BY
        1 DESC, 2 DESC
 /
@@ -61,14 +64,18 @@ COL report_id NEW_V report_id FOR A10;
 COL sid_serial FOR A13 HEA '  SID,SERIAL#'; 
 --
 SELECT --TO_CHAR(TO_DATE(key3, 'MM/DD/YYYY HH24:MI:SS'), '&&cs_datetime_full_format.') sql_exec_start, 
-       period_start_time start_time,
-       period_end_time end_time,
-       (period_end_time - period_start_time) * 24 * 3600 seconds,
-       LPAD(session_id,5)||','||session_serial# sid_serial,
-       TO_CHAR(report_id) report_id
-  FROM dba_hist_reports
- WHERE component_name = 'sqlmonitor'
-   AND key1 = '&&cs_sql_id.'
+       r.period_start_time start_time,
+       r.period_end_time end_time,
+       (r.period_end_time - r.period_start_time) * 24 * 3600 seconds,
+       LPAD(r.session_id,5)||','||r.session_serial# sid_serial,
+       TO_CHAR(r.report_id) report_id,
+       c.name pdb_name
+  FROM dba_hist_reports r,
+       v$containers c
+ WHERE r.component_name = 'sqlmonitor'
+   AND r.key1 = '&&cs_sql_id.'
+   AND c.con_id = r.con_id
+   AND c.open_mode = 'READ WRITE'
  ORDER BY
        1, 2
 /

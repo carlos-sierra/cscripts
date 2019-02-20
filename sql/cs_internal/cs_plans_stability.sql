@@ -21,6 +21,7 @@ PRO
 PRO PLANS STABILITY (v$sql)
 PRO ~~~~~~~~~~~~~~~
 SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
+       con_id,
        child_number,
        plan_hash_value,
        REPLACE(last_load_time, '/', 'T') last_load_time,
@@ -43,6 +44,7 @@ SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
    --AND executions > 0
  ORDER BY
        last_active_time,
+       con_id,
        child_number
 /
 --

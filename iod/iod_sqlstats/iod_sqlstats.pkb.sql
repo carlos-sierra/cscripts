@@ -367,7 +367,16 @@ BEGIN
       output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SQLSTATS.sqlstats_snapshot: ALTER TABLE &&1..sqlstats_snapshot DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..sqlstats_snapshot SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
-      EXECUTE IMMEDIATE 'ALTER TABLE &&1..sqlstats_snapshot DROP PARTITION '||i.partition_name;
+      --
+      DECLARE
+       last_partition EXCEPTION;
+       PRAGMA EXCEPTION_INIT(last_partition, -14758); -- ORA-14758: Last partition in the range section cannot be dropped
+      BEGIN
+        EXECUTE IMMEDIATE 'ALTER TABLE &&1..sqlstats_snapshot DROP PARTITION '||i.partition_name;
+      EXCEPTION 
+        WHEN last_partition THEN
+          output('** '||SQLERRM);
+      END;
     END IF;
   END LOOP;
   -- drop partitions with data older than 2 months (i.e. preserve between 2 and 3 months of history)
@@ -385,7 +394,16 @@ BEGIN
       output('PARTITION:'||RPAD(SUBSTR(i.partition_name, 1, 30), 32)||'HIGH_VALUE:'||TO_CHAR(l_high_value, gk_date_format)||'  BLOCKS:'||i.blocks);
       output('&&1..IOD_SQLSTATS.active_session_hist: ALTER TABLE &&1..active_session_hist DROP PARTITION '||i.partition_name, p_alert_log => 'Y');
       EXECUTE IMMEDIATE q'[ALTER TABLE &&1..active_session_hist SET INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))]';
-      EXECUTE IMMEDIATE 'ALTER TABLE &&1..active_session_hist DROP PARTITION '||i.partition_name;
+      --
+      DECLARE
+       last_partition EXCEPTION;
+       PRAGMA EXCEPTION_INIT(last_partition, -14758); -- ORA-14758: Last partition in the range section cannot be dropped
+      BEGIN
+        EXECUTE IMMEDIATE 'ALTER TABLE &&1..active_session_hist DROP PARTITION '||i.partition_name;
+      EXCEPTION 
+        WHEN last_partition THEN
+          output('** '||SQLERRM);
+      END;
     END IF;
   END LOOP;
   --

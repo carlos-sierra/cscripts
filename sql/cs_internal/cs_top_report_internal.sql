@@ -1,37 +1,73 @@
 DEF computed_metric = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._&&computed_metric.' cs_file_name FROM DUAL;
+COL file_name NEW_V file_name NOPRI;
+SELECT CASE LOWER(TRIM('&&computed_metric.'))
+       WHEN 'db_time_exec'               THEN '1_Latency_1_Elapsed_Time_per_Execution'
+       WHEN 'db_time_aas'                THEN '2_DB_Time_1_Elapsed_Time_AAS'
+       WHEN 'cpu_time_exec'              THEN '1_Latency_2_CPU_Time_per_Execution'
+       WHEN 'cpu_time_aas'               THEN '2_DB_Time_2_CPU_Time_AAS'
+       WHEN 'io_time_exec'               THEN '1_Latency_3_IO_Wait_Time_per_Execution'
+       WHEN 'io_time_aas'                THEN '2_DB_Time_3_IO_Wait_Time_AAS'
+       WHEN 'appl_time_exec'             THEN '1_Latency_4_Application_Wait_Time_per_Execution'
+       WHEN 'appl_time_aas'              THEN '2_DB_Time_4_Application_Wait_Time_AAS'
+       WHEN 'conc_time_exec'             THEN '1_Latency_5_Concurrency_Wait_Time_per_Execution'
+       WHEN 'conc_time_aas'              THEN '2_DB_Time_5_Concurrency_Wait_Time_AAS'
+       WHEN 'parses_sec'                 THEN '3_DB_Calls_3_Parses_per_Second'
+       WHEN 'executions_sec'             THEN '3_DB_Calls_1_Executions_per_Second'
+       WHEN 'fetches_sec'                THEN '3_DB_Calls_2_Fetches_per_Second'
+       WHEN 'loads'                      THEN '6_Cursors_4_Loads'
+       WHEN 'invalidations'              THEN '6_Cursors_3_Invalidations'
+       WHEN 'version_count'              THEN '6_Cursors_2_Versions'
+       WHEN 'sharable_mem_mb'            THEN '6_Cursors_1_Sharable Memory'
+       WHEN 'rows_processed_sec'         THEN '5_Resources_per_Second_1_Rows_Processed'
+       WHEN 'rows_processed_exec'        THEN '4_Resources_per_Exec_1_Rows_Processed'
+       WHEN 'buffer_gets_sec'            THEN '5_Resources_per_Second_2_Buffer_Gets'
+       WHEN 'buffer_gets_exec'           THEN '4_Resources_per_Exec_2_Buffer_Gets'
+       WHEN 'disk_reads_sec'             THEN '5_Resources_per_Second_3_Disk_Reads'
+       WHEN 'disk_reads_exec'            THEN '4_Resources_per_Exec_3_Disk_Reads'
+       WHEN 'physical_read_bytes_sec'    THEN '5_Resources_per_Second_4_Physical_Read_Bytes'
+       WHEN 'physical_read_bytes_exec'   THEN '4_Resources_per_Exec_4_Physical_Read_Bytes'
+       WHEN 'physical_write_bytes_sec'   THEN '5_Resources_per_Second_5_Physical_Write_Bytes'
+       WHEN 'physical_write_bytes_exec'  THEN '4_Resources_per_Exec_5_Physical_Write_Bytes'
+       ELSE '1_Latency_1_Elapsed_Time_per_Execution'
+       END file_name
+  FROM DUAL
+/
+SELECT (CASE WHEN '&&sql_id' IS NOT NULL THEN '&&sql_id._' END)||'&&file_name.' file_name FROM DUAL
+/
+--
+SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._&&file_name.' cs_file_name FROM DUAL;
 --
 COL metric_display NEW_V metric_display NOPRI;
 SELECT CASE LOWER(TRIM('&&computed_metric.'))
-       WHEN 'db_time_exec' THEN 'Database Time per Execution'
-       WHEN 'db_time_aas' THEN 'Database Time'
-       WHEN 'cpu_time_exec' THEN 'CPU Time per Execution'
-       WHEN 'cpu_time_aas' THEN 'CPU Time'
-       WHEN 'io_time_exec' THEN 'IO Wait Time per Execution'
-       WHEN 'io_time_aas' THEN 'IO Wait Time'
-       WHEN 'appl_time_exec' THEN 'Application Wait Time per Execution'
-       WHEN 'appl_time_aas' THEN 'Application Wait Time'
-       WHEN 'conc_time_exec' THEN 'Concurrency Wait Time per Execution'
-       WHEN 'conc_time_aas' THEN 'Concurrency Wait Time'
-       WHEN 'parses_sec' THEN 'Parses per Second'
-       WHEN 'executions_sec' THEN 'Executions per Second'
-       WHEN 'fetches_sec' THEN 'Fetches per Second'
-       WHEN 'loads' THEN 'Loads'
-       WHEN 'invalidations' THEN 'Invalidations'
-       WHEN 'version_count' THEN 'Versions'
-       WHEN 'sharable_mem_mb' THEN 'Sharable Memory'
-       WHEN 'rows_processed_sec' THEN 'Rows Processed per Second'
-       WHEN 'rows_processed_exec' THEN 'Rows Processed per Execution'
-       WHEN 'buffer_gets_sec' THEN 'Buffer Gets per Second'
-       WHEN 'buffer_gets_exec' THEN 'Buffer Gets per Execution'
-       WHEN 'disk_reads_sec' THEN 'Disk Reads per Second'
-       WHEN 'disk_reads_exec' THEN 'Disk Reads per Execution'
-       WHEN 'physical_read_bytes_sec' THEN 'Physical Read Bytes per Second'
-       WHEN 'physical_read_bytes_exec' THEN 'Physical Read Bytes per Execution'
-       WHEN 'physical_write_bytes_sec' THEN 'Physical Write Bytes per Second'
-       WHEN 'physical_write_bytes_exec' THEN 'Physical Write Bytes per Execution'
-       ELSE 'Database Time per Execution'
+       WHEN 'db_time_exec'               THEN 'Latency "Elapsed Time per Execution"'
+       WHEN 'db_time_aas'                THEN 'DB Time "Elapsed Time AAS"'
+       WHEN 'cpu_time_exec'              THEN 'Latency "CPU Time per Execution"'
+       WHEN 'cpu_time_aas'               THEN 'DB Time "CPU Time AAS"'
+       WHEN 'io_time_exec'               THEN 'Latency "IO Wait Time per Execution"'
+       WHEN 'io_time_aas'                THEN 'DB Time "IO Wait Time AAS"'
+       WHEN 'appl_time_exec'             THEN 'Latency "Application Wait Time per Execution"'
+       WHEN 'appl_time_aas'              THEN 'DB Time "Application Wait Time AAS"'
+       WHEN 'conc_time_exec'             THEN 'Latency "Concurrency Wait Time per Execution"'
+       WHEN 'conc_time_aas'              THEN 'DB Time "Concurrency Wait Time AAS"'
+       WHEN 'parses_sec'                 THEN 'DB Calls "Parses per Second"'
+       WHEN 'executions_sec'             THEN 'DB Calls "Executions per Second"'
+       WHEN 'fetches_sec'                THEN 'DB Calls "Fetches per Second"'
+       WHEN 'loads'                      THEN 'Cursors "Loads"'
+       WHEN 'invalidations'              THEN 'Cursors "Invalidations"'
+       WHEN 'version_count'              THEN 'Cursors "Versions"'
+       WHEN 'sharable_mem_mb'            THEN 'Cursors "Sharable Memory"'
+       WHEN 'rows_processed_sec'         THEN 'Resources "Rows Processed per Second"'
+       WHEN 'rows_processed_exec'        THEN 'Resources "Rows Processed per Execution"'
+       WHEN 'buffer_gets_sec'            THEN 'Resources "Buffer Gets per Second"'
+       WHEN 'buffer_gets_exec'           THEN 'Resources "Buffer Gets per Execution"'
+       WHEN 'disk_reads_sec'             THEN 'Resources "Disk Reads per Second"'
+       WHEN 'disk_reads_exec'            THEN 'Resources "Disk Reads per Execution"'
+       WHEN 'physical_read_bytes_sec'    THEN 'Resources "Physical Read Bytes per Second"'
+       WHEN 'physical_read_bytes_exec'   THEN 'Resources "Physical Read Bytes per Execution"'
+       WHEN 'physical_write_bytes_sec'   THEN 'Resources "Physical Write Bytes per Second"'
+       WHEN 'physical_write_bytes_exec'  THEN 'Resources "Physical Write Bytes per Execution"'
+       ELSE 'Latency "Elapsed Time per Execution"'
        END metric_display
   FROM DUAL
 /
@@ -47,7 +83,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
 PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
 PRO METRIC       : &&computed_metric.
-PRO KIEV Tx      : &&kiev_tx. (C=CommitTx B=BeginTx S=Scan G=GC U=Unknown)
+PRO SQL Type     : &&kiev_tx.
 PRO SQL TEXT     : &&sql_text_piece.
 PRO SQL_ID       : &&sql_id.
 --
@@ -105,7 +141,7 @@ COL physical_write_bytes_perc FOR 9,990.000 HEA 'PHYSICAL|WRITE|(PERC)';
 COL sql_text_100 FOR A100 HEA 'SQL TEXT';
 COL sql_length FOR 99,990 HEA 'LENGTH';
 COL sql_text FOR A200;
-COL application_module FOR A8 HEA 'KIEV TX';
+COL application_module FOR A4 HEA 'TYPE';
 COL min_plan_hash_value FOR 9999999999 HEA 'MIN PLAN|HASH VALUE';
 COL max_plan_hash_value FOR 9999999999 HEA 'MAX PLAN|HASH VALUE';
 -- consistent with top_n
@@ -207,106 +243,138 @@ COL sql_length PRI;
 COL sql_text_100 PRI;
 --
 /****************************************************************************************/
-WITH 
+WITH
 FUNCTION application_category (p_sql_text IN VARCHAR2)
 RETURN VARCHAR2
 IS
-  gk_appl_cat_1                  CONSTANT VARCHAR2(10) := 'BeginTx'; -- 1st application category
-  gk_appl_cat_2                  CONSTANT VARCHAR2(10) := 'CommitTx'; -- 2nd application category
-  gk_appl_cat_3                  CONSTANT VARCHAR2(10) := 'Scan'; -- 3rd application category
-  gk_appl_cat_4                  CONSTANT VARCHAR2(10) := 'GC'; -- 4th application category
-  k_appl_handle_prefix           CONSTANT VARCHAR2(30) := '/*'||CHR(37);
-  k_appl_handle_suffix           CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
-    IF   p_sql_text LIKE k_appl_handle_prefix||'addTransactionRow'||k_appl_handle_suffix 
-      OR p_sql_text LIKE k_appl_handle_prefix||'checkStartRowValid'||k_appl_handle_suffix 
-    THEN RETURN gk_appl_cat_1;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'checkEndRowValid'||k_appl_handle_suffix
-      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteValue'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'exists'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch commit by idempotency token'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'findMatchingRow'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionCommitID'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getTransactionProgress'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'lockForCommit'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'lockKievTransactor'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'putBucket'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'readTransactionsSince'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'recordTransactionState'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'setValue'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'updateIdentityValue'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'updateNextKievTransID'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'SPM:CP'||k_appl_handle_suffix 
-      OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
-    THEN RETURN gk_appl_cat_2;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'bucketIndexSelect'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketKeySelect'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'bucketValueSelect'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'countTransactions'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch snapshots'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getAutoSequences'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getNextIdentityValue'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getValues'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performContinuedScanValues'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performScanQuery'||k_appl_handle_suffix
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performFirstRowsScanQuery'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
-    THEN RETURN gk_appl_cat_3;
-    ELSIF p_sql_text LIKE k_appl_handle_prefix||'countAllRows'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'countKtkRows'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Delete rows from'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'deleteBucketGarbage'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventMaxId'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventTryInsert'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getGCLogEntries'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionOlderThan'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'hashBucket'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'hashSnapshot'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'Populate workspace'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'populateBucketGCWorkspace'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'secondsSinceLastGcEvent'||k_appl_handle_suffix 
-      OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
-    THEN RETURN gk_appl_cat_4;
-    ELSE RETURN 'Unknown';
-    END IF;
+  IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'addTransactionRow'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'checkEndRowValid'||k_appl_handle_suffix
+    OR  p_sql_text LIKE k_appl_handle_prefix||'checkStartRowValid'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'deleteValue'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'exists'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch commit by idempotency token'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch latest transactions for cache'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find lower commit id for transaction cache warm up'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'findMatchingRow'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionCommitID'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getNewTransactionID'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getTransactionProgress'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'lockForCommit'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'lockKievTransactor'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'putBucket'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readTransactionsSince'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'recordTransactionState'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'setValue'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'SPM:CP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateIdentityValue'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateNextKievTransID'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+    OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
+  THEN RETURN 'TP'; /* Transaction Processing */
+  --
+  ELSIF p_sql_text LIKE k_appl_handle_prefix||'Read Only'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'bucketIndexSelect'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'bucketKeySelect'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'bucketValueSelect'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countTransactions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch snapshots'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Get system time'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getAutoSequences'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getNextIdentityValue'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Lock row Bucket_Snapshot'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'longFromDual'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performContinuedScanValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performFirstRowsScanQuery'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performScanQuery'||k_appl_handle_suffix
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
+  THEN RETURN 'RO'; /* Read Only */
+  --
+  ELSIF p_sql_text LIKE k_appl_handle_prefix||'Background'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Bootstrap snapshot table Kiev_S'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'bucketIdentitySelect'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'checkMissingTables'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countAllBuckets'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countAllRows'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countKievTransactionRows'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countKtkRows'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Delete garbage'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Delete rows from'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'deleteBucketGarbage'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'enumerateSequences'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch config'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetch_leader_heartbeat'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventMaxId'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'gcEventTryInsert'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Get txn at time'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get_leader'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getCurEndTime'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getDBSchemaVersion'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getEndTimeOlderThan'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getGCLogEntries'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getMaxTransactionOlderThan'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getSchemaMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getSupportedLibVersions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'hashBucket'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'hashSnapshot'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Populate workspace'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'populateBucketGCWorkspace'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'primeTxCache'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readOnlyRoleExists'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Row count between transactions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'secondsSinceLastGcEvent'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'sync_leadership'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Test if table Kiev_S'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Update snapshot metadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update_heartbeat'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'verify_is_leader'||k_appl_handle_suffix 
+  THEN RETURN 'BG'; /* Background */
+  --
+  ELSIF p_sql_text LIKE k_appl_handle_prefix||'Ignore'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'enumerateKievPdbs'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getJDBCSuffix'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'MV_REFRESH'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'null'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'selectColumnsForTable'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'selectDatastoreMd'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'SQL Analyze('||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'validateDataStoreId'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+  THEN RETURN 'IG'; /* Ignore */
+  --
+  ELSE RETURN 'UN'; /* Unknown */
+  END IF;
 END application_category;
+/****************************************************************************************/
 all_sql AS (
---SELECT /*+ MATERIALIZE NO_MERGE */
---      DISTINCT sql_id, command_type, sql_text FROM v$sql
---UNION
 SELECT /*+ MATERIALIZE NO_MERGE */ 
-       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text, DBMS_LOB.GETLENGTH(sql_text) sql_length
+       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text, DBMS_LOB.GETLENGTH(sql_text) sql_length, application_category(DBMS_LOB.SUBSTR(sql_text, 1000)) application_module
   FROM dba_hist_sqltext
- WHERE 1 = 1
-   AND ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.SUBSTR(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
+ WHERE ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.SUBSTR(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
    AND ('&&sql_id.' IS NULL OR sql_id = '&&sql_id.')
+   AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.SUBSTR(sql_text, 1000))||CHR(37))
    AND command_type NOT IN (SELECT action FROM audit_actions WHERE name IN ('PL/SQL EXECUTE', 'EXECUTE PROCEDURE'))
 ),
 all_sql_with_type AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id, sql_text, sql_length,
        REPLACE(SUBSTR(CASE WHEN sql_text LIKE '/*'||CHR(37) THEN SUBSTR(sql_text, 1, INSTR(sql_text, '*/') + 1) ELSE sql_text END, 1, 100), CHR(10), CHR(32)) sql_text_100,
-       application_category(sql_text) application_module
+       application_module
   FROM all_sql
 ),
 my_tx_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100,MAX(sql_length) sql_length, MAX(application_module) application_module
+       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100, MAX(sql_length) sql_length, MAX(application_module) application_module
   FROM all_sql_with_type
- WHERE application_module IS NOT NULL
-  AND  (  
-         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'C'||CHR(37) AND application_module = 'CommitTx') OR
-         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'B'||CHR(37) AND application_module = 'BeginTx') OR
-         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'S'||CHR(37) AND application_module = 'Scan') OR
-         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'G'||CHR(37) AND application_module = 'GC') OR
-         (NVL('&&kiev_tx.', 'CBSGU') LIKE CHR(37)||'U'||CHR(37) AND application_module = 'Unknown')
-       )
  GROUP BY
        sql_id
 ),
@@ -637,7 +705,7 @@ SELECT t.rank,
 /
 --
 PRO
-PRO Top &&top_what. by "&&metric_display." - SQL Latency, Average Active Sessions and Database Time
+PRO Top &&top_what. by "&&metric_display." - SQL Latency, Average Active Sessions and Elapsed Time
 PRO ~~~~~~~~~~
 --
 COL db_time_exec PRI;
@@ -953,5 +1021,4 @@ PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&computed_metric." "&&kiev_tx." "&&sql_text_piece." "&&sql_id."
 --
 @@cs_internal/cs_spool_tail.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._*.txt &&cs_local_dir.
 --

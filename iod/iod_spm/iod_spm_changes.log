@@ -1,3 +1,21 @@
+2019-02-
+~~~~~~~~~~
+1. Fix bug where 180 days for disabling SQL Plan Baselines was not followed (KPT-35)
+2. Use probation window to create warning on plan performance regression instead of disabling plan
+
+2019-01-31
+~~~~~~~~~~
+1. New parameters tables instead of constants in code
+2. Capability to disable FIXED plans during extended window if performance regresses beyond threshold
+3. Blacklist for SQL to be excluded from evaluation
+4. SQL categorization into: Transaction Processing, Read Only, Background, Ignore and Unknown groups
+5. Granularity of execution parameters as per SQL category and Zapper aggresivenes level
+6. Zapper performance by removing unsed code related to SQL Plan Baseline creation from AWR
+7. Quarantine PDBs for N days (dafault is 24 hours)
+8. No longer persist null actions on a SPB (reduce tablespace)
+9. Use CPU time instead of Elapsed Time
+10. Grant SELECT on sys.sqlobj$plan, sys.sqlobj$, sys.sqlobj$auxdata, sys.sql$text to C##IOD
+
 2018-09-24
 ~~~~~~~~~~
 1. Eliminate SLEEP times between SPM API calls

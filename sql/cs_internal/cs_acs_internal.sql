@@ -12,6 +12,7 @@ COL predicate FOR A9 HEA 'Predicate';
 COL range_id FOR 99999 HEA 'Range|ID';
 COL low HEA 'Low';
 COL high HEA 'High';
+COL high_low_avg HEA 'AVG' FOR A10;
 --
 PRO
 PRO ACS HISTOGRAM (v$sql_cs_histogram)
@@ -31,6 +32,7 @@ SELECT TO_CHAR(s.last_active_time, '&&cs_datetime_full_format.') last_active_tim
  WHERE h.sql_id = '&&cs_sql_id.'
    AND s.sql_id = h.sql_id
    AND s.child_number = h.child_number
+   AND s.con_id = h.con_id
  ORDER BY
        s.last_active_time,
        h.child_number,
@@ -47,6 +49,7 @@ SELECT TO_CHAR(s.last_active_time, '&&cs_datetime_full_format.') last_active_tim
        l.predicate,
        l.range_id,
        l.low,
+       TRIM(TO_CHAR(ROUND((TO_NUMBER(l.high) + TO_NUMBER(l.low)) / 2, 6), '0.000000')) high_low_avg,
        l.high,
        s.object_status, 
        s.is_obsolete,
@@ -59,6 +62,7 @@ SELECT TO_CHAR(s.last_active_time, '&&cs_datetime_full_format.') last_active_tim
  WHERE l.sql_id = '&&cs_sql_id.'
    AND s.sql_id = l.sql_id
    AND s.child_number = l.child_number
+   AND s.con_id = l.con_id
  ORDER BY
        s.last_active_time,
        l.child_number,

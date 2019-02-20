@@ -20,7 +20,7 @@ INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
 PARTITION before_2018_08_01 VALUES LESS THAN (TO_DATE('2018-08-01', 'YYYY-MM-DD'))
 )
 ROW STORE COMPRESS ADVANCED
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
 BEGIN
   SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('sqlstats_snapshot');
@@ -88,7 +88,7 @@ INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
 PARTITION before_2018_08_01 VALUES LESS THAN (TO_DATE('2018-08-01', 'YYYY-MM-DD'))
 )
 ROW STORE COMPRESS ADVANCED
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
 BEGIN
   SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('sqlstats_hist');
@@ -137,7 +137,7 @@ INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))
 PARTITION before_2018_08_01 VALUES LESS THAN (TO_DATE('2018-08-01', 'YYYY-MM-DD'))
 )
 ROW STORE COMPRESS ADVANCED
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
 BEGIN
   SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('active_session_hist');
@@ -160,7 +160,7 @@ CREATE TABLE &&1..sqlstats_config (
   instance_startup_age_secs      NUMBER, -- minimum age of instance to capture sql (60 secs = 1 minute)
   flags_percent_threshold        NUMBER  -- percent of flags needed in order to consider sql at fault (e.g. 66% -> 2/3)
 )
-TABLESPACE USERS
+TABLESPACE IOD
 ]';
 BEGIN
   SELECT COUNT(*) INTO l_exists FROM dba_tables WHERE owner = UPPER(TRIM('&&1.')) AND table_name = UPPER('sqlstats_config');

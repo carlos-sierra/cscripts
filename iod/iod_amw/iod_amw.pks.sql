@@ -22,7 +22,7 @@ CREATE OR REPLACE PACKAGE &&1..iod_amw AUTHID CURRENT_USER AS
 --              (2) Expected to execute for all PDBs.
 --
 /* ------------------------------------------------------------------------------------ */
-gk_report_only                 CONSTANT VARCHAR2(1) := 'Y';
+gk_report_only                 CONSTANT VARCHAR2(1) := 'N';
 gk_default_timezone            CONSTANT VARCHAR2(8) := '+00:00';
 gk_log_history                 CONSTANT VARCHAR2(8) := '14';
 gk_accept_sql_profiles_status  CONSTANT VARCHAR2(8) := 'DISABLE';

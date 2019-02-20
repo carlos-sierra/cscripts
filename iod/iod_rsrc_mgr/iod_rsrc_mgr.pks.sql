@@ -36,10 +36,10 @@ CREATE OR REPLACE PACKAGE &&1..iod_rsrc_mgr AUTHID CURRENT_USER AS
 -- Notes:       (1) Parameter p_report_only = 'Y' produces "what-if" report.
 --
 /* ------------------------------------------------------------------------------------ */
-gk_report_only                CONSTANT VARCHAR2(1)   := 'Y';
+gk_report_only                CONSTANT VARCHAR2(1)   := 'N';
 gk_plan                       CONSTANT VARCHAR2(128) := 'IOD_CDB_PLAN';
 gk_incl_pdb_directives        CONSTANT VARCHAR2(1)   := 'Y';
-gk_switch_plan                CONSTANT VARCHAR2(1)   := 'N';
+gk_switch_plan                CONSTANT VARCHAR2(1)   := 'Y';
 gk_ash_age_days               CONSTANT NUMBER        := 10;
 gk_pdb_age_days               CONSTANT NUMBER        := 5;
 gk_utilization_adjust_factor  CONSTANT NUMBER        := 1; -- 1.2 means adjust 20% up "original" algorithm

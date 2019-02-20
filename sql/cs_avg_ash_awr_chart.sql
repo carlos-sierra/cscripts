@@ -25,7 +25,7 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_avg_ash_awr_chart';
-DEF cs_hours_range_default = '48';
+DEF cs_hours_range_default = '72';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
@@ -68,10 +68,10 @@ DEF cs_sql_id = '&5.';
 --
 SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = "Average Active Sessions History AWR";
-DEF chart_title = "&&cs2_machine. &&cs_sql_id.";
-DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to.";
-DEF vaxis_title = "Average Active Sessions";
+DEF report_title = 'Average Active Sessions History AWR between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
+DEF chart_title = '&&report_title.';
+DEF xaxis_title = 'granularity:"&&cs2_granularity." machine:"&&cs2_machine." SQL_ID:"&&cs_sql_id."';
+DEF vaxis_title = 'Average Active Sessions (AAS)';
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
@@ -165,7 +165,6 @@ SET HEA ON PAGES 100;
 DEF cs_chart_type = 'Area';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_machine." "&&cs_sql_id." 
 --

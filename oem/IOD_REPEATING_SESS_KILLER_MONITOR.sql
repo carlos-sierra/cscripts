@@ -1,5 +1,26 @@
--- IOD_REPEATING_SESS_KILLER_MONITOR (every 5 mins) ALL
--- Monitors dba_scheduler_jobs job_name = 'IOD_SESS_KILLER' is executing
+----------------------------------------------------------------------------------------
+--
+-- File name:   OEM IOD_REPEATING_SESS_KILLER_MONITOR
+--
+-- Purpose:     Monitor Scheduler Job IOD_SESS_KILLER is executing
+--
+-- Frequency:   Every 5 minutes
+--
+-- Author:      Carlos Sierra
+--
+-- Version:     2019/02/04
+--
+-- Usage:       Execute connected into CDB 
+--
+-- Example:     $ sqlplus / as sysdba
+--              SQL> @IOD_REPEATING_SESS_KILLER_MONITOR.sql
+--
+-- Notes:       IOD_SESS_KILLER (see dba_scheduler_jobs) is created during setup of
+--              IOD_SESS package. This job calls IOD_SESS.audit_and_disconnect every
+--              few seconds and records inactive sessions; in addition it kill sessions
+--              holding a lock on a particular application table.
+--
+---------------------------------------------------------------------------------------
 --
 -- exit graciously if executed on standby
 WHENEVER SQLERROR EXIT SUCCESS;
@@ -8,12 +29,12 @@ DECLARE
 BEGIN
   SELECT open_mode INTO l_open_mode FROM v$database;
   IF l_open_mode <> 'READ WRITE' THEN
-    raise_application_error(-20000, '*** Must execute on PRIMARY ***');
+    raise_application_error(-20000, 'Not PRIMARY');
   END IF;
 END;
 /
 --
--- exit with error if 
+-- exit with error if:
 -- IOD_SESS_KILLER does not exist; or
 -- IOD_SESS_KILLER hasn't executed during past 5 minutes; or
 -- IOD_SESS_KILLER is not scheduled within next 5 minutes
@@ -40,3 +61,5 @@ EXCEPTION
     raise_application_error(-20000, '*** IOD_SESS_KILLER is missing from dba_scheduler_jobs ***');
 END;
 /
+--
+---------------------------------------------------------------------------------------

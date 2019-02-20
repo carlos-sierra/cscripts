@@ -1,5 +1,9 @@
 CREATE OR REPLACE PACKAGE BODY &&1..iod_space AS
-/* $Header: iod_space.pkb.sql &&library_version. carlos.sierra $ */
+/* $Header: iod_space.pkb.sql &&library_version. carlos.sierra $ 
+2018-01-03 rrighett - table_stats_hist() - added filter |AND o.object_type = 'TABLE'| on s_cdb_table view to remove duplicate for Partitioned tables 
+2018-01-11 rrighett - support for smallfile tablespaces was added to tablespace resize
+2018-01-11 rrighett - change purge_recyclebin() to support lower case table_name
+*/
 /* ------------------------------------------------------------------------------------ */  
 FUNCTION get_package_version
 RETURN VARCHAR2
@@ -79,6 +83,7 @@ BEGIN
        AND o.con_id = t.con_id
        AND o.owner = t.owner
        AND o.object_name = t.table_name
+       AND o.object_type = 'TABLE'
     ),
     s_cdb_tables_hist AS (
     SELECT /*+ MATERIALIZE NO_MERGE */
@@ -2041,7 +2046,7 @@ BEGIN
                  AND NOT EXISTS (SELECT NULL FROM sys.idnseq$ id WHERE id.obj# = o1.obj#))
      LOOP
       DBMS_OUTPUT.PUT_LINE(i.type||' '||i.owner||'.'||i.original_name||' '||i.object_name);
-      EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'.'||i.original_name;
+      EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'."'||i.original_name||'"';
     END LOOP;
     /* non identity (stand-alone indexes) */
     FOR i IN (SELECT DISTINCT rb.type, rb.owner, rb.original_name, rb.object_name
@@ -2058,7 +2063,7 @@ BEGIN
         l_unique_or_primary EXCEPTION;
         PRAGMA EXCEPTION_INIT(l_unique_or_primary, -02429); /* ORA-02429: cannot drop index used for enforcement of unique/primary key */
       BEGIN
-        EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'.'||i.original_name;
+        EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'."'||i.original_name||'"';
       EXCEPTION
         WHEN l_unique_or_primary THEN
           DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -2077,7 +2082,7 @@ BEGIN
                  AND o2.obj# = id.seqobj#) /* ORA-00600: internal error code, arguments: [12811], [91945] -- bug 19949998 */
     LOOP
       DBMS_OUTPUT.PUT_LINE(i.type||' '||i.owner||'.'||i.original_name||' '||i.object_name);
-      EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'.'||i.original_name;
+      EXECUTE IMMEDIATE 'PURGE '||i.type||' '||i.owner||'."'||i.original_name||'"';
     END LOOP;
     /* identity tables (and their indexes) ORA-00600 */
     FOR i IN (SELECT DISTINCT rb.type, rb.owner, rb.original_name, rb.object_name
@@ -2244,6 +2249,8 @@ BEGIN
             SELECT o.pdb_name,
                    o.con_id,
                    o.tablespace_name,
+                   o.bigfile, --added to differentiate between bigfile and smallfile
+                   o.block_size,
                    o.allocated_space oem_allocated_gbs,
                    o.used_space oem_used_space_gbs,
                    100 * o.used_space / o.allocated_space oem_used_percent, -- as per allocated space
@@ -2256,13 +2263,15 @@ BEGIN
                AND o.contents = 'PERMANENT'
                AND o.status = 'ONLINE'
                AND o.tablespace_name NOT IN ('SYSTEM', 'SYSAUX')
-               AND o.bigfile = 'YES'
+          --     AND o.bigfile = 'YES'
                AND m.tablespace_name = o.tablespace_name
                AND m.con_id          = o.con_id
             )
             SELECT pdb_name,
                    con_id,
                    tablespace_name,
+                   bigfile,
+                   block_size,
                    oem_allocated_gbs,
                    oem_used_space_gbs,
                    oem_used_percent, 
@@ -2270,31 +2279,31 @@ BEGIN
                    met_used_space_gbs,
                    met_used_percent,
                    CASE
-                   WHEN oem_allocated_gbs <    4 AND met_max_size_gbs >    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   8G'
-                   WHEN oem_allocated_gbs <    8 AND met_max_size_gbs >   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
-                   WHEN oem_allocated_gbs <   16 AND met_max_size_gbs >   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
-                   WHEN oem_allocated_gbs <   32 AND met_max_size_gbs >   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
-                   WHEN oem_allocated_gbs <   64 AND met_max_size_gbs >  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
-                   WHEN oem_allocated_gbs <  128 AND met_max_size_gbs >  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
-                   WHEN oem_allocated_gbs <  256 AND met_max_size_gbs >  512 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
-                   WHEN oem_allocated_gbs <  512 AND met_max_size_gbs > 1024 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   1T'
-                   WHEN oem_allocated_gbs < 1024 AND met_max_size_gbs > 2048 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   2T'
-                   WHEN                              met_max_size_gbs <    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   8G'
-                   WHEN met_max_size_gbs  >    8 AND met_max_size_gbs <   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
-                   WHEN met_max_size_gbs  >   16 AND met_max_size_gbs <   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
-                   WHEN met_max_size_gbs  >   32 AND met_max_size_gbs <   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
-                   WHEN met_max_size_gbs  >   64 AND met_max_size_gbs <  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
-                   WHEN met_max_size_gbs  >  128 AND met_max_size_gbs <  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
-                   WHEN met_max_size_gbs  >  256 AND met_max_size_gbs <  512 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
-                   WHEN met_max_size_gbs  >  512 AND met_max_size_gbs < 1024 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   1T'
-                   WHEN met_max_size_gbs  > 1024 AND met_max_size_gbs < 2048 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   2T'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs =  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
-                   WHEN met_used_percent  >   75 AND met_max_size_gbs >= 512 THEN '*** '||met_max_size_gbs||'G MAX on '||tablespace_name||', and '||ROUND(met_used_percent, 1)||'% is USED ***'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <    4 AND met_max_size_gbs >    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   8G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <    8 AND met_max_size_gbs >   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <   16 AND met_max_size_gbs >   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <   32 AND met_max_size_gbs >   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <   64 AND met_max_size_gbs >  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <  128 AND met_max_size_gbs >  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <  256 AND met_max_size_gbs >  512 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
+                   WHEN bigfile='YES' AND oem_allocated_gbs <  512 AND met_max_size_gbs > 1024 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   1T'
+                   WHEN bigfile='YES' AND oem_allocated_gbs < 1024 AND met_max_size_gbs > 2048 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   2T'
+                   WHEN bigfile='YES' AND                              met_max_size_gbs <    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   8G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >    8 AND met_max_size_gbs <   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >   16 AND met_max_size_gbs <   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >   32 AND met_max_size_gbs <   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >   64 AND met_max_size_gbs <  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >  128 AND met_max_size_gbs <  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >  256 AND met_max_size_gbs <  512 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
+                   WHEN bigfile='YES' AND met_max_size_gbs  >  512 AND met_max_size_gbs < 1024 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   1T'
+                   WHEN bigfile='YES' AND met_max_size_gbs  > 1024 AND met_max_size_gbs < 2048 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE   2T'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =    8 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  16G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =   16 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  32G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =   32 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE  64G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =   64 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 128G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =  128 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 256G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs =  256 THEN 'ALTER TABLESPACE '||tablespace_name||' AUTOEXTEND ON MAXSIZE 512G'
+                   WHEN bigfile='YES' AND met_used_percent  >   75 AND met_max_size_gbs >= 512 THEN '*** '||met_max_size_gbs||'G MAX on '||tablespace_name||', and '||ROUND(met_used_percent, 1)||'% is USED ***'
                    END resize_command
               FROM candidate_tablespaces
              ORDER BY
@@ -2303,8 +2312,8 @@ BEGIN
   )
   LOOP
     l_tablespace_resize_hist_rec                      := NULL;
-    --
-    IF i.resize_command IS NOT NULL THEN
+    -- bigfile operations
+    IF i.resize_command IS NOT NULL AND i.bigfile ='YES' THEN
       l_tablespace_resize_hist_rec.pdb_name           := i.pdb_name;
       l_tablespace_resize_hist_rec.tablespace_name    := i.tablespace_name;
       l_tablespace_resize_hist_rec.oem_allocated_gbs  := ROUND(i.oem_allocated_gbs, 3);
@@ -2336,6 +2345,97 @@ BEGIN
     IF l_tablespace_resize_hist_rec.error_message IS NOT NULL THEN
       output('IOD_SPACE.tablespaces_resize '||l_tablespace_resize_hist_rec.pdb_name||': '||l_tablespace_resize_hist_rec.error_message, p_alert_log => 'Y');
     END IF;
+
+    -- smallfile operations
+    -- set maxsize and auto extend for datafiles
+    IF i.bigfile ='NO' THEN
+      IF i.met_used_percent > 75 and i.met_max_size_gbs < 512 THEN
+        l_tablespace_resize_hist_rec.pdb_name           := i.pdb_name;
+        l_tablespace_resize_hist_rec.tablespace_name    := i.tablespace_name;
+        l_tablespace_resize_hist_rec.oem_allocated_gbs  := ROUND(i.oem_allocated_gbs, 3);
+        l_tablespace_resize_hist_rec.oem_used_space_gbs := ROUND(i.oem_used_space_gbs, 3);
+        l_tablespace_resize_hist_rec.oem_used_percent   := ROUND(i.oem_used_percent, 1);
+        l_tablespace_resize_hist_rec.met_max_size_gbs   := ROUND(i.met_max_size_gbs, 3);
+        l_tablespace_resize_hist_rec.met_used_space_gbs := ROUND(i.met_used_space_gbs, 3);
+        l_tablespace_resize_hist_rec.met_used_percent   := ROUND(i.met_used_percent, 1);
+        -- loop each datafile to fix autoextend and maxsize
+        FOR j in (SELECT file_id, ROUND(bytes / POWER(2, 30)) df_size_gb, ROUND(maxbytes / POWER(2, 30)) max_size_gb
+                    FROM cdb_data_files
+                   WHERE tablespace_name  = i.tablespace_name
+                     AND con_id           = i.con_id
+                     AND ROUND(bytes / POWER(2, 30)) < 32
+        ) LOOP
+             l_tablespace_resize_hist_rec.ddl_statement    := 'ALTER DATABASE DATAFILE '||j.file_id||' AUTOEXTEND ON NEXT 1G MAXSIZE UNLIMITED';
+             l_tablespace_resize_hist_rec.snap_time          := SYSDATE;
+             l_tablespace_resize_hist_rec.con_id             := i.con_id;
+             INSERT INTO &&1..tablespace_resize_hist VALUES l_tablespace_resize_hist_rec;
+             COMMIT;
+             --
+             IF l_tablespace_resize_hist_rec.ddl_statement IS NOT NULL THEN
+               output('IOD_SPACE.tablespaces_resize.smallfile '||l_tablespace_resize_hist_rec.pdb_name||'-'||l_tablespace_resize_hist_rec.tablespace_name||'-'||j.file_id||'- (was '||ROUND(i.met_max_size_gbs, 3)||' GBs): '||l_tablespace_resize_hist_rec.ddl_statement, p_alert_log => 'Y');
+               --
+               l_cursor_id := DBMS_SQL.OPEN_CURSOR;
+               DBMS_SQL.PARSE(c => l_cursor_id, statement => l_tablespace_resize_hist_rec.ddl_statement, language_flag => DBMS_SQL.NATIVE, container => l_tablespace_resize_hist_rec.pdb_name);
+               l_rows := DBMS_SQL.EXECUTE(c => l_cursor_id);
+               DBMS_SQL.CLOSE_CURSOR(c => l_cursor_id);
+             END IF;
+        END LOOP;
+      ELSIF i.met_max_size_gbs >= 512 THEN
+        l_tablespace_resize_hist_rec.error_message    := '*** '||i.met_max_size_gbs||'G MAX on '||i.tablespace_name||', and '||ROUND(i.met_used_percent, 1)||'% is USED ***';
+        l_tablespace_resize_hist_rec.snap_time          := SYSDATE;
+        l_tablespace_resize_hist_rec.con_id             := i.con_id;
+        INSERT INTO &&1..tablespace_resize_hist VALUES l_tablespace_resize_hist_rec;
+        COMMIT;
+        output('IOD_SPACE.tablespaces_resize.smallfile '||l_tablespace_resize_hist_rec.pdb_name||': '||l_tablespace_resize_hist_rec.error_message, p_alert_log => 'Y');
+      END IF;
+
+      --CHECK NEW USER_PERCENT
+      FOR k in (SELECT tablespace_size * i.block_size / POWER(2, 30) met_max_size_gbs,
+                       used_space * i.block_size / POWER(2, 30) met_used_space_gbs,
+                       used_percent met_used_percent
+                  FROM cdb_tablespace_usage_metrics
+                 WHERE tablespace_name  = i.tablespace_name
+                   AND con_id           = i.con_id
+      ) LOOP
+
+        IF k.met_used_percent > 75 and k.met_max_size_gbs < 512 THEN
+          l_tablespace_resize_hist_rec.pdb_name           := i.pdb_name;
+          l_tablespace_resize_hist_rec.tablespace_name    := i.tablespace_name;
+          l_tablespace_resize_hist_rec.oem_allocated_gbs  := ROUND(i.oem_allocated_gbs, 3);
+          l_tablespace_resize_hist_rec.oem_used_space_gbs := ROUND(i.oem_used_space_gbs, 3);
+          l_tablespace_resize_hist_rec.oem_used_percent   := ROUND(i.oem_used_percent, 1);
+          l_tablespace_resize_hist_rec.met_max_size_gbs   := ROUND(i.met_max_size_gbs, 3);
+          l_tablespace_resize_hist_rec.met_used_space_gbs := ROUND(i.met_used_space_gbs, 3);
+          l_tablespace_resize_hist_rec.met_used_percent   := ROUND(i.met_used_percent, 1);
+          -- loop each datafile to fix autoextend and maxsize
+         
+               l_tablespace_resize_hist_rec.ddl_statement    := 'ALTER TABLESPACE '||i.tablespace_name||' ADD DATAFILE SIZE 2G AUTOEXTEND ON NEXT 1G MAXSIZE UNLIMITED';
+               l_tablespace_resize_hist_rec.snap_time          := SYSDATE;
+               l_tablespace_resize_hist_rec.con_id             := i.con_id;
+               INSERT INTO &&1..tablespace_resize_hist VALUES l_tablespace_resize_hist_rec;
+               COMMIT;
+               --
+               IF l_tablespace_resize_hist_rec.ddl_statement IS NOT NULL THEN
+                 output('IOD_SPACE.tablespaces_resize.add.smallfile '||l_tablespace_resize_hist_rec.pdb_name||'-'||l_tablespace_resize_hist_rec.tablespace_name||' (was '||ROUND(i.met_max_size_gbs, 3)||' GBs): '||l_tablespace_resize_hist_rec.ddl_statement, p_alert_log => 'Y');
+                 --
+                 l_cursor_id := DBMS_SQL.OPEN_CURSOR;
+                 DBMS_SQL.PARSE(c => l_cursor_id, statement => l_tablespace_resize_hist_rec.ddl_statement, language_flag => DBMS_SQL.NATIVE, container => l_tablespace_resize_hist_rec.pdb_name);
+                 l_rows := DBMS_SQL.EXECUTE(c => l_cursor_id);
+                 DBMS_SQL.CLOSE_CURSOR(c => l_cursor_id);
+               END IF;
+    
+        ELSIF k.met_max_size_gbs >= 512 THEN
+          l_tablespace_resize_hist_rec.error_message    := '*** '||i.met_max_size_gbs||'G MAX on '||i.tablespace_name||', and '||ROUND(i.met_used_percent, 1)||'% is USED ***';
+          l_tablespace_resize_hist_rec.snap_time          := SYSDATE;
+          l_tablespace_resize_hist_rec.con_id             := i.con_id;
+          INSERT INTO &&1..tablespace_resize_hist VALUES l_tablespace_resize_hist_rec;
+          COMMIT;
+          output('IOD_SPACE.tablespaces_resize.smallfile '||l_tablespace_resize_hist_rec.pdb_name||': '||l_tablespace_resize_hist_rec.error_message, p_alert_log => 'Y');
+        END IF;
+      END LOOP;
+    END IF;
+
+
   END LOOP;
   --
   -- drop partitions with data older than 12 months (i.e. preserve between 12 and 13 months of history)

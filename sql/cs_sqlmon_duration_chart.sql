@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/10/25
+-- Version:     2019/01/27
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -46,8 +46,8 @@ DEF vaxis_title = "Seconds";
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 DEF is_stacked = "isStacked: false,";
 --DEF is_stacked = "isStacked: true,";
-DEF vaxis_baseline = ", baseline:1200";
---DEF vaxis_baseline = "";
+--DEF vaxis_baseline = ", baseline:1200";
+DEF vaxis_baseline = "";
 --DEF chart_foot_note_2 = "<br>2) ";
 DEF chart_foot_note_2 = "";
 DEF chart_foot_note_3 = "";
@@ -57,21 +57,36 @@ DEF report_foot_note = "&&cs_script_name..sql";
 @@cs_internal/cs_spool_head_chart.sql
 --
 PRO ,'Elapsed Time'
+PRO ,'Avg Last 3'
+PRO ,'Avg Last 10'
 PRO ]
 --
 SET HEA OFF PAGES 0;
 /****************************************************************************************/
 WITH
-my_query AS (
-SELECT --TO_CHAR(TO_DATE(key3, 'MM/DD/YYYY HH24:MI:SS'), '&&cs_datetime_full_format.') sql_exec_start, 
+sqlmonitor AS (
+SELECT TO_DATE(key3, 'MM/DD/YYYY HH24:MI:SS') sql_exec_start, 
        period_start_time start_time,
        period_end_time end_time,
-       ROUND((period_end_time - period_start_time) * 24 * 3600) seconds,
-       LPAD(session_id,5)||','||session_serial# sid_serial,
-       TO_CHAR(report_id) report_id
+       (period_end_time - period_start_time) * 24 * 3600 seconds,
+       session_id,
+       session_serial#,
+       report_id
   FROM dba_hist_reports
  WHERE component_name = 'sqlmonitor'
    AND key1 = '&&cs_sql_id.'
+),
+my_query AS (
+SELECT --sql_exec_start, 
+       --start_time,
+       end_time,
+       ROUND(seconds) seconds,
+       ROUND(AVG(seconds) OVER (ORDER BY end_time ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)) avg3,
+       ROUND(AVG(seconds) OVER (ORDER BY end_time ROWS BETWEEN 10 PRECEDING AND CURRENT ROW)) avg10
+       --session_id,
+       --session_serial#,
+       --report_id
+  FROM sqlmonitor
 )
 SELECT ', [new Date('||
        TO_CHAR(q.end_time, 'YYYY')|| /* year */
@@ -82,6 +97,8 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_time, 'SS')|| /* second */
        ')'||
        ','||q.seconds|| 
+       ','||q.avg3|| 
+       ','||q.avg10|| 
        ']'
   FROM my_query q
  ORDER BY

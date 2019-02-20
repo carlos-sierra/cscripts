@@ -18,7 +18,7 @@ PRO PLANS SUMMARY (v$sql)
 PRO ~~~~~~~~~~~~~
 SELECT TO_CHAR(MAX(last_active_time), '&&cs_datetime_full_format.') last_active_time,
        plan_hash_value,
-       COUNT(DISTINCT child_number) cursors,
+       COUNT(*) cursors,
        SUM(CASE SUBSTR(object_status, 1, 5) WHEN 'VALID' THEN 1 ELSE 0 END) valid,
        SUM(CASE SUBSTR(object_status, 1, 7) WHEN 'INVALID' THEN 1 ELSE 0 END) invalid,       
        SUM(CASE is_obsolete WHEN 'Y' THEN 1 ELSE 0 END) obsolete,

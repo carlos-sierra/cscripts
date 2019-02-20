@@ -151,6 +151,7 @@ COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL sql_plan_line_id FOR 9999 HEA 'Plan|Line';
 COL sql_child_number FOR 999999 HEA 'Child|Number';
 COL sql_exec_id FOR 99999999 HEA 'Exec ID';
+COL xid FOR A16 HEA 'Transaction ID';
 COL current_obj# FOR 9999999999 HEA 'Current|Obj#';
 COL current_file# FOR 9999999999 HEA 'Current|File#';
 COL current_block# FOR 9999999999 HEA 'Current|Block#';
@@ -172,6 +173,7 @@ COL blocking_session_serial FOR A16 HEA 'Blocker|Session,Serial';
 COL blocking2_session_serial FOR A16 HEA 'Blocker(2)|Session,Serial';
 COL blocking3_session_serial FOR A16 HEA 'Blocker(3)|Session,Serial';
 COL blocking4_session_serial FOR A16 HEA 'Blocker(4)|Session,Serial';
+COL blocking5_session_serial FOR A16 HEA 'Blocker(5)|Session,Serial';
 COL blocking_machine FOR A60 HEA 'Application Server (blocker)';
 COL deadlock FOR A4 HEA 'Dead|Lock';
 COL p1_p2_p3 FOR A100 HEA 'P1, P2, P3';
@@ -201,12 +203,14 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        h.machine,
        's:'||h.session_id||','||h.session_serial# session_serial,
        h.blocking_session_status,
-       CASE WHEN (h.session_id, h.session_serial#) IN ((b.blocking_session, b.blocking_session_serial#), (b2.blocking_session, b2.blocking_session_serial#)) THEN 'DL' END deadlock,
+       CASE WHEN (h.session_id, h.session_serial#) IN ((b.blocking_session, b.blocking_session_serial#), (b2.blocking_session, b2.blocking_session_serial#)) THEN 'DL?' END deadlock,
        CASE WHEN h.blocking_session IS NOT NULL THEN 'b:'||h.blocking_session||','||h.blocking_session_serial# END blocking_session_serial,
        CASE WHEN b.blocking_session IS NOT NULL THEN 'b2:'||b.blocking_session||','||b.blocking_session_serial# END blocking2_session_serial,
        CASE WHEN b2.blocking_session IS NOT NULL THEN 'b3:'||b2.blocking_session||','||b2.blocking_session_serial# END blocking3_session_serial,
        CASE WHEN b3.blocking_session IS NOT NULL THEN 'b4:'||b3.blocking_session||','||b3.blocking_session_serial# END blocking4_session_serial,
+       CASE WHEN b4.blocking_session IS NOT NULL THEN 'b5:'||b4.blocking_session||','||b4.blocking_session_serial# END blocking5_session_serial,
        CASE
+       WHEN b4.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b4.blocking_session AND s.session_serial# = b4.blocking_session_serial#) 
        WHEN b3.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b3.blocking_session AND s.session_serial# = b3.blocking_session_serial#) 
        WHEN b2.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b2.blocking_session AND s.session_serial# = b2.blocking_session_serial#) 
        WHEN b.blocking_session IS NOT NULL THEN (SELECT s.machine FROM sess s WHERE s.session_id = b.blocking_session AND s.session_serial# = b.blocking_session_serial#) 
@@ -218,6 +222,7 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        h.sql_plan_line_id,
        h.sql_child_number,
        h.sql_exec_id,
+       h.xid,
        h.top_level_sql_id,
        h.con_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END on_cpu_or_wait_event,
@@ -244,7 +249,8 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
   FROM ash h,
        ash b,
        ash b2,
-       ash b3
+       ash b3,
+       ash b4
  WHERE b.sample_id(+) = h.sample_id
    AND b.session_id(+) = h.blocking_session
    AND b.session_serial#(+) = h.blocking_session_serial#
@@ -254,6 +260,9 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
    AND b3.sample_id(+) = b2.sample_id
    AND b3.session_id(+) = b2.blocking_session
    AND b3.session_serial#(+) = b2.blocking_session_serial#
+   AND b4.sample_id(+) = b3.sample_id
+   AND b4.session_id(+) = b3.blocking_session
+   AND b4.session_serial#(+) = b3.blocking_session_serial#
  ORDER BY
        h.sample_time,
        h.machine,

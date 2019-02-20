@@ -25,7 +25,7 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_avg_ash_awr_report';
-DEF cs_hours_range_default = '48';
+DEF cs_hours_range_default = '72';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
