@@ -31,8 +31,6 @@ DEF cs_hours_range_default = '336';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
----COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
----SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ---ALTER SESSION SET container = CDB$ROOT;
 --
 SELECT resource_name
@@ -50,17 +48,24 @@ PRO
 PRO 3. Resource Name: 
 DEF cs2_resource_name = '&3.';
 --
-SELECT '&&cs_file_prefix._&&cs2_resource_name._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+PRO
+PRO 4. Value: [{current_utilization}|max_utilization|initial_allocation|limit_value]
+DEF cs2_value = '&4.'
+COL cs2_value NEW_V cs2_value NOPRI;
+SELECT NVL('&&cs2_value.', 'current_utilization') cs2_value FROM DUAL
+/
 --
-DEF report_title = "Resource Limit: &&cs2_resource_name.";
-DEF chart_title = "Resource Limit: &&cs2_resource_name.";
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs2_resource_name._&&cs2_value.' cs_file_name FROM DUAL;
+--
+DEF report_title = 'Resource Limit: "&&cs2_resource_name. - &&cs2_value."';
+DEF chart_title = 'Resource Limit: "&&cs2_resource_name. - &&cs2_value."';
 DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to.";
 DEF vaxis_title = "&&cs2_resource_name.";
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 DEF is_stacked = "isStacked: false,";
 --DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
 --DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{MI}|SS|HH|DD]";
@@ -71,17 +76,14 @@ DEF report_foot_note = "&&cs_script_name..sql";
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
-PRO ,'Current Utilization'        
-PRO ,'Max Utilization'      
-PRO ,'Initial Allocation'    
-PRO ,'Limit Value'       
+PRO ,'&&cs2_value.'        
 PRO ]
 --
 SET HEA OFF PAGES 0;
 /****************************************************************************************/
 WITH
 resource_limit AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        current_utilization,
        max_utilization,
@@ -94,14 +96,11 @@ SELECT /*+ NO_MERGE */
    AND snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
 ),
 my_query AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        s.snap_id,
        CAST(s.begin_interval_time AS DATE) begin_time,
        CAST(s.end_interval_time AS DATE) end_time,
-       r.current_utilization,
-       r.max_utilization,
-       r.initial_allocation,
-       r.limit_value
+       r.&&cs2_value. value
   FROM dba_hist_snapshot s,
        resource_limit r
  WHERE s.dbid = TO_NUMBER('&&cs_dbid.')
@@ -117,10 +116,7 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_time, 'MI')|| /* minute */
        ','||TO_CHAR(q.end_time, 'SS')|| /* second */
        ')'||
-       ','||q.current_utilization|| 
-       ','||q.max_utilization|| 
-       ','||q.initial_allocation|| 
-       ','||q.limit_value|| 
+       ','||q.value|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -129,15 +125,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Line';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_resource_name."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_resource_name." "&&cs2_value."
 --
---ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+--ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

@@ -29,7 +29,7 @@
 --
 DEF cs_script_name = 'cs_ash_awr_sample_report';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
@@ -39,8 +39,7 @@ DEF cs_hours_range_default = '24';
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_spool_id_sample_time.sql
 --
 CL BREAK
 COL sql_text_100_only FOR A100 HEA 'SQL Text or Program Module Action';
@@ -67,7 +66,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM dba_hist_active_sess_history h
- WHERE h.sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+ WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND h.dbid = TO_NUMBER('&&cs_dbid.')
+   AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
  GROUP BY
        h.sample_time,
        h.sql_id,
@@ -101,7 +104,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        COUNT(DISTINCT h.sql_plan_hash_value) plans,
        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
   FROM dba_hist_active_sess_history h
- WHERE h.sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+ WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND h.dbid = TO_NUMBER('&&cs_dbid.')
+   AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
  GROUP BY
        h.sample_time,
        h.sql_id,
@@ -132,7 +139,11 @@ SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END on_cpu_or_wait_class,
        (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sql q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) sql_text_100_only
   FROM dba_hist_active_sess_history h
- WHERE h.sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+ WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND h.dbid = TO_NUMBER('&&cs_dbid.')
+   AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
  GROUP BY
        h.sample_time,
        h.sql_id, 
@@ -185,12 +196,16 @@ PRO ASH by sample time, appl server, session and SQL_ID
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 WITH
 ash AS (
-SELECT /*+ NO_MERGE */ *
-  FROM dba_hist_active_sess_history
- WHERE sample_time BETWEEN TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+SELECT /*+ MATERIALIZE NO_MERGE */ h.*
+  FROM dba_hist_active_sess_history h
+ WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND h.dbid = TO_NUMBER('&&cs_dbid.')
+   AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
 ),
 sess AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        session_id,
        session_serial#,
        MAX(machine) machine

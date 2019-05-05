@@ -38,7 +38,7 @@ DEF report_only = '&2.';
 COL report_only NEW_V report_only;
 SELECT NVL(UPPER(TRIM('&&report_only.')),'Y') report_only FROM DUAL;
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --

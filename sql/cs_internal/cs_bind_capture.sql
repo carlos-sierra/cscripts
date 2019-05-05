@@ -5,7 +5,7 @@ COL bind_name FOR A30 HEA 'Bind Name';
 COL datatype_string FOR A15 HEA 'Data Type';
 COL bind_value FOR A200 HEA 'Bind Value';
 --
-BRE ON last_captured SKIP PAGE ON con_id ON child_number;
+BRE ON last_captured SKIP PAGE ON con_id ON child_number SKIP 1;
 --
 PRO
 PRO CAPTURED BINDS (v$sql_bind_capture)

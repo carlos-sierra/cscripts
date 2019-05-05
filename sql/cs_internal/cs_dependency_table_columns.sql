@@ -75,14 +75,14 @@ SELECT /*+ QB_NAME(get_stats) */
         WHEN c.data_type = 'DATE' THEN rtrim(
                     ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
                     ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
-                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'T'||
                     ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00')))
         WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
                     ltrim(to_char(100*(to_number(substr(c.low_value,1,2) ,'XX')-100) + (to_number(substr(c.low_value,3,2) ,'XX')-100),'0000'))||'-'||
                     ltrim(to_char(     to_number(substr(c.low_value,5,2) ,'XX')  ,'00'))||'-'||
-                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.low_value,7,2) ,'XX')  ,'00'))||'T'||
                     ltrim(to_char(     to_number(substr(c.low_value,9,2) ,'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.low_value,11,2),'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.low_value,13,2),'XX')-1,'00'))||'.'||
@@ -96,14 +96,14 @@ SELECT /*+ QB_NAME(get_stats) */
         WHEN c.data_type = 'DATE' THEN rtrim(
                     ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
                     ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
-                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'T'||
                     ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00')))
         WHEN c.data_type LIKE 'TIMESTAMP%' THEN rtrim(
                     ltrim(to_char(100*(to_number(substr(c.high_value,1,2) ,'XX')-100) + (to_number(substr(c.high_value,3,2) ,'XX')-100),'0000'))||'-'||
                     ltrim(to_char(     to_number(substr(c.high_value,5,2) ,'XX')  ,'00'))||'-'||
-                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'/'||
+                    ltrim(to_char(     to_number(substr(c.high_value,7,2) ,'XX')  ,'00'))||'T'||
                     ltrim(to_char(     to_number(substr(c.high_value,9,2) ,'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.high_value,11,2),'XX')-1,'00'))||':'||
                     ltrim(to_char(     to_number(substr(c.high_value,13,2),'XX')-1,'00'))||'.'||

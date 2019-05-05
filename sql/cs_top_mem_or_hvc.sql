@@ -24,7 +24,7 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_top_mem_or_hvc';
-DEF def_top = '10';
+DEF def_top = '20';
 --
 PRO 1. Top Memory: [{&&def_top.}|1-100]
 DEF top_mem = '&1.';
@@ -33,7 +33,7 @@ PRO 2. Top Versions: [{&&def_top.}|1-100]
 DEF top_ver = '&2.';
 PRO
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&top_mem." "&&top_ver."
@@ -42,38 +42,49 @@ PRO SQL> @&&cs_script_name..sql "&&top_mem." "&&top_ver."
 PRO TOP_MEM      : "&&top_mem." [{&&def_top.}|1-100]
 PRO TOP_VER      : "&&top_ver." [{&&def_top.}|1-100]
 --
-COL top_mem FOR 990 HEA 'MEM#';
-COL top_ver FOR 990 HEA 'VER#';
-COL sharable_mem_mbs FOR 999,990 HEA 'SHAR_MEM_MBS';
-COL persistent_mem_mbs FOR 999,990 HEA 'PERS_MEM_MBS';
-COL runtime_mem_mbs FOR 999,990 HEA 'RUN_MEM_MBS';
-COL version_count FOR 999,990 HEA 'VRS_CNT';
-COL loaded_versions FOR 999,990 HEA 'LOA_VRS';
-COL open_versions FOR 999,990 HEA 'OPN_VRS';
-COL users_opening FOR 999,990 HEA 'USR_OPN';
+COL top_mem FOR 9990 HEA 'MEM#';
+COL top_ver FOR 9990 HEA 'VER#';
+COL sharable_mem_mbs FOR 999,990 HEA 'SHARABLE|MEM (MBs)';
+COL sharable_mem_pct FOR 990.0 HEA 'PCT%';
+COL persistent_mem_mbs FOR 999,990 HEA 'PERSIST|MEM (MBs)';
+COL persistent_mem_pct FOR 990.0 HEA 'PCT%';
+COL runtime_mem_mbs FOR 999,990 HEA 'RUNTIME|MEM (MBs)';
+COL runtime_mem_pct FOR 990.0 HEA 'PCT%';
+COL version_count FOR 999,990 HEA 'VRSION|COUNT';
+COL version_count_pct FOR 990.0 HEA 'PCT%';
+COL open_versions FOR 999,990 HEA 'OPEN|VERSIONS';
+COL users_opening FOR 999,990 HEA 'USESRS|OPENING';
 COL loads FOR 999,990 HEA 'LOADS';
-COL invalidations FOR 999,990 HEA 'INVALS';
-COL obsolete FOR 999,990 HEA 'OBSOL';
-COL not_obsl FOR 999,990 HEA 'NOT_OBS';
-COL valid FOR 999,990 HEA 'VAL';
-COL invalid FOR 999,990 HEA 'INVAL';
+COL invalidations FOR 999,990 HEA 'INVALI-|DATIONS';
+COL obsolete FOR 999,990 HEA 'OBSO-|LETE';
+COL not_obsl FOR 999,990 HEA 'NOT OB-|SOLETE';
+COL valid FOR 999,990 HEA 'VALID';
+COL invalid FOR 999,990 HEA 'INVALID';
+COL shareable FOR 999,990 HEA 'SHAREABLE|AND VALID';
+COL bind_aware FOR 999,990 HEA 'BIND AWARE|AND VALID';
 COL pdb_count FOR 999,990 HEA 'PDBs';
+COL plans FOR 9,990 HEA 'PLANs';
 COL sql_id FOR A13 HEA 'SQL_ID';
 COL sql_text FOR A100 HEA 'SQL_TEXT' TRUNC;
 --
+BREAK ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF sharable_mem_mbs sharable_mem_pct persistent_mem_mbs persistent_mem_pct runtime_mem_mbs runtime_mem_pct version_count version_count_pct /*loaded_versions loaded_versions_pct*/ open_versions users_opening loads invalidations obsolete not_obsl valid invalid shareable bind_aware ON REPORT;
 PRO
 PRO Top SQL according to Memory or Versions Count (HVC)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 WITH
 top_sql AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id,
        sql_text,
-       ROUND(SUM(sharable_mem)/POWER(2,20)) sharable_mem_mbs,
-       ROUND(SUM(persistent_mem)/POWER(2,20)) persistent_mem_mbs,
-       ROUND(SUM(runtime_mem)/POWER(2,20)) runtime_mem_mbs,
-       SUM(DISTINCT version_count) version_count,
-       SUM(loaded_versions) loaded_versions,
+       ROUND(SUM(CASE WHEN is_obsolete = 'N' THEN sharable_mem ELSE 0 END) / POWER(2,20)) sharable_mem_mbs,
+       100 * SUM(CASE WHEN is_obsolete = 'N' THEN sharable_mem ELSE 0 END) / SUM(SUM(CASE WHEN is_obsolete = 'N' THEN sharable_mem ELSE 0 END)) OVER () sharable_mem_pct,
+       ROUND(SUM(CASE WHEN is_obsolete = 'N' THEN persistent_mem ELSE 0 END) / POWER(2,20)) persistent_mem_mbs,
+       100 * SUM(CASE WHEN is_obsolete = 'N' THEN persistent_mem ELSE 0 END) / SUM(SUM(CASE WHEN is_obsolete = 'N' THEN persistent_mem ELSE 0 END)) OVER () persistent_mem_pct,
+       ROUND(SUM(CASE WHEN is_obsolete = 'N' THEN runtime_mem ELSE 0 END) / POWER(2,20)) runtime_mem_mbs,
+       100 * SUM(CASE WHEN is_obsolete = 'N' THEN runtime_mem ELSE 0 END) / SUM(SUM(CASE WHEN is_obsolete = 'N' THEN runtime_mem ELSE 0 END)) OVER () runtime_mem_pct,
+       COUNT(*) version_count,
+       100 * COUNT(*) / SUM(COUNT(*)) OVER () version_count_pct,
        SUM(open_versions) open_versions,
        SUM(users_opening) users_opening,
        SUM(loads) loads,
@@ -82,10 +93,14 @@ SELECT /*+ NO_MERGE */
        SUM(CASE WHEN is_obsolete = 'N' THEN 1 ELSE 0 END) not_obsl,
        SUM(CASE WHEN object_status LIKE 'VALID%' THEN 1 ELSE 0 END) valid,
        SUM(CASE WHEN object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invalid,
-       COUNT(*) pdb_count,
+       SUM(CASE WHEN is_obsolete = 'N' AND object_status LIKE 'VALID%' AND is_shareable = 'Y' THEN 1 ELSE 0 END) shareable,
+       SUM(CASE WHEN is_obsolete = 'N' AND object_status LIKE 'VALID%' AND is_shareable = 'Y' AND is_bind_aware = 'Y' THEN 1 ELSE 0 END) bind_aware,
+       COUNT(DISTINCT con_id) pdb_count,
+       COUNT(DISTINCT plan_hash_value) plans,
        ROW_NUMBER () OVER (ORDER BY (SUM(sharable_mem) + SUM(persistent_mem) + SUM(runtime_mem)) DESC NULLS LAST) top_mem,
-       ROW_NUMBER () OVER (ORDER BY (SUM(DISTINCT version_count) + SUM(loaded_versions)) DESC NULLS LAST) top_ver
-  FROM v$sqlarea
+       ROW_NUMBER () OVER (ORDER BY COUNT(*) DESC NULLS LAST) top_ver
+  FROM v$sql
+ WHERE sql_text NOT LIKE '%/*+ dynamic_sampling%'
  GROUP BY
        sql_id,
        sql_text
@@ -93,10 +108,13 @@ SELECT /*+ NO_MERGE */
 SELECT top_mem,
        top_ver,
        sharable_mem_mbs,
+       sharable_mem_pct,
        persistent_mem_mbs,
+       persistent_mem_pct,
        runtime_mem_mbs,
+       runtime_mem_pct,
        version_count,
-       loaded_versions,
+       version_count_pct,
        open_versions,
        users_opening,
        loads,
@@ -105,7 +123,10 @@ SELECT top_mem,
        not_obsl,
        valid,
        invalid,
+       shareable,
+       bind_aware,
        pdb_count,
+       plans,
        sql_id,
        sql_text
   FROM top_sql
@@ -114,6 +135,8 @@ SELECT top_mem,
  ORDER BY
        CASE WHEN top_mem <= TO_NUMBER(NVL('&&top_mem.', '&&def_top.')) THEN top_mem ELSE TO_NUMBER(NVL('&&top_mem.', '&&def_top.')) + top_ver END
 /
+--
+CLEAR BREAK COMPUTE;
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&top_mem." "&&top_ver."

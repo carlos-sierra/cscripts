@@ -30,13 +30,11 @@ DEF cs_hours_range_default = '48';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 SELECT DISTINCT owner table_owner
   FROM c##iod.table_redefinition_hist
- WHERE '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+ WHERE '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
  ORDER BY 1
 /
 PRO
@@ -45,7 +43,7 @@ DEF table_owner = '&3.';
 --
 SELECT DISTINCT table_name
   FROM c##iod.table_redefinition_hist
- WHERE '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+ WHERE '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND owner = NVL(UPPER(TRIM('&&table_owner.')), owner)
  ORDER BY 1
 /
@@ -53,13 +51,14 @@ PRO
 PRO 4. Table Name (opt):
 DEF table_name = '&4.';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&table_owner." "&&table_name." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
+@@cs_internal/cs_spool_id_sample_time.sql
+--
 PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
 PRO TABLE_OWNER  : "&&table_owner." 
 PRO TABLE_NAME   : "&&table_name."
@@ -102,7 +101,7 @@ SELECT snap_time,
        all_index_size_mbs_after,
        all_lobs_size_mbs_after
   FROM c##iod.table_redefinition_hist
- WHERE '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+ WHERE '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND owner = NVL(UPPER(TRIM('&&table_owner.')), owner)
    AND table_name = NVL(UPPER(TRIM('&&table_name.')), table_name)
@@ -137,7 +136,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

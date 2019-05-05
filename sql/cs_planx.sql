@@ -34,7 +34,7 @@ DEF cs_script_name = 'cs_planx';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -50,6 +50,7 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
+@@cs_internal/cs_plans_summary.sql
 @@cs_internal/cs_sqlstats.sql
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_plans_stability.sql

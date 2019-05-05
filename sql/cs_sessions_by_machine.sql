@@ -1,0 +1,26 @@
+SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 SERVEROUT OFF;
+--
+COL host NEW_V host NOPRI;
+SELECT SYS_CONTEXT('USERENV','HOST') host FROM DUAL;
+COL sessions FOR 999,990;
+COL last_call_secs FOR 999,999,990 HEA 'LAST_CALL|SECONDS';
+--
+BREAK ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF sessions ON REPORT;
+--
+PRO HOST: &&host.
+PRO ~~~~~
+SELECT machine, COUNT(*) sessions, 
+       SUM(CASE status WHEN 'ACTIVE' THEN 1 ELSE 0 END) active,
+       SUM(CASE status WHEN 'INACTIVE' THEN 1 ELSE 0 END) inactive,
+       SUM(CASE status WHEN 'KILLED' THEN 1 ELSE 0 END) killed,
+       MIN(last_call_et) last_call_secs
+  FROM v$session
+ GROUP BY 
+       machine
+ ORDER BY
+       machine
+/
+--
+CLEAR BREAK COMPUTE;
+--

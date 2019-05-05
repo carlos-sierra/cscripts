@@ -25,17 +25,15 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_avg_ash_mem_chart';
-DEF cs_hours_range_default = '12';
+DEF cs_hours_range_default = '3';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
---SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 --ALTER SESSION SET container = CDB$ROOT;
 --
 PRO 3. Granularity: [{MI}|SS|HH]
-DEF cs2_granularity = '&6';
+DEF cs2_granularity = '&3.';
 COL cs2_granularity NEW_V cs2_granularity NOPRI;
 SELECT NVL(UPPER(TRIM('&&cs2_granularity.')), 'MI') cs2_granularity FROM DUAL;
 SELECT CASE WHEN '&&cs2_granularity.' IN ('MI', 'SS', 'HH') THEN '&&cs2_granularity.' ELSE 'MI' END cs2_granularity FROM DUAL;
@@ -57,13 +55,13 @@ SELECT machine, COUNT(*) db_time_secs
 /
 PRO
 PRO 4. Machine (opt): 
-DEF cs2_machine = '&4';
+DEF cs2_machine = '&4.';
 --
 PRO
 PRO 5. SQL_ID (opt): 
 DEF cs_sql_id = '&5.';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = 'Average Active Sessions History MEM between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
@@ -73,7 +71,7 @@ DEF vaxis_title = 'Average Active Sessions (AAS)';
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{MI}|SS|HH]";
@@ -102,7 +100,8 @@ SET HEA OFF PAGES 0;
 /****************************************************************************************/
 WITH
 my_query AS (
-SELECT CASE '&&cs2_granularity.' WHEN 'SS' THEN CAST(sample_time AS DATE) ELSE TRUNC(CAST(sample_time AS DATE) + &&cs2_plus_days., '&&cs2_granularity.') END time,
+SELECT /*+ MATERIALIZE NO_MERGE */
+       CASE '&&cs2_granularity.' WHEN 'SS' THEN CAST(sample_time AS DATE) ELSE TRUNC(CAST(sample_time AS DATE) + &&cs2_plus_days., '&&cs2_granularity.') END time,
        ROUND(COUNT(*)/TO_NUMBER('&&cs2_denominator.'),1) aas_total, -- average active sessions on the database (on cpu or waiting)
        ROUND(SUM(CASE session_state WHEN 'ON CPU'         THEN 1 ELSE 0 END)/TO_NUMBER('&&cs2_denominator.'),1) aas_on_cpu,
        ROUND(SUM(CASE wait_class    WHEN 'User I/O'       THEN 1 ELSE 0 END)/TO_NUMBER('&&cs2_denominator.'),1) aas_user_io,
@@ -155,14 +154,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Area';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_machine." "&&cs_sql_id." 
 --
---ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+--ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

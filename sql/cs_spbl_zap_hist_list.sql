@@ -27,12 +27,12 @@
 --
 DEF cs_script_name = 'cs_spbl_zap_hist_list';
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 DEF cs_hours_range_default = '24';
+--
 @@cs_internal/cs_sample_time_from_and_to.sql
+@@cs_internal/cs_snap_id_from_and_to.sql
 --   
 PRO 3. SQL_ID: 
 DEF cs_sql_id = '&3.';
@@ -43,7 +43,7 @@ DEF cs_null = '&4.';
 COL cs_null NEW_V cs_null;
 SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -51,8 +51,8 @@ SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanit
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_null." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. 
-PRO TIME_TO      : &&cs_sample_time_to. 
+@@cs_internal/cs_spool_id_sample_time.sql
+--
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO INCLUDE_NULL : "&&cs_null." [{Y}|N]
@@ -97,7 +97,7 @@ SELECT snap_id,
        rows_processed / GREATEST(1, executions) rows_processed_per_exec
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
    AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
@@ -126,7 +126,7 @@ SELECT snap_id,
        spb_fixed
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
    AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
@@ -153,7 +153,7 @@ SELECT snap_id,
        spb_description
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
    AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
@@ -182,7 +182,7 @@ SELECT snap_id,
        zapper_message
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND sql_id = '&&cs_sql_id.'
    AND (zapper_action <> 'NULL' OR '&&cs_null.' = 'Y')
@@ -200,7 +200,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

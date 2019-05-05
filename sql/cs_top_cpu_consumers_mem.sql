@@ -34,7 +34,7 @@ DEF cs_hours = '&1.';
 COL cs_hours NEW_V cs_hours;
 SELECT NVL('&&cs_hours.', '3') cs_hours FROM DUAL;
 --
-SELECT '&&cs_file_prefix._last_&&cs_hours._hours_&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._last_&&cs_hours._hours' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_hours."
@@ -55,7 +55,7 @@ PRO TOP CPU CONSUMERS (over 1% of load)
 PRO ~~~~~~~~~~~~~~~~~
 WITH
 a AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id, COUNT(*) samples
   FROM v$active_session_history
  WHERE session_state = 'ON CPU'
@@ -65,7 +65,7 @@ SELECT /*+ NO_MERGE */
        sql_id
 ),
 s AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 2400) sql_text_2400
   FROM dba_hist_sqltext
 ),

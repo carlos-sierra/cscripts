@@ -36,7 +36,7 @@ SELECT CASE LOWER(TRIM('&&computed_metric.'))
 SELECT (CASE WHEN '&&sql_id' IS NOT NULL THEN '&&sql_id._' END)||'&&file_name.' file_name FROM DUAL
 /
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._&&file_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&file_name.' cs_file_name FROM DUAL;
 --
 COL metric_display NEW_V metric_display NOPRI;
 SELECT CASE LOWER(TRIM('&&computed_metric.'))
@@ -118,7 +118,7 @@ SELECT CASE LOWER(TRIM('&&computed_metric.'))
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Expect lower values than OEM Top Activity since only a subset of SQL is captured into dba_hist_sqlstat.";
 DEF chart_foot_note_3 = "<br>3) PL/SQL executions are excluded since they distort charts.";
@@ -561,7 +561,7 @@ SELECT line FROM data_list
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Area';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql

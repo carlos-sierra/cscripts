@@ -2,15 +2,15 @@
 --
 -- File name:   cs_sprf_drop.sql
 --
--- Purpose:     Drop one or all SQL Profiles for given SQL_ID
+-- Purpose:     Drop all SQL Profiles for given SQL_ID
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/06
+-- Version:     2019/04/26
 --
 -- Usage:       Connecting into PDB.
 --
---              Enter SQL_ID and name when requested.
+--              Enter SQL_ID when requested.
 --
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @cs_sprf_drop.sql
@@ -32,26 +32,20 @@ DEF cs_script_name = 'cs_sprf_drop';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
-PRO
-PRO 2. NAME (req):
-DEF cs_name = '&2.';
-PRO
---
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name."
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." 
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO NAME         : &&cs_name.
 --
 SET HEA OFF;
 PRINT :cs_sql_text
@@ -60,10 +54,13 @@ SET HEA ON;
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
+@@cs_internal/cs_sprf_internal_stgtab.sql
+@@cs_internal/cs_sprf_internal_pack.sql
+--
 PRO
-PRO Drop name: "&&cs_name."
+PRO Drop SQL Profile(s) for: "&&cs_sql_id."
 BEGIN
-  FOR i IN (SELECT name FROM dba_sql_profiles WHERE name = '&&cs_name.') -- to avoid ORA-13831
+  FOR i IN (SELECT name FROM dba_sql_profiles WHERE signature = &&cs_signature.) 
   LOOP
     DBMS_SQLTUNE.drop_sql_profile(name => i.name); 
   END LOOP;
@@ -73,7 +70,7 @@ END;
 @@cs_internal/cs_sprf_internal_list.sql
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name."
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." 
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

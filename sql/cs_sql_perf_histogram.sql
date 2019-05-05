@@ -2,11 +2,11 @@
 --
 -- File name:   cs_sql_perf_histogram.sql
 --
--- Purpose:     SQL Performance Histogram
+-- Purpose:     SQL Performance - Histogram
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/26
+-- Version:     2019/03/10
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -25,13 +25,13 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_sql_perf_histogram';
-DEF cs_hours_range_default = '24';
+DEF cs_hours_range_default = '168';
+DEF cs_include_sys = 'N';
+DEF cs_include_iod = 'N';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
---SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 --ALTER SESSION SET container = CDB$ROOT;
 --
 PRO
@@ -60,14 +60,14 @@ PRO 5. SQL_ID (optional):
 DEF cs_sql_id = '&5.';
 /
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_tx." "&&sql_text_piece." "&&cs_sql_id." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_spool_id_sample_time.sql
+--
 PRO SQL_TYPE     : "&&kiev_tx." [{*}|TP|RO|BG|IG|UN|TP,RO|TP,RO,BG]
 PRO SQL_TEXT     : "&&sql_text_piece."
 PRO SQL_ID       : "&&cs_sql_id."
@@ -214,7 +214,7 @@ BEGIN
 END application_category;
 /****************************************************************************************/
 ash_raw AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_time,
        h.con_id,
        h.session_id,
@@ -234,7 +234,7 @@ SELECT /*+ NO_MERGE */
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
    AND h.sql_plan_hash_value IS NOT NULL
  UNION
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_time,
        h.con_id,
        h.session_id,
@@ -258,7 +258,7 @@ SELECT /*+ NO_MERGE */
    AND h.sql_plan_hash_value IS NOT NULL
 ),
 ash_enum AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_time,
        h.con_id,
        h.session_id,
@@ -274,7 +274,7 @@ SELECT /*+ NO_MERGE */
   FROM ash_raw h
 ),
 ash_secs AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        f.con_id,
        f.session_id,
        f.session_serial#,
@@ -302,7 +302,7 @@ SELECT /*+ NO_MERGE */
    AND l.user_id = f.user_id
 ),
 ash_grp AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.sql_id,
        h.sql_plan_hash_value,
@@ -333,7 +333,7 @@ SELECT /*+ NO_MERGE */
        h.user_id
 ),
 vsql AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        s.con_id,
        s.sql_id,
        application_category(s.sql_text) sql_type,
@@ -348,8 +348,20 @@ SELECT /*+ NO_MERGE */
        s.sql_id,
        application_category(s.sql_text),
        s.sql_text
+),
+hsql AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.con_id,
+       h.sql_id,
+       application_category(DBMS_LOB.substr(h.sql_text, 1000)) sql_type,
+       DBMS_LOB.substr(h.sql_text, 1000) sql_text
+  FROM dba_hist_sqltext h
+ WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
+   AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
+   AND ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.substr(h.sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
+   AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.substr(h.sql_text, 1000))||CHR(37))
 )
-SELECT s.sql_type,
+SELECT NVL(s.sql_type, hs.sql_type) sql_type,
        h.sql_id,
        h.sql_plan_hash_value,
        h.less_than_1s,
@@ -370,19 +382,25 @@ SELECT s.sql_type,
        h.pctl_97_secs,
        h.pctl_99_secs,
        h.max_seconds,
-       s.sql_text,
+       NVL(s.sql_text, hs.sql_text) sql_text,
        u.username,
        c.name pdb_name
   FROM ash_grp h,
        vsql s,
+       hsql hs,
        v$containers c,
        cdb_users u
- WHERE s.con_id = h.con_id
-   AND s.sql_id = h.sql_id
+ WHERE s.con_id(+) = h.con_id
+   AND s.sql_id(+) = h.sql_id
+   AND hs.con_id(+) = h.con_id
+   AND hs.sql_id(+) = h.sql_id
+   AND NVL(s.sql_type, hs.sql_type) IS NOT NULL
    AND c.con_id = h.con_id
    AND c.open_mode = 'READ WRITE'
    AND u.con_id = h.con_id
    AND u.user_id = h.user_id
+   AND ('&&cs_include_sys.' = 'Y' OR ('&&cs_include_sys.' = 'N' AND u.username <> 'SYS'))
+   AND ('&&cs_include_iod.' = 'Y' OR ('&&cs_include_iod.' = 'N' AND u.username <> 'C##IOD'))
  ORDER BY 
        c.name,
        u.username,
@@ -398,7 +416,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+--ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

@@ -32,7 +32,7 @@ DEF cs_script_name = 'cs_spbl_drop';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -59,6 +59,9 @@ SET HEA ON;
 --
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
+--
+@@cs_internal/cs_spbl_internal_stgtab.sql
+@@cs_internal/cs_spbl_internal_pack.sql
 --
 PRO
 PRO Drop plan: "&&cs_plan_name."

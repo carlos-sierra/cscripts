@@ -32,7 +32,7 @@ DEF cs_script_name = 'cs_sprf_pack';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -60,19 +60,8 @@ SET HEA ON;
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
-PRO
-PRO Pack name: "&&cs_name."
-BEGIN
-  FOR i IN (SELECT name 
-              FROM dba_sql_profiles 
-             WHERE signature = :cs_signature
-               AND name = NVL('&&cs_name.', name)
-             ORDER BY name)
-  LOOP
-    DBMS_SQLTUNE.pack_stgtab_sqlprof(profile_name => i.name, staging_table_name => '&&cs_stgtab_prefix._stgtab_sqlprof', staging_schema_owner => '&&cs_stgtab_owner.');
-  END LOOP;
-END;
-/
+@@cs_internal/cs_sprf_internal_stgtab.sql
+@@cs_internal/cs_sprf_internal_pack.sql
 --
 @@cs_internal/cs_sprf_internal_list.sql
 --

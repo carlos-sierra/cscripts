@@ -32,7 +32,7 @@ DEF cs_script_name = 'cs_spch_pack';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -60,19 +60,8 @@ SET HEA ON;
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_spch_internal_list.sql
 --
-PRO
-PRO Pack name: "&&cs_name."
-BEGIN
-  FOR i IN (SELECT name 
-              FROM dba_sql_patches 
-             WHERE signature = :cs_signature
-               AND name = NVL('&&cs_name.', name)
-             ORDER BY name)
-  LOOP
-    DBMS_SQLDIAG.pack_stgtab_sqlpatch(patch_name => i.name, staging_table_name => '&&cs_stgtab_prefix._stgtab_sqlpatch', staging_schema_owner => '&&cs_stgtab_owner.');
-  END LOOP;
-END;
-/
+@@cs_internal/cs_spch_internal_stgtab.sql
+@@cs_internal/cs_spch_internal_pack.sql
 --
 @@cs_internal/cs_spch_internal_list.sql
 --

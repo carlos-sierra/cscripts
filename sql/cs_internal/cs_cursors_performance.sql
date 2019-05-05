@@ -5,7 +5,7 @@ COL users_executing FOR 9,999 HEA 'Users|Exec';
 COL avg_et_ms FOR 99,999,990.000 HEA 'Avg Elapsed|Time (ms)';
 COL avg_cpu_ms FOR 99,999,990.000 HEA 'Avg CPU|Time (ms)';
 COL avg_bg FOR 999,999,990 HEA 'Avg|Buffer Gets';
-COL avg_row FOR 999,990.000 HEA 'Avg|Rows Processed';
+COL avg_row FOR 999,999,990.000 HEA 'Avg|Rows Processed';
 COL executions FOR 999,999,999,990 HEA 'Executions';
 COL tot_et_secs FOR 99,999,990 HEA 'Total Elapsed|Time (secs)';
 COL tot_cpu_secs FOR 99,999,990 HEA 'Total CPU|Time (secs)';

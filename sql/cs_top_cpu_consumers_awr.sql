@@ -34,7 +34,7 @@ DEF cs_days = '&1.';
 COL cs_days NEW_V cs_days;
 SELECT NVL('&&cs_days.', '60') cs_days FROM DUAL;
 --
-SELECT '&&cs_file_prefix._last_&&cs_days._days_&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._last_&&cs_days._days' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_days."
@@ -55,7 +55,7 @@ PRO TOP CPU CONSUMERS (over 1% of load)
 PRO ~~~~~~~~~~~~~~~~~
 WITH
 a AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        sql_id, COUNT(*) samples
   FROM dba_hist_active_sess_history
  WHERE session_state = 'ON CPU'
@@ -65,7 +65,7 @@ SELECT /*+ NO_MERGE */
        sql_id
 ),
 s AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 2400) sql_text_2400
   FROM dba_hist_sqltext
 ),

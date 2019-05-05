@@ -31,6 +31,8 @@ DEF rows_per_exec_min = '&&low_value.';
 DEF rows_per_exec_max = '&&high_value.';
 DEF valid = 'Y';
 DEF invalid = 'N';
+DEF last_active_hours = '24';
+DEF include_awr = 'Y';
 --
 @@cs_internal/cs_primary.sql
 @@cs_internal/cs_cdb_warn.sql
@@ -45,7 +47,7 @@ DEF search_string = '&1.';
 COL search_string NEW_V search_string;
 SELECT /* &&cs_script_name. */ TRIM('&&search_string.') search_string FROM DUAL;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&search_string." 
@@ -66,17 +68,19 @@ COL shar FOR 9999;
 COL spbl FOR 9999;
 COL sprf FOR 9999;
 COL spch FOR 9999;
+COL first_load_time FOR A19;
+COL last_active_time FOR A19;
 COL len FOR 99,990 HEA 'LENGTH';
+COL prd FOR 99,990 HEA 'WHERE';
 COL sql_text_60 FOR A60 HEA 'SQL_TEXT';
 COL pdb_name FOR A35;
 COL please_stop NEW_V please_stop NOPRI;
 DEF please_stop = '';
 --
-BREAK ON sql_id SKIP 1 ON len ON sql_text_60;
--- 
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -91,6 +95,8 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_plan_baseline) spbl,
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
+       MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sql s,
@@ -105,9 +111,11 @@ SELECT /* &&cs_script_name. */
    AND LENGTH('&&search_string.') = 13 
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND s.sql_id = '&&search_string.'
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -122,6 +130,7 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -136,6 +145,8 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_plan_baseline) spbl,
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
+       MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sql s,
@@ -150,9 +161,11 @@ SELECT /* &&cs_script_name. */
    AND LENGTH('&&search_string.') <= 10 
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NULL -- number
    AND TO_CHAR(s.plan_hash_value) = '&&search_string.'
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -167,6 +180,7 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -181,6 +195,8 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_plan_baseline) spbl,
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
+       MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sql s,
@@ -194,9 +210,11 @@ SELECT /* &&cs_script_name. */
    -- by sql_text
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND UPPER(s.sql_text) LIKE UPPER('%&&search_string.%') -- case insensitive
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -211,6 +229,7 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -225,6 +244,8 @@ SELECT /* &&cs_script_name. */
        --COUNT(DISTINCT s.sql_plan_baseline) spbl,
        --COUNT(DISTINCT s.sql_profile) sprf,
        --COUNT(DISTINCT s.sql_patch) spch,
+       --MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sqlstats s,
@@ -238,9 +259,11 @@ SELECT /* &&cs_script_name. */
    AND LENGTH('&&search_string.') = 13 
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND s.sql_id = '&&search_string.'
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -255,6 +278,7 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -269,6 +293,8 @@ SELECT /* &&cs_script_name. */
        --COUNT(DISTINCT s.sql_plan_baseline) spbl,
        --COUNT(DISTINCT s.sql_profile) sprf,
        --COUNT(DISTINCT s.sql_patch) spch,
+       --MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sqlstats s,
@@ -282,9 +308,11 @@ SELECT /* &&cs_script_name. */
    AND LENGTH('&&search_string.') <= 10 
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NULL -- number
    AND TO_CHAR(s.plan_hash_value) = '&&search_string.'
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -299,6 +327,7 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
+       DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
@@ -313,6 +342,8 @@ SELECT /* &&cs_script_name. */
        --COUNT(DISTINCT s.sql_plan_baseline) spbl,
        --COUNT(DISTINCT s.sql_profile) sprf,
        --COUNT(DISTINCT s.sql_patch) spch,
+       --MIN(s.first_load_time) first_load_time,
+       MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
   FROM v$sqlstats s,
@@ -325,9 +356,11 @@ SELECT /* &&cs_script_name. */
    -- by sql_text
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND UPPER(s.sql_text) LIKE UPPER('%&&search_string.%') -- case insensitive
+   AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
+       DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -342,12 +375,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
 SELECT /* &&cs_script_name. */
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
+       DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
        REPLACE(DBMS_LOB.substr(h.sql_text, 60), CHR(10), CHR(32)) sql_text_60,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
   FROM dba_hist_sqltext h,
        v$containers c
  WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+   AND '&&include_awr' = 'Y'
    AND '&&executions_min.' = '&&low_value.'
    AND '&&executions_max.' = '&&high_value.'
    AND '&&ms_per_exec_min.' = '&&low_value.'
@@ -370,12 +405,14 @@ SELECT /* &&cs_script_name. */
 SELECT /* &&cs_script_name. */
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
+       DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
        REPLACE(DBMS_LOB.substr(h.sql_text, 60), CHR(10), CHR(32)) sql_text_60,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
   FROM dba_hist_sqltext h,
        v$containers c
  WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+   AND '&&include_awr' = 'Y'
    AND '&&executions_min.' = '&&low_value.'
    AND '&&executions_max.' = '&&high_value.'
    AND '&&ms_per_exec_min.' = '&&low_value.'
@@ -393,8 +430,6 @@ SELECT /* &&cs_script_name. */
  ORDER BY
        1, 2, 3, 4
 /
---
-CLEAR BREAK;
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&search_string." 

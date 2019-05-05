@@ -30,7 +30,8 @@
 DEF cs_script_name = 'cs_top_chart';
 DEF cs_display_awr_days = '60';
 DEF cs_top_n = '12';
-DEF cs_hours_range_default = '168';
+DEF cs_hours_range_default = '24';
+--
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
@@ -87,7 +88,7 @@ PRO Resources per Exec        : Counts and Bytes
 PRO Resources per Second      : Counts and Bytes
 PRO Resources                 : per Second and per Exec
 PRO Cursors                   : Count
-PRO Main                      : db_time_exec, db_time_aas, executions_sec, rows_processed_exec, buffer_gets_exec
+PRO Main                      : db_time_exec, cpu_time_exec, db_time_aas, cpu_time_aas, executions_sec, rows_processed_exec, buffer_gets_exec
 PRO *                         : All
 PRO
 PRO 3. Computed Metric (name or group, case sensitive): [{Main}|<computed_metric>|<group_name>]
@@ -128,8 +129,8 @@ SET HEA OFF;
 SPO cs_dynamic_driver.sql
           SELECT '@@cs_internal/cs_top_chart_internal.sql "db_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_aas', 'DB Time', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "db_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_exec', 'Latency', 'Main', '*')
-UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "cpu_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_aas', 'DB Time', '*')
-UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "cpu_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_exec', 'Latency', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "cpu_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_aas', 'DB Time', 'Main', '*')
+UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "cpu_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_exec', 'Latency', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "io_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('io_time_aas', 'DB Time', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "io_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('io_time_exec', 'Latency', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "appl_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('appl_time_aas', 'DB Time', '*')

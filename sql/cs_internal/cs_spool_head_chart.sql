@@ -1,6 +1,6 @@
 SPO &&cs_file_name..html
 PRO <html>
-PRO <!-- $Header: cs_file_name..html carlos.sierra $ -->
+PRO <!-- $Header: &&cs_file_name..html carlos.sierra $ -->
 PRO <head>
 PRO <title>&&cs_file_name..html</title>
 PRO

@@ -28,12 +28,11 @@
 DEF cs_script_name = 'cs_segment_chart';
 --
 COL pdb_name NEW_V pdb_name FOR A30;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 SELECT DISTINCT owner table_owner
   FROM c##iod.segments_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
  ORDER BY 1
 /
 PRO
@@ -42,7 +41,7 @@ DEF table_owner = '&1.';
 --
 SELECT DISTINCT segment_name table_name
   FROM c##iod.segments_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
    AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
  ORDER BY 1
@@ -56,7 +55,7 @@ COL segment_type FOR A30;
 --
 SELECT DISTINCT segment_name, segment_type
   FROM c##iod.segments_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
    AND segment_name = UPPER(TRIM('&&table_name.'))
    AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
@@ -67,7 +66,7 @@ SELECT DISTINCT h.segment_name, h.segment_type
  WHERE i.table_owner = UPPER(TRIM('&&table_owner.'))
    AND i.table_name = UPPER(TRIM('&&table_name.'))
    AND h.con_id = i.con_id 
-   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.pdb_name = '&&cs_con_name.'
    AND h.owner = i.owner
    AND h.segment_name = i.index_name
    AND h.segment_type IN ('INDEX', 'INDEX PARTITION', 'INDEX SUBPARTITION', 'LOBINDEX')
@@ -78,7 +77,7 @@ SELECT DISTINCT h.segment_name, h.segment_type
  WHERE l.owner = UPPER(TRIM('&&table_owner.'))
    AND l.table_name = UPPER(TRIM('&&table_name.'))
    AND h.con_id = l.con_id 
-   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.pdb_name = '&&cs_con_name.'
    AND h.owner = l.owner
    AND h.segment_name = l.segment_name
    AND h.segment_type = 'LOBSEGMENT'
@@ -89,7 +88,7 @@ PRO
 PRO 3. Segment Name:
 DEF segment_name = '&3.';
 --
-SELECT '&&cs_file_prefix._&&table_owner..&&table_name._&&segment_name._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&table_owner..&&table_name._&&segment_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = "&&table_owner..&&table_name. &&segment_name.";
 DEF chart_title = "&&table_owner..&&table_name. &&segment_name.";
@@ -99,7 +98,7 @@ DEF vaxis_title = "";
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) ";
 DEF chart_foot_note_2 = "";
@@ -121,7 +120,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        snap_time,
        SUM(bytes) bytes
   FROM c##iod.segments_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
    AND segment_name = UPPER(TRIM('&&table_name.'))
    AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
@@ -137,7 +136,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE i.table_owner = UPPER(TRIM('&&table_owner.'))
    AND i.table_name = UPPER(TRIM('&&table_name.'))
    AND h.con_id = i.con_id 
-   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.pdb_name = '&&cs_con_name.'
    AND h.owner = i.owner
    AND h.segment_name = UPPER(TRIM('&&segment_name.'))
    AND h.segment_name = i.index_name
@@ -154,7 +153,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE l.owner = UPPER(TRIM('&&table_owner.'))
    AND l.table_name = UPPER(TRIM('&&table_name.'))
    AND h.con_id = l.con_id 
-   AND h.pdb_name = UPPER(TRIM('&&pdb_name.'))
+   AND h.pdb_name = '&&cs_con_name.'
    AND h.owner = l.owner
    AND h.segment_name = UPPER(TRIM('&&segment_name.'))
    AND h.segment_name = l.segment_name
@@ -192,15 +191,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Area';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name." "&&segment_name."
 --
-ALTER SESSION SET CONTAINER = &&pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

@@ -30,16 +30,15 @@
 DEF cs_script_name = 'cs_sqlmon_duration_chart';
 --
 --COL pdb_name NEW_V pdb_name FOR A30;
---SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 --ALTER SESSION SET container = CDB$ROOT;
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 DEF report_title = "Monitored Executions of &&cs_sql_id.";
-DEF chart_title = "&&cs_sql_id. duration";
+DEF chart_title = "&&cs_sql_id. duration (only monitored sessions)";
 DEF xaxis_title = "End Time";
 DEF vaxis_title = "Seconds";
 --
@@ -57,8 +56,8 @@ DEF report_foot_note = "&&cs_script_name..sql";
 @@cs_internal/cs_spool_head_chart.sql
 --
 PRO ,'Elapsed Time'
-PRO ,'Avg Last 3'
-PRO ,'Avg Last 10'
+--PRO ,'Avg Last 3'
+--PRO ,'Avg Last 10'
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -75,6 +74,8 @@ SELECT TO_DATE(key3, 'MM/DD/YYYY HH24:MI:SS') sql_exec_start,
   FROM dba_hist_reports
  WHERE component_name = 'sqlmonitor'
    AND key1 = '&&cs_sql_id.'
+   AND dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
 ),
 my_query AS (
 SELECT --sql_exec_start, 
@@ -97,8 +98,8 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_time, 'SS')|| /* second */
        ')'||
        ','||q.seconds|| 
-       ','||q.avg3|| 
-       ','||q.avg10|| 
+       --','||q.avg3|| 
+       --','||q.avg10|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -107,15 +108,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
-DEF cs_chart_type = 'Line';
+-- [Line|Area|Scatter]
+DEF cs_chart_type = 'Scatter';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." 
 --
---ALTER SESSION SET CONTAINER = &&pdb_name.;
+--ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

@@ -32,7 +32,7 @@ DEF cs_oracle_maint = '&1.';
 COL cs_oracle_maint NEW_V cs_oracle_maint;
 SELECT NVL('&&cs_oracle_maint.', 'N') cs_oracle_maint FROM DUAL;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_oracle_maint."

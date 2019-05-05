@@ -13,8 +13,9 @@ COL directive_type FOR A20;
 COL end_date FOR A19;
 --
 CLEAR BREAK COMPUTE;
-BREAK ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF utilization_limit ON REPORT;
+BREAK ON mandatory SKIP PAGE DUP;
+COMPUTE SUM OF utilization_limit ON mandatory;
+COL mandatory NOPRI;
 --
 PRO
 PRO PDBs Directives
@@ -28,11 +29,13 @@ SELECT pluggable_database,
        directive_type
   FROM dba_cdb_rsrc_plan_directives
  WHERE plan = '&&resource_manager_plan.'
- ORDER BY 
+ ORDER BY
+       mandatory DESC,
        pluggable_database
 /
 --
 CLEAR BREAK COMPUTE;
+COL mandatory PRI;
 --
 PRO
 PRO PDBs Configuration

@@ -1,0 +1,101 @@
+2019-03-04
+~~~~~~~~~~
+1. Added check for the number of partitions, if there is only one do not try to drop - IOD-15922. #rrighett
+
+2018-09-24
+~~~~~~~~~~
+1. Reduce SHARES range from 1-10 to 4-8. (ODSI-1335)
+
+2018-06-08
+~~~~~~~~~~
+1. Added column end_date to table rsrc_mgr_pdb_config
+2. Added table rsrc_mgr_pdb_hist
+3. Reduce gk_ash_age_days from 30 to 14
+4. Raise gk_autotask_shares from 1 to 3
+5. Raise gk_utilization_limit_low from 3 to 6
+6. Raise gk_utilization_limit_high from 30 to 36
+7. Raise gk_utilization_limit_default from 10 to 12
+8. New gk_utilization_adjust_factor with value of 1.2 for fine tuning DBRM
+
+2018-05-31
+~~~~~~~~~~
+1. Function iod_rsrc_mgr.core_util_forecast_date includes now Moving 1d Window to compute start point of Forecast.
+
+2018-05-30
+~~~~~~~~~~
+1. Linear regression continues Cores Utilization Percent chart
+
+2018-05-30
+~~~~~~~~~~
+1. Added functions core_util_forecast_date and core_util_forecast_days
+
+2018-05-17
+~~~~~~~~~~
+1. Added function core_util_perc to display average core utilization percent
+
+2018-05-07
+~~~~~~~~~~
+1. Modify IOD_RSRC_MGR to not consider 2 cores as "reserve"
+
+2018-05-01
+~~~~~~~~~~
+1. Avoid "ORA-01422: exact fetch returns more than requested number of rows" on 
+   SELECT * INTO l_plan_rec FROM dba_cdb_rsrc_plans WHERE plan = k_plan;
+   when there has been a prior error that left behind a "pending" area, which
+   may cause duplicate rows on dba_cdb_rsrc_plans.
+   Ref: https://jira-sd.mc1.oracleiaas.com/browse/IOD-9123
+
+2018-04-03
+~~~~~~~~~~
+1. Fix ODSI-952 IOD-8615 where API fails with error below
+ERROR at line 1:
+ORA-01476: divisor is equal to zero
+ORA-06512: at "C##IOD.IOD_RSRC_MGR", line 212
+when:
+Active resource_manager_plan: FORCE:IOD_CDB_PLAN
+Current cpu_count: 2
+Current parallel_servers_target: 32
+Current NUM_CPU_CORES: 2
+Available CPU cores: 0
+CPU threads per CPU core: 1
+Current NUM_CPUS (CPU threads): 2
+Available CPU threads: 0
+2. Set ASH history to 30 days - to compute AAS percentiles
+
+2018-03-31
+~~~~~~~~~~
+1. Configuration tables for plans and pdbs
+2. High utilization cap to 30%
+
+2018-03-20
+~~~~~~~~~~
+1. Change high utilization limit from 50% to 40%
+2. Create new api update_cdb_plan_directive to manually set shares and utilization for one PDB
+
+2018-03-09
+~~~~~~~~~~
+1. Adding rsrc manager cdb plan iod_cdb_plan to oratk and enabling execution of c##iod.iod_rsrc_mgr.reset excluding pdb directives.
+
+2018-02-27
+~~~~~~~~~~
+1. Added 99th and 95th PCT to comments column on dba_cdb_rsrc_plan_directives. Also if NEW or UPD change.
+
+2018-02-26
+~~~~~~~~~~
+1. First release 
+--
+Sets a CDB resource manager that assigns weigthed shares and utilization
+limits per PDB.
+
+Shares are between 1 and 10. The most privileged PDB can get up to 10x  
+more CPU quantums than the least privileged. Privilege is based on ASH
+history, where a 95th PCTL on "ON CPU" and "Scheduler" times are prorated
+as per adjusted number of cores. E.g. 36 cores, then 34 adjusted cores,
+and PDB has a 95th PCTL of 34 (or higher), then shares becomes 10.
+
+Utlization limits is between 10 and 50 on brakets of 5 (10, 15, ... , 50).
+Prorated as per ratio between 99th PCTL of "ON CPU" and "Scheduler" as per
+ASH hostory, where if such AAS were equal or larger than adjusted cores 
+(e.g. 34) then utlization limit for PDB would be 50. Then, any PDB could
+consume up to 50% of the resources (cpu_count) assigned to database.
+--

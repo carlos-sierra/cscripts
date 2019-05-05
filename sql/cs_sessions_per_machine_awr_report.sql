@@ -30,18 +30,16 @@ DEF cs_hours_range_default = '48';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
---SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 --ALTER SESSION SET container = CDB$ROOT;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_sample_time_from_and_to.sql
+@@cs_internal/cs_snap_id_from_and_to.sql
 --
 COL p95 HEA '95th PCTL';
 COL p97 HEA '97th PCTL';
@@ -58,7 +56,7 @@ COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p99 p999 max ON REPORT;
 --
 WITH 
 by_sample AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        machine,
        sample_id,
        COUNT(*) cnt,
@@ -98,7 +96,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+--ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

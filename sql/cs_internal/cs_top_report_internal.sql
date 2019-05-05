@@ -36,7 +36,7 @@ SELECT CASE LOWER(TRIM('&&computed_metric.'))
 SELECT (CASE WHEN '&&sql_id' IS NOT NULL THEN '&&sql_id._' END)||'&&file_name.' file_name FROM DUAL
 /
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._&&file_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&file_name.' cs_file_name FROM DUAL;
 --
 COL metric_display NEW_V metric_display NOPRI;
 SELECT CASE LOWER(TRIM('&&computed_metric.'))
@@ -80,8 +80,8 @@ SELECT CASE WHEN '&&sql_id.' IS NULL THEN 'SQL' ELSE 'Plans' END top_what FROM D
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&computed_metric." "&&kiev_tx." "&&sql_text_piece." "&&sql_id."
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_spool_id_sample_time.sql
+--
 PRO METRIC       : &&computed_metric.
 PRO SQL Type     : &&kiev_tx.
 PRO SQL TEXT     : &&sql_text_piece.
@@ -140,6 +140,7 @@ COL physical_write_bytes_exec FOR 999,999,999,990.000 HEA 'PHYSICAL|WRITE BYTES|
 COL physical_write_bytes_perc FOR 9,990.000 HEA 'PHYSICAL|WRITE|(PERC)';
 COL sql_text_100 FOR A100 HEA 'SQL TEXT';
 COL sql_length FOR 99,990 HEA 'LENGTH';
+COL sql_where FOR 99,990 HEA 'WHERE';
 COL sql_text FOR A200;
 COL application_module FOR A4 HEA 'TYPE';
 COL min_plan_hash_value FOR 9999999999 HEA 'MIN PLAN|HASH VALUE';
@@ -240,6 +241,7 @@ COL min_plan_hash_value PRI;
 COL max_plan_hash_value PRI;
 COL application_module PRI;
 COL sql_length PRI;
+COL sql_where PRI;
 COL sql_text_100 PRI;
 --
 /****************************************************************************************/
@@ -357,7 +359,10 @@ END application_category;
 /****************************************************************************************/
 all_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */ 
-       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text, DBMS_LOB.GETLENGTH(sql_text) sql_length, application_category(DBMS_LOB.SUBSTR(sql_text, 1000)) application_module
+       DISTINCT sql_id, DBMS_LOB.SUBSTR(sql_text, 1000) sql_text, 
+       DBMS_LOB.GETLENGTH(sql_text) sql_length, 
+       DBMS_LOB.GETLENGTH(sql_text) - DBMS_LOB.INSTR(sql_text, 'WHERE') + 1 sql_where, 
+       application_category(DBMS_LOB.SUBSTR(sql_text, 1000)) application_module
   FROM dba_hist_sqltext
  WHERE ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.SUBSTR(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
    AND ('&&sql_id.' IS NULL OR sql_id = '&&sql_id.')
@@ -366,14 +371,14 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 ),
 all_sql_with_type AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, sql_text, sql_length,
+       sql_id, sql_text, sql_length, sql_where,
        REPLACE(SUBSTR(CASE WHEN sql_text LIKE '/*'||CHR(37) THEN SUBSTR(sql_text, 1, INSTR(sql_text, '*/') + 1) ELSE sql_text END, 1, 100), CHR(10), CHR(32)) sql_text_100,
        application_module
   FROM all_sql
 ),
 my_tx_sql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100, MAX(sql_length) sql_length, MAX(application_module) application_module
+       sql_id, MAX(sql_text) sql_text, MAX(sql_text_100) sql_text_100, MAX(sql_length) sql_length, MAX(sql_where) sql_where, MAX(application_module) application_module
   FROM all_sql_with_type
  GROUP BY
        sql_id
@@ -692,6 +697,7 @@ SELECT t.rank,
        CASE WHEN t.min_plan_hash_value = t.max_plan_hash_value THEN NULL ELSE t.max_plan_hash_value END max_plan_hash_value,
        s.application_module,
        s.sql_length,
+       s.sql_where,
        s.sql_text_100,
        t.sql_id,
        CASE WHEN '&&sql_id.' IS NULL THEN (CASE WHEN t.min_plan_hash_value = t.max_plan_hash_value THEN TO_CHAR(t.max_plan_hash_value) ELSE 'MULTIPLE' END) ELSE TO_CHAR(t.plan_hash_value) END plan_hash_value_c
@@ -771,6 +777,7 @@ COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
 COL sql_length NOPRI;
+COL sql_where NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -842,6 +849,7 @@ COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
 COL sql_length NOPRI;
+COL sql_where NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -913,6 +921,7 @@ COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
 COL sql_length NOPRI;
+COL sql_where NOPRI;
 COL sql_text_100 NOPRI;
 --
 /
@@ -984,6 +993,7 @@ COL min_plan_hash_value NOPRI;
 COL max_plan_hash_value NOPRI;
 COL application_module NOPRI;
 COL sql_length NOPRI;
+COL sql_where NOPRI;
 COL sql_text_100 NOPRI;
 --
 /

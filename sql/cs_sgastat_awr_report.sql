@@ -31,18 +31,15 @@ DEF cs_hours_range_default = '336';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_spool_id_sample_time.sql
 --
 COL snap_id FOR 9999999 HEA 'Snap ID';
 COL begin_time FOR A19 HEA 'Begin Time';
@@ -67,7 +64,7 @@ PRO Memory Pools (GBs)
 PRO ~~~~~~~~~~~~~~~~~~
 WITH
 sgastat AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        ROUND(SUM(CASE WHEN name = 'buffer_cache' AND pool IS NULL THEN bytes ELSE 0 END)/POWER(2,30), 3) buffer_cache, -- see bug 18166499
        ROUND(SUM(CASE WHEN name = 'log_buffer' AND pool IS NULL THEN bytes ELSE 0 END)/POWER(2,30), 3) log_buffer,
@@ -89,7 +86,7 @@ SELECT /*+ NO_MERGE */
        snap_id
 ),
 param AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        ROUND(SUM(CASE parameter_name WHEN '__db_cache_size' THEN TO_NUMBER(value) ELSE 0 END)/POWER(2,30), 3) buffer_cache,
        ROUND(SUM(CASE parameter_name WHEN '__shared_io_pool_size' THEN TO_NUMBER(value) ELSE 0 END)/POWER(2,30), 3) shared_io_pool,
@@ -108,7 +105,7 @@ SELECT /*+ NO_MERGE */
        snap_id
 ),
 my_query AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        s.snap_id,
        CAST(s.begin_interval_time AS DATE) begin_time,
        CAST(s.end_interval_time AS DATE) end_time,
@@ -156,7 +153,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

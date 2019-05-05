@@ -1,28 +1,32 @@
 DEF metric_group = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name._&&metric_group.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&metric_group.' cs_file_name FROM DUAL;
 --
 COL report_title NEW_V report_title NOPRI;
 COL vaxis_title NEW_V vaxis_title NOPRI;
 SELECT CASE '&&metric_group.'
-       WHEN 'latency' THEN 'Database Latency (avg)'
        WHEN 'db_time' THEN 'Database Time (avg)'
-       WHEN 'calls' THEN 'Database Calls per Second (avg)'
-       WHEN 'rows_sec' THEN 'Rows Processed per Second (avg)'
+       WHEN 'latency' THEN 'Database Latency (avg)'
+       WHEN 'time_per_row' THEN 'Time per Row Returned (avg)'
+       WHEN 'calls' THEN 'Database Calls per Minute (avg)'
+       WHEN 'rows_min' THEN 'Rows Processed per Minute (avg)'
        WHEN 'rows_exec' THEN 'Rows Processed per Execution (avg)'
-       WHEN 'reads_sec' THEN 'Logical and Physical Reads per Second (avg)'
+       WHEN 'reads_min' THEN 'Logical and Physical Reads per Minute (avg)'
        WHEN 'reads_exec' THEN 'Logical and Physical Reads per Execution (avg)'
+       WHEN 'reads_per_row' THEN 'Logical and Physical Reads per Row Returned (avg)'
        WHEN 'cursors' THEN 'Loads, Invalidations and Version Count (avg)'
        WHEN 'memory' THEN 'Sharable Memory (avg)'
        END report_title,
        CASE '&&metric_group.'
-       WHEN 'latency' THEN 'ms (per execution)'
        WHEN 'db_time' THEN 'Average Active Sessions (AAS)'
-       WHEN 'calls' THEN 'Calls Count per Second'
-       WHEN 'rows_sec' THEN 'Rows Processed'
+       WHEN 'latency' THEN 'ms (per Execution)'
+       WHEN 'time_per_row' THEN 'us (per Row Returned)'
+       WHEN 'calls' THEN 'Calls Count per Minute'
+       WHEN 'rows_min' THEN 'Rows Processed'
        WHEN 'rows_exec' THEN 'Rows Processed'
-       WHEN 'reads_sec' THEN 'Reads per Second'
+       WHEN 'reads_min' THEN 'Reads per Minute'
        WHEN 'reads_exec' THEN 'Reads per Execution'
+       WHEN 'reads_per_row' THEN 'Reads per Row Returned'
        WHEN 'cursors' THEN 'Count'
        WHEN 'memory' THEN 'MBs'
        END vaxis_title
@@ -37,7 +41,7 @@ DEF vaxis_title = '&&vaxis_title.';
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Expect lower values than OEM Top Activity since only a subset of SQL is captured into dba_hist_sqlstat.";
 DEF chart_foot_note_3 = "<br>3) PL/SQL executions are excluded since they distort charts.";
@@ -51,6 +55,13 @@ SET HEA OFF PAGES 0;
 /****************************************************************************************/
 SELECT 
 CASE '&&metric_group.' 
+WHEN 'db_time' THEN 
+q'[// &&metric_group.
+,'DB Time'
+,'CPU Time'
+,'User IO Time'
+,'Application (LOCK)'
+,'Concurrency Time' ]'
 WHEN 'latency' THEN 
 q'[// &&metric_group.
 ,'DB Time'
@@ -58,7 +69,7 @@ q'[// &&metric_group.
 ,'User IO Time'
 ,'Application (LOCK)'
 ,'Concurrency Time' ]'
-WHEN 'db_time' THEN 
+WHEN 'time_per_row' THEN 
 q'[// &&metric_group.
 ,'DB Time'
 ,'CPU Time'
@@ -70,17 +81,21 @@ q'[// &&metric_group.
 ,'Parses'
 ,'Executions'
 ,'Fetches' ]'
-WHEN 'rows_sec' THEN 
+WHEN 'rows_min' THEN 
 q'[// &&metric_group.
 ,'Rows Processed' ]'
 WHEN 'rows_exec' THEN 
 q'[// &&metric_group.
 ,'Rows Processed' ]'
-WHEN 'reads_sec' THEN 
+WHEN 'reads_min' THEN 
 q'[// &&metric_group.
 ,'Buffer Gets'
 ,'Disk Reads' ]'
 WHEN 'reads_exec' THEN 
+q'[// &&metric_group.
+,'Buffer Gets'
+,'Disk Reads' ]'
+WHEN 'reads_per_row' THEN 
 q'[// &&metric_group.
 ,'Buffer Gets'
 ,'Disk Reads' ]'
@@ -217,6 +232,15 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND ('&&sql_id.' IS NULL OR sql_id = '&&sql_id.') 
    AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(sql_text)||CHR(37))
    AND command_type NOT IN (SELECT action FROM audit_actions WHERE name IN ('PL/SQL EXECUTE', 'EXECUTE PROCEDURE'))
+ UNION
+SELECT /*+ MATERIALIZE NO_MERGE */
+       DISTINCT sql_id
+  FROM dba_hist_sqltext
+ WHERE dbid = &&cs_dbid.
+   AND ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.substr(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
+   AND ('&&sql_id.' IS NULL OR sql_id = '&&sql_id.') 
+   AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.substr(sql_text, 1000))||CHR(37))
+   AND command_type NOT IN (SELECT action FROM audit_actions WHERE name IN ('PL/SQL EXECUTE', 'EXECUTE PROCEDURE'))
 ),
 /****************************************************************************************/
 snapshots AS (
@@ -247,6 +271,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        SUM(h.rows_processed_delta) rows_processed_delta,
        SUM(h.buffer_gets_delta) buffer_gets_delta,
        SUM(h.disk_reads_delta) disk_reads_delta
+       --
   FROM dba_hist_sqlstat h /* sys.wrh$_sqlstat */
  WHERE h.dbid = &&cs_dbid.
    AND h.instance_number = &&cs_instance_number.
@@ -265,32 +290,45 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        s.snap_id,
        s.end_date_time,
        --
-       ROUND(SUM(h.elapsed_time_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) db_time_exec,
-       ROUND(SUM(h.elapsed_time_delta)/SUM(s.interval_seconds)/1e6,3) db_time_aas,
-       ROUND(SUM(h.cpu_time_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) cpu_time_exec,
-       ROUND(SUM(h.cpu_time_delta)/SUM(s.interval_seconds)/1e6,3) cpu_time_aas,
-       ROUND(SUM(h.iowait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) io_time_exec,
-       ROUND(SUM(h.iowait_delta)/SUM(s.interval_seconds)/1e6,3) io_time_aas,
-       ROUND(SUM(h.apwait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) appl_time_exec,
-       ROUND(SUM(h.apwait_delta)/SUM(s.interval_seconds)/1e6,3) appl_time_aas,
-       ROUND(SUM(h.ccwait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3) conc_time_exec,
-       ROUND(SUM(h.ccwait_delta)/SUM(s.interval_seconds)/1e6,3) conc_time_aas,
-       SUM(h.parse_calls_delta) parses,
-       ROUND(SUM(h.parse_calls_delta)/SUM(s.interval_seconds),3) parses_sec,
-       SUM(h.executions_delta) executions,
-       ROUND(SUM(h.executions_delta)/SUM(s.interval_seconds),3) executions_sec,
-       SUM(h.fetches_delta) fetches,
-       ROUND(SUM(h.fetches_delta)/SUM(s.interval_seconds),3) fetches_sec,
-       SUM(h.loads_delta) loads,
-       SUM(h.invalidations_delta) invalidations,
-       MAX(h.version_count) version_count,
-       ROUND(SUM(h.sharable_mem)/POWER(2,20),3) sharable_mem_mb,
-       ROUND(SUM(h.rows_processed_delta)/SUM(s.interval_seconds),3) rows_processed_sec,
-       ROUND(SUM(h.rows_processed_delta)/GREATEST(SUM(h.executions_delta),1),3) rows_processed_exec,
-       ROUND(SUM(h.buffer_gets_delta)/SUM(s.interval_seconds),3) buffer_gets_sec,
-       ROUND(SUM(h.buffer_gets_delta)/GREATEST(SUM(h.executions_delta),1),3) buffer_gets_exec,
-       ROUND(SUM(h.disk_reads_delta)/SUM(s.interval_seconds),3) disk_reads_sec,
-       ROUND(SUM(h.disk_reads_delta)/GREATEST(SUM(h.executions_delta),1),3) disk_reads_exec
+       NVL(ROUND(SUM(h.elapsed_time_delta)/SUM(s.interval_seconds)/1e6,3), 0) db_time_aas,
+       NVL(ROUND(SUM(h.cpu_time_delta)/SUM(s.interval_seconds)/1e6,3), 0) cpu_time_aas,
+       NVL(ROUND(SUM(h.iowait_delta)/SUM(s.interval_seconds)/1e6,3), 0) io_time_aas,
+       NVL(ROUND(SUM(h.apwait_delta)/SUM(s.interval_seconds)/1e6,3), 0) appl_time_aas,
+       NVL(ROUND(SUM(h.ccwait_delta)/SUM(s.interval_seconds)/1e6,3), 0) conc_time_aas,
+       --
+       NVL(ROUND(SUM(h.elapsed_time_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3), 0) db_time_exec,
+       NVL(ROUND(SUM(h.cpu_time_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3), 0) cpu_time_exec,
+       NVL(ROUND(SUM(h.iowait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3), 0) io_time_exec,
+       NVL(ROUND(SUM(h.apwait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3), 0) appl_time_exec,
+       NVL(ROUND(SUM(h.ccwait_delta)/1e3/GREATEST(SUM(h.executions_delta),1),3), 0) conc_time_exec,
+       --
+       NVL(ROUND(SUM(h.elapsed_time_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) db_time_row,
+       NVL(ROUND(SUM(h.cpu_time_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) cpu_time_row,
+       NVL(ROUND(SUM(h.iowait_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) io_time_row,
+       NVL(ROUND(SUM(h.apwait_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) appl_time_row,
+       NVL(ROUND(SUM(h.ccwait_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) conc_time_row,
+       --
+       NVL(ROUND(60*SUM(h.parse_calls_delta)/SUM(s.interval_seconds),3), 0) parses_min,
+       NVL(ROUND(60*SUM(h.executions_delta)/SUM(s.interval_seconds),3), 0) executions_min,
+       NVL(ROUND(60*SUM(h.fetches_delta)/SUM(s.interval_seconds),3), 0) fetches_min,
+       --
+       NVL(ROUND(60*SUM(h.rows_processed_delta)/SUM(s.interval_seconds),3), 0) rows_processed_min,
+       NVL(ROUND(SUM(h.rows_processed_delta)/GREATEST(SUM(h.executions_delta),1),3), 0) rows_processed_exec,
+       --
+       NVL(ROUND(60*SUM(h.buffer_gets_delta)/SUM(s.interval_seconds),3), 0) buffer_gets_min,
+       NVL(ROUND(60*SUM(h.disk_reads_delta)/SUM(s.interval_seconds),3), 0) disk_reads_min,
+       --
+       NVL(ROUND(SUM(h.buffer_gets_delta)/GREATEST(SUM(h.executions_delta),1),3), 0) buffer_gets_exec,
+       NVL(ROUND(SUM(h.disk_reads_delta)/GREATEST(SUM(h.executions_delta),1),3), 0) disk_reads_exec,
+       --
+       NVL(ROUND(SUM(h.buffer_gets_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) buffer_gets_row,
+       NVL(ROUND(SUM(h.disk_reads_delta)/GREATEST(SUM(h.rows_processed_delta),1),3), 0) disk_reads_row,
+       --
+       NVL(SUM(h.loads_delta), 0) loads,
+       NVL(SUM(h.invalidations_delta), 0) invalidations,
+       NVL(MAX(h.version_count), 0) version_count,
+       --
+       NVL(ROUND(SUM(h.sharable_mem)/POWER(2,20),3), 0) sharable_mem_mb
        --
   FROM sqlstat_group_by_snap_id h, 
        snapshots s /* dba_hist_snapshot */
@@ -308,32 +346,41 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_date_time, 'SS')|| /* second */
        ')'||
        CASE '&&metric_group.' 
-         WHEN 'latency' THEN
-           ','||q.db_time_exec|| 
-           ','||q.cpu_time_exec|| 
-           ','||q.io_time_exec|| 
-           ','||q.appl_time_exec|| 
-           ','||q.conc_time_exec
          WHEN 'db_time' THEN
            ','||q.db_time_aas|| 
            ','||q.cpu_time_aas|| 
            ','||q.io_time_aas|| 
            ','||q.appl_time_aas|| 
            ','||q.conc_time_aas
+         WHEN 'latency' THEN
+           ','||q.db_time_exec|| 
+           ','||q.cpu_time_exec|| 
+           ','||q.io_time_exec|| 
+           ','||q.appl_time_exec|| 
+           ','||q.conc_time_exec
+         WHEN 'time_per_row' THEN
+           ','||q.db_time_row|| 
+           ','||q.cpu_time_row|| 
+           ','||q.io_time_row|| 
+           ','||q.appl_time_row|| 
+           ','||q.conc_time_row
          WHEN 'calls' THEN
-           ','||q.parses_sec|| 
-           ','||q.executions_sec|| 
-           ','||q.fetches_sec
-         WHEN 'rows_sec' THEN
-           ','||q.rows_processed_sec
+           ','||q.parses_min|| 
+           ','||q.executions_min|| 
+           ','||q.fetches_min
+         WHEN 'rows_min' THEN
+           ','||q.rows_processed_min
          WHEN 'rows_exec' THEN
            ','||q.rows_processed_exec
-         WHEN 'reads_sec' THEN
-           ','||q.buffer_gets_sec|| 
-           ','||q.disk_reads_sec
+         WHEN 'reads_min' THEN
+           ','||q.buffer_gets_min|| 
+           ','||q.disk_reads_min
          WHEN 'reads_exec' THEN
            ','||q.buffer_gets_exec|| 
            ','||q.disk_reads_exec
+         WHEN 'reads_per_row' THEN
+           ','||q.buffer_gets_row|| 
+           ','||q.disk_reads_row
          WHEN 'cursors' THEN
            ','||q.loads|| 
            ','||q.invalidations|| 
@@ -349,8 +396,18 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Line';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 --

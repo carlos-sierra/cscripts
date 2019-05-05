@@ -26,10 +26,9 @@
 DEF cs_script_name = 'cs_rsrc_mgr_report';
 --
 COL pdb_name NEW_V pdb_name FOR A30;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql 
@@ -42,7 +41,7 @@ PRO SQL> @&&cs_script_name..sql
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

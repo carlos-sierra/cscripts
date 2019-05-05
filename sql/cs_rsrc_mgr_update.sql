@@ -26,7 +26,6 @@
 DEF cs_script_name = 'cs_rsrc_mgr_update';
 --
 COL pdb_name NEW_V pdb_name FOR A30;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 @@cs_internal/cs_rsrc_mgr_internal.sql
@@ -37,14 +36,14 @@ DEF cs_pluggable_database = '&1.';
 COL cs_pluggable_database NEW_V cs_pluggable_database NOPRI;
 SELECT UPPER(TRIM('&&cs_pluggable_database.')) cs_pluggable_database FROM DUAL;
 PRO
-DEF default_utilization_limit = 12;
+DEF default_utilization_limit = 6;
 PRO 2. Enter CPU Utilization Limit: [{&&default_utilization_limit.}|6-36]
 DEF new_utilization_limit = '&2.';
 COL new_utilization_limit NEW_V new_utilization_limit NOPRI;
 SELECT NVL('&&new_utilization_limit.','&&default_utilization_limit.') new_utilization_limit FROM DUAL;
 PRO
-DEF default_shares = 6;
-PRO 3. Enter Shares: [{&&default_shares.}1-10]
+DEF default_shares = 4;
+PRO 3. Enter Shares: [{&&default_shares.}1-16]
 DEF new_shares = '&3.';
 COL new_shares NEW_V new_shares NOPRI;
 SELECT NVL('&&new_shares.','&&default_shares.') new_shares FROM DUAL;
@@ -68,7 +67,7 @@ VALUES  (s.plan, s.pdb_name, s.shares, s.utilization_limit, s.parallel_server_li
 /
 COMMIT;
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql 
@@ -86,7 +85,7 @@ PRO SQL> @&&cs_script_name..sql
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

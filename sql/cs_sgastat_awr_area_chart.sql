@@ -31,12 +31,9 @@ DEF cs_hours_range_default = '336';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
---
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = "SGA Pool Stats AWR";
 DEF chart_title = "SGA Pools";
@@ -46,7 +43,7 @@ DEF vaxis_title = "GBs";
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
 --DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{MI}|SS|HH|DD]";
@@ -69,7 +66,7 @@ SET HEA OFF PAGES 0;
 /****************************************************************************************/
 WITH
 sgastat AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        ROUND(SUM(CASE WHEN name = 'buffer_cache' AND pool IS NULL THEN bytes ELSE 0 END)/POWER(2,30), 3) buffer_cache, -- see bug 18166499
        ROUND(SUM(CASE WHEN name = 'log_buffer' AND pool IS NULL THEN bytes ELSE 0 END)/POWER(2,30), 3) log_buffer,
@@ -91,7 +88,7 @@ SELECT /*+ NO_MERGE */
        snap_id
 ),
 param AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        ROUND(SUM(CASE parameter_name WHEN '__db_cache_size' THEN TO_NUMBER(value) ELSE 0 END)/POWER(2,30), 3) buffer_cache,
        ROUND(SUM(CASE parameter_name WHEN '__shared_io_pool_size' THEN TO_NUMBER(value) ELSE 0 END)/POWER(2,30), 3) shared_io_pool,
@@ -110,7 +107,7 @@ SELECT /*+ NO_MERGE */
        snap_id
 ),
 my_query AS (
-SELECT /*+ NO_MERGE */
+SELECT /*+ MATERIALIZE NO_MERGE */
        s.snap_id,
        CAST(s.begin_interval_time AS DATE) begin_time,
        CAST(s.end_interval_time AS DATE) end_time,
@@ -157,15 +154,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
+-- [Line|Area|Scatter]
 DEF cs_chart_type = 'Area';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

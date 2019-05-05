@@ -32,8 +32,6 @@ DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 PRO 3. Type (opt): [{ALL}|INACTIVE|LOCK]
@@ -48,7 +46,7 @@ COL max_inactive_secs FOR 999,999,990.0;
 SELECT machine, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs--, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
        WHEN '&&cs2_type.' IN ('ALL', 'LOCK') AND pty IN (1, 2) THEN 1
@@ -69,7 +67,7 @@ COL sid_serial FOR A13 HEA '  SID,SERIAL#';
 SELECT machine, LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs--, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
@@ -87,14 +85,14 @@ PRO
 PRO 5. Sid,Serial (opt):
 DEF cs2_sid_serial = '&5';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_type." "&&cs2_machine." "&&cs2_sid_serial." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TIME_FROM    : &&cs_sample_time_from. (&&cs_snap_id_from.)
-PRO TIME_TO      : &&cs_sample_time_to. (&&cs_snap_id_to.)
+@@cs_internal/cs_spool_id_sample_time.sql
+--
 PRO TYPE         : "&&cs2_type." [{ALL}|INACTIVE|LOCK]
 PRO MACHINE      : "&&cs2_machine."
 PRO SID_SERIAL#  : "&&cs2_sid_serial."
@@ -123,7 +121,7 @@ PRO ~~~~~~~~
 SELECT machine, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs--, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
        WHEN '&&cs2_type.' IN ('ALL', 'LOCK') AND pty IN (1, 2) THEN 1
@@ -142,7 +140,7 @@ PRO ~~~~~~~~~~~~~~~~~
 SELECT machine, LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs--, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
@@ -200,7 +198,7 @@ SELECT TO_CHAR(snap_time, '&&cs_datetime_full_format.') snap_time,
        --,service_name
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
    AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
    AND CASE
@@ -218,7 +216,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

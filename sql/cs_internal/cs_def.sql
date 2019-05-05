@@ -3,10 +3,17 @@ DEF cs_stgtab_prefix = 'iod';
 DEF cs_file_dir = '/tmp/';
 DEF cs_timestamp_full_format = 'YYYY-MM-DD"T"HH24:MI:SS.FF3';
 DEF cs_datetime_full_format = 'YYYY-MM-DD"T"HH24:MI:SS';
-DEF cs_datetime_short_format = 'YYYYMMDD_HH24MISS';
-DEF cs_def_reference = 'KPT';
-DEF cs_reference = '';
+DEF cs_datetime_display_format = 'yyyy-mm-ddThh:mi:ss';
+DEF cs_datetime_short_format = 'YYYY-MM-DD"T"HH24.MI.SS';
+DEF cs_datetime_hh24_format = 'YYYY-MM-DD"T"HH24';
+DEF cs_def_reference = 'DBPERF';
+--DEF cs_reference = '';
 DEF cs_reference_sanitized = '';
+DEF cs_chart_option_explorer = '';
+DEF cs_chart_option_pie = '//';
+DEF cs_oem_colors_series = '';
+DEF cs_oem_colors_slices = '//';
+DEF cs_curve_type = '//';
 --DEF cs_def_local_dir = '/Users/csierra/Issues/';
 DEF cs_def_local_dir = '.';
 DEF cs_local_dir = '';
@@ -78,6 +85,7 @@ COL cs_1h_snap_id NEW_V cs_1h_snap_id FOR A6 NOPRI;
 COL cs_1d_snap_id NEW_V cs_1d_snap_id FOR A6 NOPRI;
 COL cs_7d_snap_id NEW_V cs_7d_snap_id FOR A6 NOPRI;
 COL cs_30d_snap_id NEW_V cs_30d_snap_id FOR A6 NOPRI;
+COL cs_startup_snap_id NEW_V cs_startup_snap_id FOR A6 NOPRI;
 --
 COL cs_signature NEW_V cs_signature FOR A20 NOPRI;
 COL cs_sql_handle NEW_V cs_sql_handle FOR A20 NOPRI;
@@ -101,7 +109,7 @@ SELECT UPPER(SUBSTR(i.host_name,INSTR(i.host_name,'.',-1)+1)) cs_region,
        TRIM(TO_CHAR(i.instance_number)) cs_instance_number,
        i.version cs_db_version,
        i.host_name cs_host_name,
-       i.startup_time cs_startup_time,
+       TO_CHAR(i.startup_time, '&&cs_datetime_full_format.') cs_startup_time,
        TRIM(TO_CHAR(o.value)) cs_num_cpu_cores,
        TRIM(TO_CHAR(ROUND(SYSDATE - i.startup_time, 1), '990.0')) cs_startup_days,
        TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_full_format.')) cs_date_time,
@@ -128,7 +136,7 @@ SELECT CASE WHEN ds.pdb = 'CDB$ROOT' THEN 'oradb' WHEN ts.name = 'KIEV' THEN 'ki
    AND ts.con_id(+) = vs.con_id
    AND ts.name(+) = 'KIEV'
 )
-SELECT s.pdb,
+SELECT --s.pdb,
        s.type||'-'||
        CASE  
          WHEN s.pdb = 'CDB$ROOT' THEN REPLACE(LOWER(SYS_CONTEXT('USERENV','DB_NAME')),'_','-') 
@@ -184,18 +192,22 @@ SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_30d_snap_id
    AND instance_number = TO_NUMBER('&&cs_instance_number.')
    AND end_interval_time > SYSDATE - 30
 /
+SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_startup_snap_id
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND begin_interval_time > TO_DATE('&&cs_startup_time.', '&&cs_datetime_full_format.')
+/
 --
 --CLEAR SCREEN;
 PRO
-PRO Issue Reference: (e.g. KPT-1234, KIEV-1234, IOD-1234, ODSI-1234)
-DEF issue_reference = '&&issue_reference.';
+PRO Reference: (e.g. DBPERF-, DBPERFOCI-, IOD-, KIEV-, CAPA-, CHANGE-) 
+PRO Enter Reference: &&cs_reference.
 COL cs_reference NEW_V cs_reference NOPRI;
-SELECT NVL('&&issue_reference.', '&&cs_def_reference.') cs_reference FROM DUAL;
+SELECT NVL('&&cs_reference.', '&&cs_def_reference.') cs_reference FROM DUAL;
 COL cs_reference_sanitized NEW_V cs_reference_sanitized NOPRI;
 SELECT TRANSLATE('&&cs_reference.', '*()@#$[]{}|/\".,?<>''', '___________________') cs_reference_sanitized FROM DUAL;
 --
---PRO SCP Target Local Directory: (e.g. &&cs_def_local_dir.)
---DEF target_local_directory = '&&target_local_directory.';
 DEF target_local_directory = '&&cs_def_local_dir.';
 COL cs_local_dir NEW_V cs_local_dir NOPRI;
 SELECT NVL('&&target_local_directory.', '&&cs_def_local_dir.') cs_local_dir FROM DUAL;

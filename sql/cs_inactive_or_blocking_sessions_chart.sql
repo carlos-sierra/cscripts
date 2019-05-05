@@ -32,8 +32,6 @@ DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-COL cs2_pdb_name NEW_V cs2_pdb_name FOR A30 NOPRI;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') cs2_pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 PRO 3. Type: [{LOCK}|INACTIVE]
@@ -48,7 +46,7 @@ COL max_inactive_secs FOR 999,999,990.0;
 SELECT machine, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
        WHEN '&&cs2_type.' IN ('ALL', 'LOCK') AND pty IN (1, 2) THEN 1
@@ -69,7 +67,7 @@ COL sid_serial FOR A13 HEA '  SID,SERIAL#';
 SELECT machine, LPAD(sid,5)||','||serial# sid_serial, COUNT(*) row_count, AVG(ctime) avg_lock_secs, MAX(ctime) max_lock_secs, MAX(last_call_et) max_inactive_secs
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
    AND CASE
        WHEN '&&cs2_type.' IN ('ALL', 'INACTIVE') AND pty IN (3, 4) THEN 1
@@ -87,17 +85,18 @@ PRO
 PRO 5. Sid,Serial (opt):
 DEF cs2_sid_serial = '&5';
 --
-SELECT '&&cs_file_prefix._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = "Inactive or Blocking Sessions";
-DEF chart_title = "&&cs2_type. &&cs2_machine. &&cs2_sid_serial.";
+DEF report_title = "&&cs2_type. Sessions";
+DEF chart_title = "&&cs2_machine. &&cs2_sid_serial.";
 DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to.";
+--DEF vaxis_title = "Seconds and Count";
 DEF vaxis_title = "Seconds";
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
---DEF vaxis_baseline = ", baseline:0";
+--DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 DEF vaxis_baseline = "";
 --DEF chart_foot_note_2 = "<br>2) ";
 DEF chart_foot_note_2 = "";
@@ -107,7 +106,9 @@ DEF report_foot_note = "&&cs_script_name..sql";
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
-PRO ,'Max Duration'
+PRO ,'Max Seconds'
+--PRO ,'Avg Seconds'
+--PRO ,'Sessions Count'
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -117,14 +118,14 @@ my_query AS (
 SELECT snap_time,
        MAX(
        CASE
-       WHEN '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+       WHEN '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
         AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
         AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
         AND '&&cs2_type.' = 'LOCK' 
         AND pty IN (1, 2) 
         --AND ctime >= TO_NUMBER('&&cs_lock_seconds.')
        THEN ctime
-       WHEN '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+       WHEN '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
         AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
         AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
         AND '&&cs2_type.' = 'INACTIVE' 
@@ -133,10 +134,30 @@ SELECT snap_time,
        THEN last_call_et
        ELSE 0
        END
-       ) max_value
+       ) max_value,
+       AVG(
+       CASE
+       WHEN '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
+        AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
+        AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
+        AND '&&cs2_type.' = 'LOCK' 
+        AND pty IN (1, 2) 
+        --AND ctime >= TO_NUMBER('&&cs_lock_seconds.')
+       THEN ctime
+       WHEN '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
+        AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
+        AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
+        AND '&&cs2_type.' = 'INACTIVE' 
+        AND pty IN (3, 4) 
+        --AND last_call_et >= TO_NUMBER('&&cs_inactive_seconds.')
+       THEN last_call_et
+       ELSE 0
+       END
+       ) avg_value,
+       COUNT(*) sess_cnt
   FROM c##iod.inactive_sessions_audit_trail
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND '&&cs2_pdb_name.' IN (pdb_name, 'CDB$ROOT')
+   AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND machine LIKE '%'||TRIM('&&cs2_machine.')||'%'
    AND sid||','||serial# LIKE '%'||REPLACE('&&cs2_sid_serial.', ' ')||'%'
    AND CASE
@@ -157,6 +178,8 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.snap_time, 'SS')|| /* second */
        ')'||
        ','||q.max_value|| 
+       --','||ROUND(q.avg_value)|| 
+       --','||q.sess_cnt|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -165,15 +188,24 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area]
-DEF cs_chart_type = 'Line';
+-- [Line|Area|Scatter]
+DEF cs_chart_type = 'Scatter';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_type." "&&cs2_machine." "&&cs2_sid_serial." 
 --
-ALTER SESSION SET CONTAINER = &&cs2_pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

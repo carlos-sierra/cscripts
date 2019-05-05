@@ -27,14 +27,12 @@
 --
 DEF cs_script_name = 'cs_table_stats_report';
 --
-COL pdb_name NEW_V pdb_name FOR A30;
-SELECT SYS_CONTEXT('USERENV', 'CON_NAME') pdb_name FROM DUAL;
 ALTER SESSION SET container = CDB$ROOT;
 --
 COL table_owner NEW_V table_owner FOR A30;
 SELECT DISTINCT owner table_owner
   FROM c##iod.table_stats_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
  ORDER BY 1
 /
 PRO
@@ -42,14 +40,14 @@ PRO 1. Table Owner:
 DEF table_owner = '&1.';
 SELECT DISTINCT UPPER(owner) table_owner 
   FROM c##iod.table_stats_hist 
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.')) 
+ WHERE pdb_name = '&&cs_con_name.' 
    AND owner = UPPER(TRIM('&&table_owner.'))
 /
 --
 COL table_name NEW_V table_name FOR A30;
 SELECT DISTINCT table_name
   FROM c##iod.table_stats_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
  ORDER BY 1
 /
@@ -58,13 +56,13 @@ PRO 2. Table Name:
 DEF table_name = '&2.';
 SELECT DISTINCT UPPER(table_name) table_name
   FROM c##iod.table_stats_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
    AND table_name = UPPER(TRIM('&&table_name.'))
  ORDER BY 1
 /
 --
-SELECT '&&cs_file_prefix._&&table_owner..&&table_name._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&table_owner..&&table_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."
@@ -88,7 +86,7 @@ SELECT last_analyzed,
        avg_row_len,
        sample_size
   FROM c##iod.table_stats_hist
- WHERE pdb_name = UPPER(TRIM('&&pdb_name.'))
+ WHERE pdb_name = '&&cs_con_name.'
    AND owner = UPPER(TRIM('&&table_owner.'))
    AND table_name = UPPER(TRIM('&&table_name.'))
 )
@@ -115,7 +113,7 @@ COL inserts_per_sec FOR 999,990.000 HEA 'INSERTS|PER SEC';
 COL updates_per_sec HEA 999,990.000 HEA 'UPDATES|PER SEC';
 COL deletes_per_sec HEA 999,990.000 HEA 'DELETES|PER SEC';
 --
-ALTER SESSION SET CONTAINER = &&pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
        t.num_rows,
@@ -140,7 +138,7 @@ PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&pdb_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

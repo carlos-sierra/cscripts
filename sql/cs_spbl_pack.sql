@@ -32,7 +32,7 @@ DEF cs_script_name = 'cs_spbl_pack';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -60,21 +60,8 @@ SET HEA ON;
 @@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
-PRO
-PRO Pack plan: "&&cs_plan_name."
-DECLARE
-  l_plans INTEGER;
-BEGIN
-  FOR i IN (SELECT sql_handle, plan_name 
-              FROM dba_sql_plan_baselines 
-             WHERE signature = &&cs_signature.
-               AND plan_name = NVL('&&cs_plan_name.', plan_name)
-             ORDER BY signature, plan_name)
-  LOOP
-    l_plans := DBMS_SPM.pack_stgtab_baseline(table_name => '&&cs_stgtab_prefix._stgtab_baseline', table_owner => '&&cs_stgtab_owner.', sql_handle => i.sql_handle, plan_name => i.plan_name);
-  END LOOP;
-END;
-/
+@@cs_internal/cs_spbl_internal_stgtab.sql
+@@cs_internal/cs_spbl_internal_pack.sql
 --
 @@cs_internal/cs_spbl_internal_list.sql
 --

@@ -32,7 +32,7 @@ DEF cs_script_name = 'cs_spbl_create';
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
@@ -131,7 +131,7 @@ BEGIN
             sql_id => '&&cs_sql_id.', 
             plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_1.'), -666), 
             fixed => '&&fixed.');
-  FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans1 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL)
+  FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans1 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
   LOOP
     :plans0 :=
     DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
@@ -153,7 +153,7 @@ BEGIN
               sql_id => '&&cs_sql_id.', 
               plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_2.'), -666), 
               fixed => '&&fixed.');
-    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans2 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL)
+    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans2 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
     LOOP
       :plans0 :=
       DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
@@ -176,7 +176,7 @@ BEGIN
               sql_id => '&&cs_sql_id.', 
               plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_3.'), -666), 
               fixed => '&&fixed.');
-    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans3 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL)
+    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans3 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
     LOOP
       :plans0 :=
       DBMS_SPM.ALTER_SQL_PLAN_BASELINE (

@@ -73,36 +73,41 @@ DEF cs_sql_id = '&1.';
 --
 COL sql_exec_id NEW_V sql_exec_id FOR A12;
 --
-WITH
-individual_executions AS (
-SELECT /*+ NO_MERGE */
-       r.con_id,
-       r.sql_id,
-       r.sql_exec_id,
+WITH 
+reports AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
        r.sql_exec_start,
        MAX(r.last_refresh_time) last_refresh_time,
-       MAX(r.sql_text) sql_text,
-       MAX(r.status) status,
-       SUM(r.elapsed_time)/1e6 seconds
-  FROM v$sql_monitor r
+       TO_CHAR(r.sql_exec_id) sql_exec_id,
+       SUM(r.elapsed_time)/1e6 seconds,
+       c.name pdb_name,
+       ROW_NUMBER() OVER (ORDER BY r.sql_exec_start) row_number_by_date,
+       ROW_NUMBER() OVER (ORDER BY SUM(r.elapsed_time)) row_number_by_seconds
+  FROM v$sql_monitor r,
+       v$containers c
  WHERE r.sql_id = '&&cs_sql_id.'
+   AND c.con_id = r.con_id
+   AND c.open_mode = 'READ WRITE'
  GROUP BY
-       r.con_id,
-       r.sql_id,
+       c.name,
        r.sql_exec_id,
        r.sql_exec_start
 )
-SELECT r.sql_exec_start,
-       r.last_refresh_time,
-       r.seconds,
-       TO_CHAR(r.sql_exec_id) sql_exec_id,
-       c.name pdb_name
-  FROM individual_executions r,
-       v$containers c
- WHERE c.con_id = r.con_id
-   AND c.open_mode = 'READ WRITE'
+SELECT r1.sql_exec_start,
+       r1.last_refresh_time,
+       r1.seconds,
+       r1.sql_exec_id,
+       r1.pdb_name,
+       '|' "+",
+       r2.seconds,
+       r2.sql_exec_start,
+       r2.last_refresh_time,
+       r2.sql_exec_id,
+       r2.pdb_name
+  FROM reports r1, reports r2
+ WHERE r1.row_number_by_date = r2.row_number_by_seconds
  ORDER BY
-       1, 2
+       r1.row_number_by_date
 /
 --
 PRO
@@ -123,7 +128,7 @@ DEF report_type = '&3.';
 COL cs_report_type NEW_V cs_report_type;
 SELECT CASE WHEN NVL(UPPER(TRIM('&&report_type.')), 'ACTIVE') IN ('HTML', 'ACTIVE') THEN 'html' ELSE 'txt' END cs_report_type FROM DUAL;
 --
-SELECT '&&cs_file_prefix._&&cs_sql_id._&&cs_file_date_time._&&sql_exec_id._&&report_type._&&cs_reference_sanitized._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id._&&sql_exec_id._&&report_type.' cs_file_name FROM DUAL;
 --
 SET PAGES 0;
 SPO &&cs_file_name..&&cs_report_type.;
@@ -137,5 +142,9 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&sql_exec_id." "&&report_type."
 PRO
 PRO If you want to preserve script output, execute scp command below, from a TERM session running on your Mac/PC:
 PRO scp &&cs_host_name.:&&cs_file_name..&&cs_report_type. &&cs_local_dir.
-PRO scp &&cs_host_name.:&&cs_file_prefix._*_&&cs_reference_sanitized._*.* &&cs_local_dir.
+PRO scp &&cs_host_name.:&&cs_file_dir.&&cs_reference_sanitized._*.* &&cs_local_dir.
+--
+UNDEF 1 2 3 4 5 6 7 8 9 10
+SET HEA ON LIN 80 PAGES 14 TAB ON FEED ON ECHO OFF VER ON TRIMS OFF TRIM ON TI OFF TIMI OFF LONG 80 LONGC 80 SERVEROUT OFF;
+CLEAR BREAK COLUMNS COMPUTE;
 --
