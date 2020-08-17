@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/11/25
+-- Version:     2020/07/20
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -44,6 +44,7 @@ DEF cs_script_name = 'cs_fs';
 --
 PRO 1. SEARCH_STRING: SQL_ID or SQL_TEXT piece or PLAN_HASH_VALUE: (e.g. performScanQuery%leaseDecorators)
 DEF search_string = '&1.';
+UNDEF 1;
 COL search_string NEW_V search_string;
 SELECT /* &&cs_script_name. */ TRIM('&&search_string.') search_string FROM DUAL;
 --
@@ -55,11 +56,17 @@ PRO SQL> @&&cs_script_name..sql "&&search_string."
 --
 PRO SEARCH_STRING: &&search_string.
 --
+COL num_rows FOR 999,999,999,990;
 COL db_time_secs FOR 999,999,990;
 COL executions FOR 999,999,990;
-COL ms_per_exec FOR 999,990.000;
+COL ms_per_exec FOR 999,999,990.000;
+COL bg_per_exec FOR 999,999,999,990;
+COL bg_per_row FOR 999,999,999,990;
 COL rows_per_exec FOR 999,999,990.0;
 COL plan_hash_value FOR 9999999999 HEA 'PHV';
+COL min_cost FOR 999,999,990;
+COL max_cost FOR 999,999,990;
+COL lns FOR 999;
 COL curs FOR 9999;
 COL val FOR 9999;
 COL invl FOR 9999;
@@ -72,7 +79,7 @@ COL first_load_time FOR A19;
 COL last_active_time FOR A19;
 COL len FOR 99,990 HEA 'LENGTH';
 COL prd FOR 99,990 HEA 'WHERE';
-COL sql_text_60 FOR A60 HEA 'SQL_TEXT';
+COL sql_text_80 FOR A80 HEA 'SQL_TEXT';
 COL pdb_name FOR A35;
 COL please_stop NEW_V please_stop NOPRI;
 DEF please_stop = '';
@@ -81,12 +88,17 @@ SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
+       MIN(s.optimizer_cost) min_cost,
+       MAX(s.optimizer_cost) max_cost,
        COUNT(*) curs,
        SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
        SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
@@ -116,6 +128,7 @@ SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
+       s.parsing_schema_name,
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -124,19 +137,24 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
+       MIN(s.optimizer_cost) min_cost,
+       MAX(s.optimizer_cost) max_cost,
        COUNT(*) curs,
        SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
        SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
@@ -166,6 +184,7 @@ SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
+       s.parsing_schema_name,
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -174,19 +193,24 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
+       MIN(s.optimizer_cost) min_cost,
+       MAX(s.optimizer_cost) max_cost,
        COUNT(*) curs,
        SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
        SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
@@ -215,6 +239,7 @@ SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
+       s.parsing_schema_name,
        s.sql_text,
        s.plan_hash_value,
        s.con_id,
@@ -223,18 +248,21 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
        --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
@@ -272,18 +300,21 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
        --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
@@ -321,18 +352,21 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
-       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 60) sql_text_60,
+       SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
+       (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
        SUM(s.executions) executions,
        SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3 ms_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.executions),0)) AS bg_per_exec,
        SUM(s.rows_processed)/NULLIF(SUM(s.executions),0) rows_per_exec,
+       ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
        --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
@@ -369,14 +403,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1, 2, 3, 4 DESC NULLS LAST, 5 DESC NULLS LAST, 6 DESC NULLS LAST
+       6 DESC NULLS LAST, 7 DESC NULLS LAST
 /
 --
 SELECT /* &&cs_script_name. */
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
-       REPLACE(DBMS_LOB.substr(h.sql_text, 60), CHR(10), CHR(32)) sql_text_60,
+       REPLACE(DBMS_LOB.substr(h.sql_text, 80), CHR(10), CHR(32)) sql_text_80,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
   FROM dba_hist_sqltext h,
@@ -390,8 +424,8 @@ SELECT /* &&cs_script_name. */
    AND '&&rows_per_exec_min.' = '&&low_value.'
    AND '&&rows_per_exec_max.' = '&&high_value.'
    AND h.dbid = TO_NUMBER('&&cs_dbid')
-   AND DBMS_LOB.substr(h.sql_text, 60) NOT LIKE '/* SQL Analyze(%'
-   AND DBMS_LOB.substr(h.sql_text, 60) NOT LIKE '%/* &&cs_script_name. */%'
+   AND DBMS_LOB.substr(h.sql_text, 80) NOT LIKE '/* SQL Analyze(%'
+   AND DBMS_LOB.substr(h.sql_text, 80) NOT LIKE '%/* &&cs_script_name. */%'
    AND c.con_id = h.con_id
    AND c.open_mode = 'READ WRITE'
    -- by sql_id
@@ -406,7 +440,7 @@ SELECT /* &&cs_script_name. */
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
-       REPLACE(DBMS_LOB.substr(h.sql_text, 60), CHR(10), CHR(32)) sql_text_60,
+       REPLACE(DBMS_LOB.substr(h.sql_text, 80), CHR(10), CHR(32)) sql_text_80,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
   FROM dba_hist_sqltext h,
@@ -420,8 +454,8 @@ SELECT /* &&cs_script_name. */
    AND '&&rows_per_exec_min.' = '&&low_value.'
    AND '&&rows_per_exec_max.' = '&&high_value.'
    AND h.dbid = TO_NUMBER('&&cs_dbid')
-   AND DBMS_LOB.substr(h.sql_text, 60) NOT LIKE '/* SQL Analyze(%'
-   AND DBMS_LOB.substr(h.sql_text, 60) NOT LIKE '%/* &&cs_script_name. */%'
+   AND DBMS_LOB.substr(h.sql_text, 80) NOT LIKE '/* SQL Analyze(%'
+   AND DBMS_LOB.substr(h.sql_text, 80) NOT LIKE '%/* &&cs_script_name. */%'
    AND c.con_id = h.con_id
    AND c.open_mode = 'READ WRITE'
    -- by sql_text

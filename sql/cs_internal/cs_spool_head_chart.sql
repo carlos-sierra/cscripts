@@ -22,14 +22,16 @@ PRO td               {vertical-align:top; border:1px solid #336699;}
 PRO td.c             {text-align:center;}
 PRO font.n           {font-size:8pt; font-style:italic; color:#336699;}
 PRO font.f           {font-size:8pt; color:#999999; border-top:1px solid #336699; margin-top:30pt;}
---PRO div.google-chart {width:809px; height:500px;}
-PRO div.google-chart {width:1200px; height:500px;}
+--PRO div.google-chart {width:1200px; height:500px;}
+PRO div.google-chart {width:&&cs_chart_width.; height:&&cs_chart_height.;}
 PRO </style>
 PRO
-PRO <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+--PRO <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+PRO <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 PRO <script type="text/javascript">
-PRO google.load("visualization", "1", {packages:["corechart"]})
-PRO google.setOnLoadCallback(drawChart)
+--PRO google.load("visualization", "1", {packages:["corechart"]})
+PRO google.charts.load('current', {'packages':['corechart']});;
+PRO google.setOnLoadCallback(drawChart);;
 PRO
 PRO function drawChart() {
 PRO var data = google.visualization.arrayToDataTable([

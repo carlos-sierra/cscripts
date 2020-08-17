@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/04/28
+-- Version:     2020/04/21
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -30,7 +30,7 @@ DEF cs_hours_range_default = '336';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+ALTER SESSION SET container = CDB$ROOT;
 --
 COL perc FOR 990.0;
 COL waited_seconds FOR 999,999,999,990;
@@ -77,30 +77,34 @@ CLEAR BREAK COMPUTE;
 PRO
 PRO 3. Event Name (1):
 DEF event_name_1 = '&3.';
+UNDEF 3;
 DEF wait_class_1 = '';
 COL wait_class_1 NEW_V wait_class_1 NOPRI;
-SELECT wait_class wait_class_1 FROM v$system_event WHERE event = '&&event_name_1.'
+SELECT wait_class wait_class_1 FROM dba_hist_system_event WHERE event_name = '&&event_name_1.' AND ROWNUM = 1
 /
 PRO
 PRO 4. Event Name (2):
 DEF event_name_2 = '&4.';
+UNDEF 4;
 DEF wait_class_2 = '';
 COL wait_class_2 NEW_V wait_class_2 NOPRI;
-SELECT wait_class wait_class_2 FROM v$system_event WHERE event = '&&event_name_2.'
+SELECT wait_class wait_class_2 FROM dba_hist_system_event WHERE event_name = '&&event_name_2.' AND ROWNUM = 1
 /
 PRO
 PRO 5. Event Name (3):
 DEF event_name_3 = '&5.';
+UNDEF 5;
 DEF wait_class_3 = '';
 COL wait_class_3 NEW_V wait_class_3 NOPRI;
-SELECT wait_class wait_class_3 FROM v$system_event WHERE event = '&&event_name_3.'
+SELECT wait_class wait_class_3 FROM dba_hist_system_event WHERE event_name = '&&event_name_3.' AND ROWNUM = 1
 /
 PRO
 PRO 6. Event Name (4):
 DEF event_name_4 = '&6.';
+UNDEF 6;
 DEF wait_class_4 = '';
 COL wait_class_4 NEW_V wait_class_4 NOPRI;
-SELECT wait_class wait_class_4 FROM v$system_event WHERE event = '&&event_name_4.'
+SELECT wait_class wait_class_4 FROM dba_hist_system_event WHERE event_name = '&&event_name_4.' AND ROWNUM = 1
 /
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
@@ -118,7 +122,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&event_name_1." "&&event_name_2." "&&event_name_3." "&&event_name_4."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -183,8 +187,8 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
-DEF cs_chart_type = 'Area';
+-- [Line|Area|SteppedArea|Scatter]
+DEF cs_chart_type = 'SteppedArea';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie
@@ -198,7 +202,7 @@ DEF cs_curve_type = '//';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&event_name_1." "&&event_name_2." "&&event_name_3." "&&event_name_4."
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

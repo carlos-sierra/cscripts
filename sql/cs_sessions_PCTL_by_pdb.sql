@@ -47,8 +47,9 @@ COL p99 HEA '99th PCTL';
 COL p99 HEA '99th PCTL';
 COL p999 HEA '99.9th PCTL';
 COL max HEA 'MAX';
-COL min_sample_time FOR A19;
-COL max_sample_time FOR A19;
+COL min_sample_time FOR A19 HEA 'SAMPLE_TIME_FROM';
+COL max_sample_time FOR A19 HEA 'SAMPLE_TIME_TO';
+COL max_date FOR A19;
 --
 BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p99 p999 max ON REPORT;
@@ -63,7 +64,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_id,
        COUNT(*) cnt,
        MIN(h.sample_time) min_sample_time,
-       MAX(h.sample_time) max_sample_time
+       MAX(h.sample_time) max_sample_time,
+       ROW_NUMBER() OVER (PARTITION BY c.name ORDER BY COUNT(*) DESC, MIN(h.sample_time)) AS rn
   FROM dba_hist_active_sess_history h,
        v$containers c
  WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
@@ -82,6 +84,7 @@ SELECT pdb_name,
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY cnt) p99,
        PERCENTILE_DISC(0.999) WITHIN GROUP (ORDER BY cnt) p999,
        MAX(cnt) max,
+       TO_CHAR(MIN(CASE rn WHEN 1 THEN min_sample_time END), 'YYYY-MM-DD"T"HH24:MI:SS') AS max_date,
        TO_CHAR(MIN(min_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') min_sample_time,
        TO_CHAR(MAX(max_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') max_sample_time
   FROM by_sample

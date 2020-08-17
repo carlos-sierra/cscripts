@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/04/08
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -25,28 +25,30 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_total_and_parse_db_and_cpu_aas_chart';
-DEF cs_hours_range_default = '168';
+DEF cs_hours_range_default = '24';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
 --ALTER SESSION SET container = CDB$ROOT;
 --
-PRO 3. Granularity: [{HH}|SS|MI|5MI|15MI|DD]
-DEF cs2_granularity = '&3';
+PRO
+PRO 3. Granularity: [{5MI}|SS|MI|15MI|HH|DD]
+DEF cs2_granularity = '&3.';
+UNDEF 3;
 COL cs2_granularity NEW_V cs2_granularity NOPRI;
-SELECT NVL(UPPER(TRIM('&&cs2_granularity.')), 'HH') cs2_granularity FROM DUAL;
-SELECT CASE WHEN '&&cs2_granularity.' IN ('HH', 'SS', 'MI', '5MI', '15MI', 'DD') THEN '&&cs2_granularity.' ELSE 'HH' END cs2_granularity FROM DUAL;
+SELECT NVL(UPPER(TRIM('&&cs2_granularity.')), '5MI') cs2_granularity FROM DUAL;
+SELECT CASE WHEN '&&cs2_granularity.' IN ('SS', 'MI', '5MI', '15MI', 'HH', 'DD') THEN '&&cs2_granularity.' ELSE '5MI' END cs2_granularity FROM DUAL;
 --
 COL cs2_plus_days NEW_V cs2_plus_days NOPRI;
 SELECT CASE '&&cs2_granularity.' 
-         WHEN 'HH' THEN '0.041666666666667' -- (1/24) 1 hour
-         WHEN 'SS' THEN '0' 
+         WHEN 'SS' THEN '0.000011574074074' -- (1/24/3600) 1 second
          WHEN 'MI' THEN '0.000694444444444' -- (1/24/60) 1 minute
-         WHEN '5MI' THEN '0.01041666666666' -- (5/24/60) 5 minutes
+         WHEN '5MI' THEN '0.003472222222222' -- (5/24/60) 5 minutes
          WHEN '15MI' THEN '0.01041666666666' -- (15/24/60) 15 minutes
+         WHEN 'HH' THEN '0.041666666666667' -- (1/24) 1 hour
          WHEN 'DD' THEN '1' -- 1 day
-         ELSE '0.041666666666667' -- default of 1 hour
+         ELSE '0.003472222222222' -- default of 5 minutes
        END cs2_plus_days 
   FROM DUAL
 /
@@ -54,6 +56,7 @@ SELECT CASE '&&cs2_granularity.'
 PRO
 PRO 4. SQL_ID (opt): 
 DEF cs_sql_id = '&4.';
+UNDEF 4;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -68,10 +71,10 @@ DEF is_stacked = "isStacked: false,";
 DEF vaxis_baseline = ", baseline:&&cs_num_cpu_cores., baselineColor:'red'";
 --DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
-DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{HH}|SS|MI|5MI|15MI|DD]";
+DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{5MI}|SS|MI|15MI|HH|DD]";
 DEF chart_foot_note_3 = "<br>3) Target Ratio is 100. A Ratio of 25 means: from elapsed time, only 25% is consumed on CPU (service), while 75% was overhead (waiting).";
 DEF chart_foot_note_4 = "<br>";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs_sql_id."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -84,14 +87,24 @@ PRO ]
 SET HEA OFF PAGES 0;
 /****************************************************************************************/
 WITH
+FUNCTION ceil_timestamp (p_timestamp IN TIMESTAMP)
+RETURN DATE
+IS
+BEGIN
+  IF '&&cs2_granularity.' = 'SS' THEN
+    RETURN CAST(p_timestamp AS DATE) + &&cs2_plus_days.;
+  ELSIF '&&cs2_granularity.' = '15MI' THEN
+    RETURN TRUNC(CAST(p_timestamp AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(p_timestamp AS DATE), 'MI')) / 15) * 15 / (24 * 60) + &&cs2_plus_days.;
+  ELSIF '&&cs2_granularity.' = '5MI' THEN
+    RETURN TRUNC(CAST(p_timestamp AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(p_timestamp AS DATE), 'MI')) / 5) * 5 / (24 * 60) + &&cs2_plus_days.;
+  ELSE
+    RETURN TRUNC(CAST(p_timestamp AS DATE) + &&cs2_plus_days., '&&cs2_granularity.');
+  END IF;
+END ceil_timestamp;
+/****************************************************************************************/
 my_query AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       CASE '&&cs2_granularity.' 
-         WHEN 'SS' THEN CAST(sample_time AS DATE) 
-         WHEN '15MI' THEN TRUNC(CAST(sample_time AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(sample_time AS DATE), 'MI')) / 15) * 15 / (24 * 60) + &&cs2_plus_days.
-         WHEN '5MI' THEN TRUNC(CAST(sample_time AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(sample_time AS DATE), 'MI')) / 5) * 5 / (24 * 60) + &&cs2_plus_days.
-         ELSE TRUNC(CAST(sample_time AS DATE) + &&cs2_plus_days., '&&cs2_granularity.') 
-       END time,
+       ceil_timestamp(sample_time) time,
        ROUND(24 * 3600 * (MAX(CAST(sample_time AS DATE)) - MIN(CAST(sample_time AS DATE))) + 10) interval_secs,
        10 * COUNT(*) total_db_secs, 
        SUM(CASE session_state WHEN 'ON CPU' THEN 10 ELSE 0 END) total_cpu_secs,
@@ -106,12 +119,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND ('&&cs_sql_id.' IS NULL OR sql_id = '&&cs_sql_id.')
    AND sql_id IS NOT NULL
  GROUP BY
-       CASE '&&cs2_granularity.' 
-         WHEN 'SS' THEN CAST(sample_time AS DATE) 
-         WHEN '15MI' THEN TRUNC(CAST(sample_time AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(sample_time AS DATE), 'MI')) / 15) * 15 / (24 * 60) + &&cs2_plus_days.
-         WHEN '5MI' THEN TRUNC(CAST(sample_time AS DATE), 'HH') + FLOOR(TO_NUMBER(TO_CHAR(CAST(sample_time AS DATE), 'MI')) / 5) * 5 / (24 * 60) + &&cs2_plus_days.
-         ELSE TRUNC(CAST(sample_time AS DATE) + &&cs2_plus_days., '&&cs2_granularity.') 
-       END
+       ceil_timestamp(sample_time)
 )
 SELECT ', [new Date('||
        TO_CHAR(q.time, 'YYYY')|| /* year */
@@ -135,7 +143,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Line';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -150,7 +158,7 @@ DEF cs_curve_type = '';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs_sql_id." 
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

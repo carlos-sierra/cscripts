@@ -17,23 +17,25 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */
 v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
        DISTINCT 
-       o.to_hash, o.to_address 
+       o.to_owner, o.to_name
+      --  o.to_hash, o.to_address 
   FROM v$object_dependency o,
        v_sqlarea_m s
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
+   AND o.to_type = 2 -- table
 ),
-v_db_object_cache_m AS (
-SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
-       DISTINCT 
-       SUBSTR(c.owner,1,30) object_owner, 
-       SUBSTR(c.name,1,30) object_name 
-  FROM v$db_object_cache c,
-       v_object_dependency_m d
- WHERE c.type IN ('TABLE','VIEW') 
-   AND c.hash_value = d.to_hash
-   AND c.addr = d.to_address 
-),
+-- v_db_object_cache_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
+--        DISTINCT 
+--        SUBSTR(c.owner,1,30) AS object_owner, 
+--        SUBSTR(c.name,1,30) AS object_name 
+--   FROM v$db_object_cache c,
+--        v_object_dependency_m d
+--  WHERE c.type IN ('TABLE','VIEW') 
+--    AND c.hash_value = d.to_hash
+--    AND c.addr = d.to_address 
+-- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
        t.owner, 
@@ -48,9 +50,12 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
        t.last_analyzed,
        t.compression
   FROM dba_tables t,
-       v_db_object_cache_m c
- WHERE t.owner = c.object_owner
-   AND t.table_name = c.object_name 
+       v_object_dependency_m o
+      --  v_db_object_cache_m c
+--  WHERE t.owner = c.object_owner
+--    AND t.table_name = c.object_name 
+ WHERE t.owner = o.to_owner
+   AND t.table_name = o.to_name 
 )
 SELECT /*+ QB_NAME(get_stats) */
        h.owner, 

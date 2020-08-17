@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/04/20
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -24,7 +24,7 @@
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
 --
-DEF cs_script_name = 'cs_osstat_cpu_load_chart';
+DEF cs_script_name = 'cs_osstat_cpu_busy_chart';
 DEF cs_hours_range_default = '336';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
@@ -34,10 +34,10 @@ DEF cs_hours_range_default = '336';
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'CPU Busy Threads between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
+DEF report_title = 'Busy CPU Cores between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
 DEF xaxis_title = '';
-DEF vaxis_title = 'CPU Threads';
+DEF vaxis_title = 'Busy CPU Cores';
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
@@ -47,7 +47,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Other: I/O Wait Time + Nice Time + Unaccounted Time";
 DEF chart_foot_note_3 = "<br>3) Server has &&cs_num_cpu_cores. CPU Cores";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -110,7 +110,7 @@ SELECT ', [new Date('||
        ')'||
        ','||q.usr|| 
        ','||q.sys|| 
-       ','||(q.busy - q.usr - q.sys)|| 
+       ','||GREATEST(q.busy - q.usr - q.sys, 0)|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -119,8 +119,8 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
-DEF cs_chart_type = 'Area';
+-- [Line|Area|SteppedArea|Scatter]
+DEF cs_chart_type = 'SteppedArea';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie
@@ -129,12 +129,12 @@ DEF cs_chart_option_pie = '//';
 DEF cs_oem_colors_series = '';
 DEF cs_oem_colors_slices = '//';
 -- for line charts
-DEF cs_curve_type = '';
+DEF cs_curve_type = '//';
 --
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

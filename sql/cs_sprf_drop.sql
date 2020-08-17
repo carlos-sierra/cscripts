@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/04/26
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,12 +31,13 @@ DEF cs_script_name = 'cs_sprf_drop';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
 @@cs_internal/cs_spool_head.sql
@@ -51,21 +52,13 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
 @@cs_internal/cs_sprf_internal_stgtab.sql
 @@cs_internal/cs_sprf_internal_pack.sql
 --
-PRO
-PRO Drop SQL Profile(s) for: "&&cs_sql_id."
-BEGIN
-  FOR i IN (SELECT name FROM dba_sql_profiles WHERE signature = &&cs_signature.) 
-  LOOP
-    DBMS_SQLTUNE.drop_sql_profile(name => i.name); 
-  END LOOP;
-END;
-/
+@@cs_internal/cs_sprf_internal_drop.sql
 --
 @@cs_internal/cs_sprf_internal_list.sql
 --

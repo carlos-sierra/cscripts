@@ -1,4 +1,5 @@
 DEF computed_metric = '&1.';
+UNDEF 1;
 --
 COL file_name NEW_V file_name NOPRI;
 SELECT CASE LOWER(TRIM('&&computed_metric.'))
@@ -78,10 +79,10 @@ SELECT CASE WHEN '&&sql_id.' IS NULL THEN 'SQL' ELSE 'Plans' END top_what FROM D
 --
 DEF chart_title = 'Top &&top_what. as per &&metric_display. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF report_title = 'Top &&top_what. as per &&metric_display. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
-DEF xaxis_title = 'type:"&&kiev_tx." text:"&&sql_text_piece." SQL_ID:"&&sql_id." metric:"&&computed_metric."';
+DEF xaxis_title = '';
 DEF vaxis_title = 'vaxis_title';
-COL vaxis_title NEW_V vaxis_title NOPRI;
 --
+COL vaxis_title NEW_V vaxis_title NOPRI;
 SELECT CASE LOWER(TRIM('&&computed_metric.'))
        WHEN 'db_time_exec'               THEN 'Milliseconds per Exec'
        WHEN 'db_time_aas'                THEN 'Average Active Sessions (AAS)'
@@ -115,6 +116,14 @@ SELECT CASE LOWER(TRIM('&&computed_metric.'))
   FROM DUAL
 /
 --
+COL xaxis_title NEW_V xaxis_title NOPRI;
+SELECT
+CASE WHEN NVL('&&kiev_tx.', '*') <> '*' THEN 'Type:"&&kiev_tx." ' END||
+CASE WHEN '&&sql_text_piece.' IS NOT NULL THEN 'Text:"%&&sql_text_piece.%" ' END||
+CASE WHEN '&&sql_id.' IS NOT NULL THEN 'SQL_ID:"&&sql_id." ' END||
+CASE WHEN '&&computed_metric.' IS NOT NULL THEN 'Metric:"&&computed_metric." ' END AS xaxis_title
+FROM DUAL;
+--
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
 DEF is_stacked = "isStacked: true,";
@@ -123,7 +132,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Expect lower values than OEM Top Activity since only a subset of SQL is captured into dba_hist_sqlstat.";
 DEF chart_foot_note_3 = "<br>3) PL/SQL executions are excluded since they distort charts.";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&computed_metric." "&&kiev_tx." "&&sql_text_piece." "&&sql_id."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -164,6 +173,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'QueryTransactorHosts'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'WriteBucketValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch commit'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch mutation log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetchAllIdentities'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetch_epoch'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readFromTxorStateBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readOnlyBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'validateTransactorState'||k_appl_handle_suffix 
     OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
   THEN RETURN 'TP'; /* Transaction Processing */
   --
@@ -185,6 +203,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch latest revisions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KievTransactionKeys'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for table KIEVMUTATIONLOG partition'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Init lock name for snapshot'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'List snapshot tables.'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Tail read bucket'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performSegmentedScanQuery'||k_appl_handle_suffix 
   THEN RETURN 'RO'; /* Read Only */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Background'||k_appl_handle_suffix 
@@ -226,6 +253,32 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'update_heartbeat'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'verify_is_leader'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checking existence of Mutation Log Table'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONKEYS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KT partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KTK partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KIEVMUTATIONLOG'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Insert dynamic config'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createProxyUser'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createSequence'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'deregister_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropAutoSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropBucketFromMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactionKeys table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactions table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get session count'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'initializeMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isKtPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'register_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateSchemaVersionInDB'||k_appl_handle_suffix 
   THEN RETURN 'BG'; /* Background */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Ignore'||k_appl_handle_suffix 
@@ -237,6 +290,8 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectDatastoreMd'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'SQL Analyze('||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateDataStoreId'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
@@ -251,7 +306,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.SUBSTR(sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
    AND ('&&sql_id.' IS NULL OR sql_id = '&&sql_id.')
    AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.SUBSTR(sql_text, 1000))||CHR(37))
-   AND command_type NOT IN (SELECT action FROM audit_actions WHERE name IN ('PL/SQL EXECUTE', 'EXECUTE PROCEDURE'))
+   --AND command_type NOT IN (SELECT action FROM audit_actions WHERE name IN ('PL/SQL EXECUTE', 'EXECUTE PROCEDURE'))
 ),
 /****************************************************************************************/
 snapshots AS (
@@ -519,30 +574,32 @@ SELECT /*+ MATERIALIZE NO_MERGE FULL(s) FULL(t) USE_HASH(s t) LEADING(s t) */
        ','||TO_CHAR(s.end_date_time, 'MI')|| /* minute */
        ','||TO_CHAR(s.end_date_time, 'SS')|| /* second */
        ')'||
-       ','||ROUND(t.top_00,3)||
-       ','||ROUND(t.top_01,3)||
-       ','||ROUND(t.top_02,3)||
-       ','||ROUND(t.top_03,3)||
-       ','||ROUND(t.top_04,3)||
-       ','||ROUND(t.top_05,3)||
-       ','||ROUND(t.top_06,3)||
-       ','||ROUND(t.top_07,3)||
-       ','||ROUND(t.top_08,3)||
-       ','||ROUND(t.top_09,3)||
-       ','||ROUND(t.top_10,3)||
-       ','||ROUND(t.top_11,3)||
-       ','||ROUND(t.top_12,3)||
+       ','||ROUND(t.top_00,1)||
+       ','||ROUND(t.top_01,1)||
+       ','||ROUND(t.top_02,1)||
+       ','||ROUND(t.top_03,1)||
+       ','||ROUND(t.top_04,1)||
+       ','||ROUND(t.top_05,1)||
+       ','||ROUND(t.top_06,1)||
+       ','||ROUND(t.top_07,1)||
+       ','||ROUND(t.top_08,1)||
+       ','||ROUND(t.top_09,1)||
+       ','||ROUND(t.top_10,1)||
+       ','||ROUND(t.top_11,1)||
+       ','||ROUND(t.top_12,1)||
        /*
-       ','||ROUND(t.top_13,3)||
-       ','||ROUND(t.top_14,3)||
-       ','||ROUND(t.top_15,3)||
-       ','||ROUND(t.top_16,3)||
-       ','||ROUND(t.top_17,3)||
-       ','||ROUND(t.top_18,3)||
-       ','||ROUND(t.top_19,3)||
-       ','||ROUND(t.sql_20,3)||
+       ','||ROUND(t.top_13,1)||
+       ','||ROUND(t.top_14,1)||
+       ','||ROUND(t.top_15,1)||
+       ','||ROUND(t.top_16,1)||
+       ','||ROUND(t.top_17,1)||
+       ','||ROUND(t.top_18,1)||
+       ','||ROUND(t.top_19,1)||
+       ','||ROUND(t.sql_20,1)||
        */
-       ']' line
+       ']' line--,
+       --ROW_NUMBER() OVER (ORDER BY s.end_date_time ASC  NULLS LAST) AS head_rn,
+       --ROW_NUMBER() OVER (ORDER BY s.end_date_time DESC NULLS LAST) AS tail_rn
   FROM sqlstat_top t,
        snapshots s /* dba_hist_snapshot */
  WHERE s.snap_id = t.snap_id
@@ -557,15 +614,27 @@ SELECT line FROM sql_list_part_2
 SELECT ']' line FROM DUAL
  UNION ALL
 SELECT line FROM data_list
+ --WHERE head_rn > 1
+   --AND tail_rn > 1
 /
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
-DEF cs_chart_type = 'Area';
+-- [Line|Area|SteppedArea|Scatter]
+DEF cs_chart_type = 'SteppedArea';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '//';
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
+--
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&computed_metric." "&&kiev_tx." "&&sql_text_piece." "&&sql_id."
+PRO &&report_foot_note.
 --

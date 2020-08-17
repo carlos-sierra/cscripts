@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/02/22
+-- Version:     2020/05/04
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -36,8 +36,8 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = 'Root Blocker Status and its contribution to Blocked Sessions between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
-DEF xaxis_title = 'Root Blocker Status: ACTIVE(inside DB), INACTIVE(outside DB) or UNKNOWN';
-DEF vaxis_title = 'Blocked Sessions Count';
+DEF xaxis_title = '';
+DEF vaxis_title = '';
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 DEF is_stacked = "isStacked: false,";
@@ -48,7 +48,26 @@ DEF chart_foot_note_2 = '<br>2) ROOT BLOCKER SESSION STATUS "INACTIVE" means: Da
 DEF chart_foot_note_3 = "<br>";
 --DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."';
+--
+DEF chart_foot_note_0 = '';
+DEF chart_foot_note_1 = '';
+-- [Line|Area|SteppedArea|ScatterPie]
+DEF cs_chart_type = 'Pie';
+DEF cs_chart_width = '900px';
+DEF cs_chart_height = '450px';
+DEF cs_chartarea_height = '80%';
+-- disable explorer with "//" when using Pie
+DEF cs_chart_option_explorer = '//';
+-- enable pie options with "" when using Pie
+DEF cs_chart_option_pie = '';
+-- pieSliceText [{percentage}|value|label|none]
+DEF cs_chart_pie_slice_text = "// pieSliceText: 'percentage',";
+-- use oem colors
+DEF cs_oem_colors_series = '//';
+DEF cs_oem_colors_slices = '//';
+-- for line charts
+DEF cs_curve_type = '//';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -70,7 +89,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        session_state, 
        wait_class, 
        event,
-       sql_id
+       sql_id,
+       top_level_sql_id
   FROM v$active_session_history
  WHERE sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
@@ -96,17 +116,17 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 all_sessions AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        a.sample_id, CAST(a.sample_time AS DATE) sample_time, a.machine, a.session_id, a.session_serial#, a.blocking_session, a.blocking_session_serial#, 
-       'ACTIVE' status, session_state, wait_class, event, sql_id
+       'ACTIVE' status, session_state, wait_class, event, sql_id, top_level_sql_id
   FROM ash a
  UNION ALL
 SELECT /*+ MATERIALIZE NO_MERGE */
        i.sample_id, i.sample_time, NULL machine, i.session_id, i.session_serial#, TO_NUMBER(NULL), TO_NUMBER(NULL), 
-       'INACTIVE or UNKNOWN' status, NULL session_state, NULL wait_class, NULL event, NULL sql_id
+       'INACTIVE or UNKNOWN' status, NULL session_state, NULL wait_class, NULL event, NULL sql_id, NULL top_level_sql_id
   FROM inactive_sessions i
 ),
 sess_history AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sample_id, sample_time, machine, session_id, session_serial#, status, session_state, wait_class, event, sql_id,
+       sample_id, sample_time, machine, session_id, session_serial#, status, session_state, wait_class, event, sql_id, top_level_sql_id,
        LEVEL lvl,
        CONNECT_BY_ROOT machine blocker_machine,
        CONNECT_BY_ROOT session_id blocker_session,
@@ -118,17 +138,17 @@ CONNECT BY sample_id = PRIOR sample_id AND blocking_session = PRIOR session_id A
 ),
 blockers AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sample_id, sample_time, status, session_state, wait_class, event, sql_id, session_id, session_serial#
+       sample_id, sample_time, status, session_state, wait_class, event, sql_id, top_level_sql_id, session_id, session_serial#
   FROM sess_history
  WHERE lvl = 1
 ),
 blockees AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sample_id, sample_time, status, blocker_session, blocker_session_serial#, COUNT(*) cnt
+       sample_id, sample_time, status, wait_class, event, blocker_session, blocker_session_serial#, COUNT(*) cnt
   FROM sess_history
  WHERE lvl > 1
  GROUP BY
-       sample_id, sample_time, status, blocker_session, blocker_session_serial#
+       sample_id, sample_time, status, wait_class, event, blocker_session, blocker_session_serial#
 ),
 machines AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -146,11 +166,12 @@ blockers_and_blockees AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        b.sample_id, 
        b.sample_time time, 
+       a.wait_class||' - '||a.event AS wait_class_event,
        b.status blocker_status,
        b.session_state blocker_session_state, 
        b.wait_class blocker_wait_class, 
        b.event blocker_event,
-       b.sql_id blocker_sql_id,
+       COALESCE(b.sql_id, b.top_level_sql_id) AS blocker_sql_id,
        NVL(m.machine, 'unknown') machine,
        b.session_id blocker_session_id, 
        b.session_serial# blocker_session_serial#,
@@ -196,22 +217,10 @@ SELECT ', ['''||slice||percent||''','||value||']'
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter|Pie]
-DEF cs_chart_type = 'Pie';
--- disable explorer with "//" when using Pie
-DEF cs_chart_option_explorer = '//';
--- enable pie options with "" when using Pie
-DEF cs_chart_option_pie = '';
--- use oem colors
-DEF cs_oem_colors_series = '//';
-DEF cs_oem_colors_slices = '//';
--- for line charts
-DEF cs_curve_type = '//';
---
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

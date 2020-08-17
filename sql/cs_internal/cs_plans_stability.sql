@@ -1,3 +1,5 @@
+COL con_id FOR 999 HEA 'Con|ID';
+COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL last_active_time FOR A19 HEA 'Last Active Time';
 COL last_load_time FOR A19 HEA 'Last Load Time';
 COL child_number FOR 999999 HEA 'Child|Number';
@@ -20,31 +22,33 @@ COL parsing_schema_name FOR A30 HEA 'Parsing Schema Name';
 PRO
 PRO PLANS STABILITY (v$sql)
 PRO ~~~~~~~~~~~~~~~
-SELECT TO_CHAR(last_active_time, '&&cs_datetime_full_format.') last_active_time,
-       con_id,
-       child_number,
-       plan_hash_value,
-       REPLACE(last_load_time, '/', 'T') last_load_time,
-       loads,
-       invalidations,
-       object_status,  
-       is_obsolete,
-       is_shareable,
-       is_bind_aware,
-       is_bind_sensitive,
-       optimizer_cost, 
-       optimizer_env_hash_value,
-       sql_plan_baseline,
-       sql_profile,
-       sql_patch,
-       REPLACE(first_load_time, '/', 'T') first_load_time,
-       parsing_schema_name
-  FROM v$sql
- WHERE sql_id = '&&cs_sql_id.'
-   --AND executions > 0
+SELECT s.con_id,
+       c.name AS pdb_name,
+       TO_CHAR(s.last_active_time, '&&cs_datetime_full_format.') AS last_active_time,
+       s.child_number,
+       s.plan_hash_value,
+       REPLACE(s.last_load_time, '/', 'T') AS last_load_time,
+       s.loads,
+       s.invalidations,
+       s.object_status,  
+       s.is_obsolete,
+       s.is_shareable,
+       s.is_bind_aware,
+       s.is_bind_sensitive,
+       s.optimizer_cost, 
+       s.optimizer_env_hash_value,
+       s.sql_plan_baseline,
+       s.sql_profile,
+       s.sql_patch,
+       REPLACE(s.first_load_time, '/', 'T') AS first_load_time,
+       s.parsing_schema_name
+  FROM v$sql s,
+       v$containers c
+ WHERE s.sql_id = '&&cs_sql_id.'
+   AND c.con_id = s.con_id
  ORDER BY
-       last_active_time,
-       con_id,
-       child_number
+       s.con_id,
+       s.last_active_time,
+       s.child_number
 /
 --

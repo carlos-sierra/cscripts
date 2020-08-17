@@ -6,9 +6,9 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/09/03
+-- Version:     2019/07/01
 --
--- Usage:       Execute connected to CDB.
+-- Usage:       Execute connected to CDB or PDB.
 --
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @cs_rsrc_mgr_report.sql
@@ -34,7 +34,12 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 PRO SQL> @&&cs_script_name..sql 
 @@cs_internal/cs_spool_id.sql
 --
-@@cs_internal/cs_rsrc_mgr_internal.sql
+@@cs_internal/cs_rsrc_mgr_internal_set.sql
+@@cs_internal/cs_rsrc_mgr_internal_configuration.sql
+@@cs_internal/cs_rsrc_mgr_internal_directives.sql
+@@cs_internal/cs_rsrc_mgr_internal_history.sql
+@@cs_internal/cs_rsrc_mgr_internal_directives.sql
+@@cs_internal/cs_rsrc_mgr_internal_configuration.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql 

@@ -4,6 +4,7 @@ COL index_name FOR A30 HEA 'Index Name';
 COL column_position FOR 999 HEA 'Pos';
 COL column_name FOR A30 HEA 'Column Name';
 COL data_type FOR A33 HEA 'Data Type';
+COL data_length FOR 999,999,990 HEA 'Data Length';
 COL nullable FOR A8 HEA 'Nullable';
 COL data_default FOR A30 HEA 'Data Default';
 COL num_distinct FOR 999,999,999,990 HEA 'Num Distinct';
@@ -33,31 +34,36 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */
 v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
        DISTINCT 
-       o.to_hash, o.to_address 
+       o.to_owner, o.to_name
+      --  o.to_hash, o.to_address 
   FROM v$object_dependency o,
        v_sqlarea_m s
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
+   AND o.to_type = 2 -- table
 ),
-v_db_object_cache_m AS (
-SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
-       DISTINCT 
-       SUBSTR(c.owner,1,30) object_owner, 
-       SUBSTR(c.name,1,30) object_name 
-  FROM v$db_object_cache c,
-       v_object_dependency_m d
- WHERE c.type IN ('TABLE','VIEW') 
-   AND c.hash_value = d.to_hash
-   AND c.addr = d.to_address 
-),
+-- v_db_object_cache_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
+--        DISTINCT 
+--        SUBSTR(c.owner,1,30) AS object_owner, 
+--        SUBSTR(c.name,1,30) AS object_name 
+--   FROM v$db_object_cache c,
+--        v_object_dependency_m d
+--  WHERE c.type IN ('TABLE','VIEW') 
+--    AND c.hash_value = d.to_hash
+--    AND c.addr = d.to_address 
+-- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
        t.owner, 
        t.table_name
   FROM dba_tables t,
-       v_db_object_cache_m c
- WHERE t.owner = c.object_owner
-   AND t.table_name = c.object_name 
+       v_object_dependency_m o
+      --  v_db_object_cache_m c
+--  WHERE t.owner = c.object_owner
+--    AND t.table_name = c.object_name 
+ WHERE t.owner = o.to_owner
+   AND t.table_name = o.to_name 
 )
 SELECT /*+ QB_NAME(get_stats) */
        i.table_owner,
@@ -66,6 +72,7 @@ SELECT /*+ QB_NAME(get_stats) */
        i.column_position,
        c.column_name,
        c.data_type,
+       c.data_length,
        c.nullable,
        c.data_default data_default,
        c.num_distinct,

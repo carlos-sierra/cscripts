@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/25
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,6 +31,7 @@ DEF cs_script_name = 'cs_spbl_plan';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --

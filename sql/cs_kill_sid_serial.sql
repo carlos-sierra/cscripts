@@ -1,4 +1,0 @@
-PRO 1. Enter SID,SERIAL:
-DEF sid_serial = '&1.';
-PRO
-ALTER SYSTEM DISCONNECT SESSION '&&sid_serial.' IMMEDIATE;

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/10/24
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -40,6 +40,7 @@ SELECT DISTINCT owner table_owner
 PRO
 PRO 3. Table Owner (opt):
 DEF table_owner = '&3.';
+UNDEF 3;
 --
 SELECT DISTINCT table_name
   FROM c##iod.table_redefinition_hist
@@ -50,6 +51,7 @@ SELECT DISTINCT table_name
 PRO
 PRO 4. Table Name (opt):
 DEF table_name = '&4.';
+UNDEF 4;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --

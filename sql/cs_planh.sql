@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/29
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -19,8 +19,6 @@
 --
 --              Developed and tested on 12.1.0.2.
 --
---              To further dive into SQL performance diagnostics use SQLd360.
---             
 ---------------------------------------------------------------------------------------
 --
 @@cs_internal/cs_primary.sql
@@ -33,6 +31,7 @@ DEF cs_script_name = 'cs_planh';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 DEF cs_plan_hash_value = '';
 @@cs_internal/cs_plans_awr_1.sql
@@ -40,6 +39,7 @@ DEF cs_plan_hash_value = '';
 PRO
 PRO 2. PLAN_HASH_VALUE (opt):
 DEF cs_plan_hash_value = '&2.';
+UNDEF 2;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --

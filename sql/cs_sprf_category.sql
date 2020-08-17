@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/06
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,21 +31,24 @@ DEF cs_script_name = 'cs_sprf_category';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
 PRO
 PRO 2. NAME (req):
 DEF cs_name = '&2.';
+UNDEF 2;
 PRO
 --
 PRO 3. Enter CATEGORY (opt) [{DEFAULT}|DISABLED|<string>]:
 DEF category_passed = "&3.";
+UNDEF 3;
 --
 COL cs_category NEW_V cs_category;
 SELECT CASE WHEN UPPER(NVL('&&category_passed.','DEFAULT')) IN ('DEF', 'DEFAULT') THEN 'DEFAULT' ELSE UPPER('&&category_passed.') END cs_category FROM DUAL;
@@ -64,7 +67,7 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_sprf_internal_list.sql
 --
 PRO

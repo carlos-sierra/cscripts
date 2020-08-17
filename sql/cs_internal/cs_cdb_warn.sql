@@ -1,15 +1,19 @@
 -- warn if executed from CDB$ROOT
+SET SERVEROUT ON;
 BEGIN
   IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
-    raise_application_error(-20000, '*** Be aware! You are executing this script connected into CDB$ROOT. ***');
+    DBMS_OUTPUT.put_line(CHR(10));
+    DBMS_OUTPUT.put_line('***');
+    DBMS_OUTPUT.put_line('*** On CDB$ROOT ***');
+    DBMS_OUTPUT.put_line('***');
+    DBMS_OUTPUT.put_line(CHR(10));
   END IF;
 END;
 /
-BEGIN
-  IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
-    DBMS_LOCK.sleep(3);
-  END IF;
-END;
-/ 
-WHENEVER SQLERROR CONTINUE;
---
+SET SERVEROUT OFF;
+--BEGIN
+--  IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
+--    DBMS_LOCK.sleep(3);
+--  END IF;
+--END;
+--/

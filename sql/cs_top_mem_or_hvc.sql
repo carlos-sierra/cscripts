@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/12/20
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -28,9 +28,11 @@ DEF def_top = '20';
 --
 PRO 1. Top Memory: [{&&def_top.}|1-100]
 DEF top_mem = '&1.';
+UNDEF 1;
 PRO
 PRO 2. Top Versions: [{&&def_top.}|1-100]
 DEF top_ver = '&2.';
+UNDEF 2;
 PRO
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;

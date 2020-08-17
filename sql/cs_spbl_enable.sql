@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/25
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,17 +31,28 @@ DEF cs_script_name = 'cs_spbl_enable';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO
 PRO 2. PLAN_NAME (opt):
 DEF cs_plan_name = '&2.';
+UNDEF 2;
+--
+DEF cs_plan_id = '';
+COL cs_plan_id NEW_V cs_plan_id NOPRI;
+SELECT TO_CHAR(plan_id) cs_plan_id
+  FROM sys.sqlobj$
+ WHERE obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
+   AND signature = TO_NUMBER('&&cs_signature.')
+   AND name = '&&cs_plan_name.'
+/
 PRO
 --
 @@cs_internal/cs_spool_head.sql
@@ -51,13 +62,14 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_name."
 PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO PLAN_NAME    : &&cs_plan_name.
+PRO PLAN_NAME    : "&&cs_plan_name."
+PRO PLAN_ID      : "&&cs_plan_id."
 --
 SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO

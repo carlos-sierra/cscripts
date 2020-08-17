@@ -1,0 +1,1 @@
+CREATE OR REPLACE DIRECTORY CS_TEMP AS '&&cs_temp_dir.';

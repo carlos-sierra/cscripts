@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/18
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -36,10 +36,12 @@ DEF cs_hours_range_default = '24';
 --   
 PRO 3. SQL_ID: 
 DEF cs_sql_id = '&3.';
+UNDEF 3;
 --
 PRO
 PRO 4. Include NULL actions?: [{Y}|N] 
 DEF cs_null = '&4.';
+UNDEF 4;
 COL cs_null NEW_V cs_null;
 SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
 --

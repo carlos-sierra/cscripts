@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/10/31
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -31,6 +31,7 @@ DEF cs_script_name = 'cs_top_cpu_consumers_awr';
 --
 PRO 1. DAYS: [{60}|1-60]
 DEF cs_days = '&1.';
+UNDEF 1;
 COL cs_days NEW_V cs_days;
 SELECT NVL('&&cs_days.', '60') cs_days FROM DUAL;
 --

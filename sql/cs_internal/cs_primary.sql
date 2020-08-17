@@ -1,13 +1,7 @@
--- exit graciously if executed on standby
-WHENEVER SQLERROR EXIT SUCCESS;
-DECLARE
-  l_open_mode VARCHAR2(20);
-BEGIN
-  SELECT open_mode INTO l_open_mode FROM v$database;
-  IF l_open_mode <> 'READ WRITE' THEN
-    raise_application_error(-20000, '*** Must execute on PRIMARY ***');
-  END IF;
-END;
+-- warn if executed not on MOUNTED or READ ONLY
+SET TAB OFF FEED OFF ECHO OFF VER OFF;
+COL open_mode NEW_V open_mode NOPRI;
+COL dynamic_script NEW_V dynamic_script NOPRI;
+SELECT open_mode, CASE open_mode WHEN 'READ WRITE' THEN 'cs_null.sql' ELSE 'cs_primary_warn.sql' END AS dynamic_script FROM v$database
 /
-WHENEVER SQLERROR CONTINUE;
---
+@@&&dynamic_script.

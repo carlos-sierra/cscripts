@@ -2,11 +2,11 @@
 --
 -- File name:   cs_sessions_per_machine_awr_chart.sql
 --
--- Purpose:     Chart of Max Sessions per Machine from AWR
+-- Purpose:     Chart of Avg Sessions per Machine from AWR
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/11/03
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -48,13 +48,14 @@ SELECT machine, 10*COUNT(*) db_time_secs
 PRO
 PRO 3. Machine (opt): 
 DEF cs2_machine = '&3.';
+UNDEF 3;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = "Max Sessions History AWR";
+DEF report_title = "Avg Sessions History AWR";
 DEF chart_title = "Machine(s) &&cs2_machine.";
 DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to.";
-DEF vaxis_title = "Max Sessions";
+DEF vaxis_title = "Avg Sessions";
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
@@ -66,7 +67,7 @@ DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 --DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -108,7 +109,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Line';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -123,7 +124,7 @@ DEF cs_curve_type = '';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine." 
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

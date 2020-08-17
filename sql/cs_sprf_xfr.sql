@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/06
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,16 +31,18 @@ DEF cs_script_name = 'cs_sprf_xfr';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 --
 PRO
 PRO 2. PLAN_HASH_VALUE (required) 
 DEF cs_plan_hash_value = "&2.";
+UNDEF 2;
 --
 -- get other_xml with hints
 VAR cs_other_xml CLOB;
@@ -78,12 +80,15 @@ SET HEA ON;
 VAR xfr_1 CLOB;
 BEGIN
   :xfr_1 := 
+  '--'||CHR(10)||
   '-- cs_sprf_xfr_1_&&cs_sql_id..sql'||CHR(10)||
   '-- execute on target: one cs_sprf_xfr_1_<sql_id>.sql script, followed by one cs_sprf_xfr_2_<plan_hash_value>.sql script.'||CHR(10)||
   '-- this sequence creates a SQL Profile for <sql_id> with <plan_hash_value>.'||CHR(10)||
   '-- scripts 1 and 2 can be from two different systems.'||CHR(10)||
+  '--'||CHR(10)||
   'VAR sql_id_from_xfr_1_to_xfr_2 VARCHAR2(13);'||CHR(10)||
   'VAR sql_text_from_xfr_1_to_xfr_2 CLOB;'||CHR(10)||
+  '--'||CHR(10)||
   'BEGIN'||CHR(10)||
   '  :sql_id_from_xfr_1_to_xfr_2 := ''&&cs_sql_id.'';'||CHR(10)||
   '  :sql_text_from_xfr_1_to_xfr_2 := '||CHR(10)||
@@ -98,10 +103,12 @@ DECLARE
   l_pos INTEGER;
 BEGIN
   :xfr_2 := 
+  '--'||CHR(10)||
   '-- cs_sprf_xfr_2_&&cs_plan_hash_value..sql'||CHR(10)||
   '-- execute on target: one cs_sprf_xfr_1_<sql_id>.sql script, followed by one cs_sprf_xfr_2_<plan_hash_value>.sql script.'||CHR(10)||
   '-- this sequence creates a SQL Profile for <sql_id> with <plan_hash_value>.'||CHR(10)||
   '-- scripts 1 and 2 can be from two different systems.'||CHR(10)||
+  '--'||CHR(10)||
   'DECLARE'||CHR(10)||
   '  profile_attr SYS.SQLPROF_ATTR;'||CHR(10)||
   'BEGIN'||CHR(10)||
@@ -143,22 +150,22 @@ BEGIN
 END;
 /
 -- outputs scripts
-SET HEA OFF;
+SET HEA OFF PAGES 0;
 SPO cs_sprf_xfr_1_&&cs_sql_id..sql
 PRINT :xfr_1
 SPO OFF;
 SPO cs_sprf_xfr_2_&&cs_plan_hash_value..sql
 PRINT :xfr_2;
 SPO OFF;
-SET HEA ON;
+SET HEA ON PAGES 100;
 --
 -- continues with original spool
 SPO &&cs_file_name..txt APP
 PRO
-SET HEA OFF;
+SET HEA OFF PAGES 0;
 PRINT :xfr_1
 PRINT :xfr_2;
-SET HEA ON;
+SET HEA ON PAGES 100;
 --
 PRO
 PRO Scripts cs_sprf_xfr_1_&&cs_sql_id..sql and cs_sprf_xfr_2_&&cs_plan_hash_value..sql were created.
@@ -172,7 +179,3 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value."
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --
-
-
-
-

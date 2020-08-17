@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/20
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -44,6 +44,7 @@ COL table_owner NEW_V table_owner FOR A30;
 PRO
 PRO 1. Table Owner:
 DEF table_owner = '&1.';
+UNDEF 1;
 SELECT UPPER(NVL('&&table_owner.', '&&owner.')) table_owner FROM DUAL
 /
 --
@@ -61,6 +62,7 @@ SELECT DISTINCT h.table_name
 PRO
 PRO 2. Table Name:
 DEF table_name = '&2.';
+UNDEF 2;
 COL table_name NEW_V table_name NOPRI;
 SELECT UPPER(TRIM('&&table_name.')) table_name FROM DUAL;
 --
@@ -80,7 +82,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -128,7 +130,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Scatter';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -143,7 +145,7 @@ DEF cs_curve_type = '';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."
+PRO &&report_foot_note.
 --
 ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

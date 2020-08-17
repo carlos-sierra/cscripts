@@ -64,7 +64,7 @@ WITH ca AS (
 ), ps AS (
     SELECT /*+ MATERIALIZE */
         partition_name,
-        round(bytes / power(2, 20), 2) size_mb
+        round(bytes / POWER(2,20), 2) size_mb
     FROM
         dba_segments
     WHERE
@@ -86,9 +86,9 @@ FROM
             pr.partition_name,
             pr.num_rows,
             ps.size_mb,
-            round((ca.actual_size * pr.num_rows) / power(2, 20), 2) est_used_size_mb,
-            round((ca.est_size * pr.num_rows) / power(2, 20), 2) est_rebuild_size_mb,
-            round((1 -(((ca.est_size * pr.num_rows) / power(2, 20)) / ps.size_mb)) * 100, 2) savings_pct
+            round((ca.actual_size * pr.num_rows) / POWER(2,20), 2) est_used_size_mb,
+            round((ca.est_size * pr.num_rows) / POWER(2,20), 2) est_rebuild_size_mb,
+            round((1 -(((ca.est_size * pr.num_rows) / POWER(2,20)) / ps.size_mb)) * 100, 2) savings_pct
         FROM
             pr,
             ps,
@@ -96,16 +96,16 @@ FROM
         WHERE
             pr.partition_name = ps.partition_name
         ORDER BY
-            round((1 -(((ca.est_size * pr.num_rows) / power(2, 20)) / ps.size_mb)) * 100, 2)
+            round((1 -(((ca.est_size * pr.num_rows) / POWER(2,20)) / ps.size_mb)) * 100, 2)
     )
 UNION ALL
 SELECT
     'TOTAL',
     SUM(pr.num_rows) num_rows,
     SUM(ps.size_mb) size_mb,
-    SUM(round((ca.actual_size * pr.num_rows) / power(2, 20), 2)) est_used_size_mb,
-    SUM(round((ca.est_size * pr.num_rows) / power(2, 20), 2)) est_rebuild_size_mb,
-    round((1 -(SUM(round((ca.est_size * pr.num_rows) / power(2, 20), 2)) / SUM(ps.size_mb))) * 100, 2) savings_pct
+    SUM(round((ca.actual_size * pr.num_rows) / POWER(2,20), 2)) est_used_size_mb,
+    SUM(round((ca.est_size * pr.num_rows) / POWER(2,20), 2)) est_rebuild_size_mb,
+    round((1 -(SUM(round((ca.est_size * pr.num_rows) / POWER(2,20), 2)) / SUM(ps.size_mb))) * 100, 2) savings_pct
 FROM
     pr,
     ps,

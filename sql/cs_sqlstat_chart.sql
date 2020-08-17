@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/20
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -70,6 +70,7 @@ PRO *            : All
 PRO
 PRO 3. Metric Group (name or group, case sensitive): [{Main}|<metric_group>|<group_name>]
 DEF metric_group = '&3.';
+UNDEF 3;
 COL metric_group NEW_V metric_group NOPRI;
 SELECT NVL('&&metric_group.', 'Main') metric_group FROM DUAL
 /
@@ -81,6 +82,7 @@ PRO *=All, TP=Transaction Processing, RO=Read Only, BG=Background, IG=Ignore, UN
 PRO
 PRO 4. SQL Type: [{*}|TP|RO|BG|IG|UN|TP,RO|TP,RO,BG] 
 DEF kiev_tx = '&4.';
+UNDEF 4;
 COL kiev_tx NEW_V kiev_tx NOPRI;
 SELECT UPPER(NVL(TRIM('&&kiev_tx.'), '*')) kiev_tx FROM DUAL
 /
@@ -91,24 +93,28 @@ PRO Enter additional SQL Text filtering, such as Table name or SQL Text piece
 PRO
 PRO 5. SQL Text piece (optional):
 DEF sql_text_piece = '&5.';
+UNDEF 5;
 --
 PRO
 PRO Filtering SQL to reduce search space.
 PRO
 PRO 6. SQL_ID (optional):
 DEF sql_id = '&6.';
+UNDEF 6;
 --
 PRO
 PRO Filtering SQL to reduce search space.
 PRO
 PRO 7. Plan Hash Value (optional):
 DEF phv = '&7.';
+UNDEF 7;
 --
 PRO
 PRO Filtering SQL to reduce search space.
 PRO
 PRO 8. Parsing Schema Name (optional):
 DEF parsing_schema_name = '&8.';
+UNDEF 8;
 --
 SET HEA OFF;
 SPO cs_dynamic_driver.sql

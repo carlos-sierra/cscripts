@@ -6,9 +6,9 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/27
+-- Version:     2020/08/08
 --
--- Usage:       Execute connected to PDB.
+-- Usage:       Execute connected to PDB or CDB.
 --
 --              Enter SQL_ID when requested.
 --
@@ -64,87 +64,104 @@ SELECT SUM(seconds) seconds,
  GROUP BY
        sql_id
  ORDER BY
-       1 DESC, 2 DESC
+       1 DESC, 
+       2 DESC
 /
 --
 PRO
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
-COL sql_exec_id NEW_V sql_exec_id FOR A12;
+PRO
+PRO 2. Top: [{100}|1-1000]
+DEF sqlmon_top = '&2.';
+UNDEF 2;
+COL cs_sqlmon_top NEW_V cs_sqlmon_top NOPRI;
+SELECT CASE WHEN TO_NUMBER('&&sqlmon_top.') BETWEEN 1 AND 1000 THEN '&&sqlmon_top.' ELSE '100' END AS cs_sqlmon_top FROM DUAL
+/
 --
-WITH 
-reports AS (
-SELECT /*+ MATERIALIZE NO_MERGE */
-       r.sql_exec_start,
-       MAX(r.last_refresh_time) last_refresh_time,
-       TO_CHAR(r.sql_exec_id) sql_exec_id,
-       SUM(r.elapsed_time)/1e6 seconds,
-       c.name pdb_name,
-       ROW_NUMBER() OVER (ORDER BY r.sql_exec_start) row_number_by_date,
-       ROW_NUMBER() OVER (ORDER BY SUM(r.elapsed_time)) row_number_by_seconds
-  FROM v$sql_monitor r,
-       v$containers c
- WHERE r.sql_id = '&&cs_sql_id.'
-   AND c.con_id = r.con_id
-   AND c.open_mode = 'READ WRITE'
- GROUP BY
-       c.name,
-       r.sql_exec_id,
-       r.sql_exec_start
-)
-SELECT r1.sql_exec_start,
-       r1.last_refresh_time,
-       r1.seconds,
-       r1.sql_exec_id,
-       r1.pdb_name,
-       '|' "+",
-       r2.seconds,
-       r2.sql_exec_start,
-       r2.last_refresh_time,
-       r2.sql_exec_id,
-       r2.pdb_name
-  FROM reports r1, reports r2
- WHERE r1.row_number_by_date = r2.row_number_by_seconds
- ORDER BY
-       r1.row_number_by_date
+@@cs_internal/cs_sqlmon_mem_internal.sql
+COL sql_exec_id_a NEW_V sql_exec_id_a NOPRI;
+SELECT TRIM(TO_CHAR('&&sql_exec_id.')) AS sql_exec_id_a FROM DUAL
 /
 --
 PRO
-PRO 2. SQL_EXEC_ID: {&&sql_exec_id.}
-DEF cs_sql_exec_id = '&2.';
-SELECT TRIM(NVL('&&cs_sql_exec_id.', '&&sql_exec_id.')) sql_exec_id FROM DUAL;
+PRO 3. SQL_EXEC_ID FROM: {&&sql_exec_id_a.}
+DEF cs_sql_exec_id = '&3.';
+UNDEF 3;
+COL sql_exec_id_from NEW_V sql_exec_id_from NOPRI;
+SELECT TRIM(COALESCE('&&cs_sql_exec_id.', '&&sql_exec_id_a.')) AS sql_exec_id_from FROM DUAL;
 --
-COL sql_exec_start NEW_V sql_exec_start FOR A19;
-SELECT TO_CHAR(MAX(sql_exec_start), '&&cs_datetime_full_format.') sql_exec_start 
-  FROM gv$sql_monitor
- WHERE sql_id = '&&cs_sql_id.'
-   AND sql_exec_id = &&sql_exec_id.
-/
 PRO
-PRO 3. REPORT_TYPE: [{ACTIVE}|TEXT|HTML]
-DEF report_type = '&3.';
+PRO 4. SQL_EXEC_ID TO: {&&sql_exec_id_from.}
+DEF cs_sql_exec_id = '&4.';
+UNDEF 4;
+COL sql_exec_id_to NEW_V sql_exec_id_to NOPRI;
+SELECT TRIM(COALESCE('&&cs_sql_exec_id.', '&&sql_exec_id_from.')) AS sql_exec_id_to FROM DUAL;
 --
-COL cs_report_type NEW_V cs_report_type;
-SELECT CASE WHEN NVL(UPPER(TRIM('&&report_type.')), 'ACTIVE') IN ('HTML', 'ACTIVE') THEN 'html' ELSE 'txt' END cs_report_type FROM DUAL;
+PRO
+PRO 5. REPORT_TYPE: [{TEXT}|ACTIVE|HTML]
+DEF report_type = '&5.';
+UNDEF 5;
 --
-SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id._&&sql_exec_id._&&report_type.' cs_file_name FROM DUAL;
+COL report_type NEW_V report_type NOPRI;
+COL cs_report_type NEW_V cs_report_type NOPRI;
+SELECT CASE WHEN UPPER(TRIM('&&report_type.')) IN ('TEXT', 'HTML', 'ACTIVE') THEN UPPER(TRIM('&&report_type.')) ELSE 'TEXT' END AS report_type, CASE WHEN NVL(UPPER(TRIM('&&report_type.')), 'TEXT') IN ('HTML', 'ACTIVE') THEN 'html' ELSE 'txt' END AS cs_report_type FROM DUAL;
+--
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
+--
+@@cs_internal/cs_signature.sql
+--
+@@cs_internal/cs_spool_head.sql
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_sqlmon_top." "&&sql_exec_id_from." "&&sql_exec_id_to." "&&report_type."
+@@cs_internal/cs_spool_id.sql
+--
+PRO SQL_ID       : &&cs_sql_id.
+PRO SIGNATURE    : &&cs_signature.
+PRO SQL_HANDLE   : &&cs_sql_handle.
+PRO SQL_EXEC_ID  : FROM &&sql_exec_id_from. TO &&sql_exec_id_to.
+PRO REPORT_TYPE  : "&&report_type." [{TEXT}|ACTIVE|HTML]
+--
+SET HEA OFF;
+PRINT :cs_sql_text
+SET HEA ON;
+--
+@@cs_internal/cs_sqlmon_mem_internal.sql
 --
 SET PAGES 0;
-SPO &&cs_file_name..&&cs_report_type.;
-SELECT DBMS_SQLTUNE.report_sql_monitor(sql_id => '&&cs_sql_id.', sql_exec_start => TO_DATE('&&sql_exec_start.', '&&cs_datetime_full_format.'), sql_exec_id => TO_NUMBER('&&sql_exec_id.'), type => NVL(TRIM('&&report_type.'), 'ACTIVE')) FROM DUAL;
+SPO &&cs_file_name._driver.sql
+SELECT 'SPO &&cs_file_name._'||TO_CHAR(r.sql_exec_id)||'.&&cs_report_type.;'||CHR(10)||
+       'SELECT DBMS_SQLTUNE.report_sql_monitor(sql_id => ''&&cs_sql_id.'', sql_exec_start => TO_DATE('''||TO_CHAR(r.sql_exec_start, '&&cs_datetime_full_format.')||''', ''&&cs_datetime_full_format.''), sql_exec_id => '||TO_CHAR(r.sql_exec_id)||', type => NVL(TRIM(''&&report_type.''), ''ACTIVE'')) FROM DUAL;'||CHR(10)||
+       'SPO OFF;'||CHR(10)||
+       'HOS chmod 644 &&cs_file_name._'||TO_CHAR(r.sql_exec_id)||'.&&cs_report_type.'||CHR(10)||
+       'HOS zip -mj &&cs_file_name..zip &&cs_file_name._'||TO_CHAR(r.sql_exec_id)||'.&&cs_report_type.'||CHR(10)
+       AS line
+  FROM v$sql_monitor r
+ WHERE r.sql_id = '&&cs_sql_id.'
+   AND r.sql_exec_id BETWEEN &&sql_exec_id_from. AND &&sql_exec_id_to.
+ GROUP BY
+       r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start
+ ORDER BY
+       r.sql_id,
+       r.sql_exec_id,
+       r.sql_exec_start
+/
 SPO OFF;
-HOS chmod 644 &&cs_file_name..&&cs_report_type.
+@&&cs_file_name._driver.sql
 SET PAGES 100;
-PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&sql_exec_id." "&&report_type."
+--
+SPO &&cs_file_name..txt APP
 --
 PRO
-PRO If you want to preserve script output, execute scp command below, from a TERM session running on your Mac/PC:
-PRO scp &&cs_host_name.:&&cs_file_name..&&cs_report_type. &&cs_local_dir.
-PRO scp &&cs_host_name.:&&cs_file_dir.&&cs_reference_sanitized._*.* &&cs_local_dir.
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_sqlmon_top." "&&sql_exec_id_from." "&&sql_exec_id_to." "&&report_type."
 --
-UNDEF 1 2 3 4 5 6 7 8 9 10
-SET HEA ON LIN 80 PAGES 14 TAB ON FEED ON ECHO OFF VER ON TRIMS OFF TRIM ON TI OFF TIMI OFF LONG 80 LONGC 80 SERVEROUT OFF;
-CLEAR BREAK COLUMNS COMPUTE;
+HOS chmod 644 &&cs_file_name._driver.sql
+HOS chmod 644 &&cs_file_name..zip
+--
+@@cs_internal/cs_spool_tail.sql
+@@cs_internal/cs_undef.sql
+@@cs_internal/cs_reset.sql
 --

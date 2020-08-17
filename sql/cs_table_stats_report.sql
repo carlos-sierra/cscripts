@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/20
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -29,38 +29,42 @@ DEF cs_script_name = 'cs_table_stats_report';
 --
 ALTER SESSION SET container = CDB$ROOT;
 --
-COL table_owner NEW_V table_owner FOR A30;
-SELECT DISTINCT owner table_owner
-  FROM c##iod.table_stats_hist
- WHERE pdb_name = '&&cs_con_name.'
+COL owner NEW_V owner FOR A30 HEA 'TABLE_OWNER';
+SELECT DISTINCT h.owner
+  FROM c##iod.table_stats_hist h,
+       cdb_users u
+ WHERE h.pdb_name = UPPER(TRIM('&&cs_con_name.'))
+   AND u.con_id = h.con_id
+   AND u.username = h.owner
+   AND u.oracle_maintained = 'N' 
+   AND u.username NOT LIKE 'C##'||CHR(37) 
  ORDER BY 1
 /
+COL table_owner NEW_V table_owner FOR A30;
 PRO
 PRO 1. Table Owner:
 DEF table_owner = '&1.';
-SELECT DISTINCT UPPER(owner) table_owner 
-  FROM c##iod.table_stats_hist 
- WHERE pdb_name = '&&cs_con_name.' 
-   AND owner = UPPER(TRIM('&&table_owner.'))
+UNDEF 1;
+SELECT UPPER(NVL('&&table_owner.', '&&owner.')) table_owner FROM DUAL
 /
 --
-COL table_name NEW_V table_name FOR A30;
-SELECT DISTINCT table_name
-  FROM c##iod.table_stats_hist
- WHERE pdb_name = '&&cs_con_name.'
-   AND owner = UPPER(TRIM('&&table_owner.'))
+SELECT DISTINCT h.table_name
+  FROM c##iod.table_stats_hist h,
+       cdb_users u
+ WHERE h.pdb_name = UPPER(TRIM('&&cs_con_name.'))
+   AND h.owner = UPPER(TRIM('&&table_owner.'))
+   AND u.con_id = h.con_id
+   AND u.username = h.owner
+   AND u.oracle_maintained = 'N' 
+   AND u.username NOT LIKE 'C##'||CHR(37) 
  ORDER BY 1
 /
 PRO
 PRO 2. Table Name:
 DEF table_name = '&2.';
-SELECT DISTINCT UPPER(table_name) table_name
-  FROM c##iod.table_stats_hist
- WHERE pdb_name = '&&cs_con_name.'
-   AND owner = UPPER(TRIM('&&table_owner.'))
-   AND table_name = UPPER(TRIM('&&table_name.'))
- ORDER BY 1
-/
+UNDEF 2;
+COL table_name NEW_V table_name NOPRI;
+SELECT UPPER(TRIM('&&table_name.')) table_name FROM DUAL;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&table_owner..&&table_name.' cs_file_name FROM DUAL;
 --
@@ -100,9 +104,6 @@ SELECT TO_CHAR(q.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
  ORDER BY
        q.last_analyzed
 /
-
--- safe to do. as name implies, it flushes this table modifications from sga so we can report on them
-EXEC DBMS_STATS.FLUSH_DATABASE_MONITORING_INFO;
 --
 COL hours_since_gathering FOR 999,990.0 HEA 'HOURS|SINCE|GATHERING';
 COL num_rows FOR 999,999,990;

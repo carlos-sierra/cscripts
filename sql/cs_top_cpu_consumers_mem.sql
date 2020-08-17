@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/10/31
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -31,6 +31,7 @@ DEF cs_script_name = 'cs_top_cpu_consumers_mem';
 --
 PRO 1. HOURS: [{3}|1-6]
 DEF cs_hours = '&1.';
+UNDEF 1;
 COL cs_hours NEW_V cs_hours;
 SELECT NVL('&&cs_hours.', '3') cs_hours FROM DUAL;
 --

@@ -19,8 +19,8 @@
 --
 ---------------------------------------------------------------------------------------
 --
-@@cs_internal/cs_secondary.sql
---@@cs_internal/cs_pdb_warn.sql
+@@cs_internal/cs_primary.sql
+--@@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql

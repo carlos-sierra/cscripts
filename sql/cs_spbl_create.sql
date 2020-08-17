@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/25
+-- Version:     2020/07/17
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,12 +31,13 @@ DEF cs_script_name = 'cs_spbl_create';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO
@@ -44,15 +45,19 @@ PRO Select up to 3 plans:
 PRO
 PRO 2. 1st Plan Hash Value (req):
 DEF plan_hash_value_1 = "&2.";
+UNDEF 2;
 PRO
 PRO 3. 2nd Plan Hash Value (opt):
 DEF plan_hash_value_2 = "&3.";
+UNDEF 3;
 PRO
 PRO 4. 3rd Plan Hash Value (opt):
 DEF plan_hash_value_3 = "&4.";
+UNDEF 4;
 PRO
 PRO 5. Value for FIXED flag (opt) [{NO}|YES|N|Y]:
 DEF fixed_flag = "&5.";
+UNDEF 5;
 --
 COL fixed NEW_V fixed NOPRI;
 SELECT CASE WHEN UPPER('&&fixed_flag.') IN ('Y', 'YES') THEN 'YES' ELSE 'NO' END fixed FROM DUAL;
@@ -131,7 +136,7 @@ BEGIN
             sql_id => '&&cs_sql_id.', 
             plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_1.'), -666), 
             fixed => '&&fixed.');
-  FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans1 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
+  FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans1 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
   LOOP
     :plans0 :=
     DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
@@ -153,7 +158,7 @@ BEGIN
               sql_id => '&&cs_sql_id.', 
               plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_2.'), -666), 
               fixed => '&&fixed.');
-    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans2 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
+    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans2 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
     LOOP
       :plans0 :=
       DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
@@ -176,7 +181,7 @@ BEGIN
               sql_id => '&&cs_sql_id.', 
               plan_hash_value => NVL(TO_NUMBER('&&plan_hash_value_3.'), -666), 
               fixed => '&&fixed.');
-    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans3 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin = 'MANUAL-LOAD')
+    FOR i IN (SELECT sql_handle, plan_name FROM dba_sql_plan_baselines WHERE :plans3 > 0 AND signature = :cs_signature AND created > SYSDATE - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
     LOOP
       :plans0 :=
       DBMS_SPM.ALTER_SQL_PLAN_BASELINE (
@@ -231,7 +236,7 @@ PRO Recent plans from AWR: "&&plan_hash_value_1_awr." "&&plan_hash_value_2_awr."
 --
 ---------------------------------------------------------------------------------------
 --
--- load SPBs from awr through a sts
+-- load SPBs from awr through a sts (only if we could not load any plans from memory)
 --
 COL begin_snap_id NEW_V begin_snap_id NOPRI;
 COL end_snap_id NEW_V end_snap_id NOPRI;

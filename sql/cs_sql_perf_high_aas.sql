@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/03/10
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -44,12 +44,14 @@ PRO
 PRO 3. Average Active Sessions Wait Class: 
 PRO [{on_cpu}|total,user_io,system_io,cluster,commit,concurrency,application,administrative,configuration,network,queueing,scheduler,other]
 DEF wait_class = '&3.';
+UNDEF 3;
 COL wait_class NEW_V wait_class NOPRI;
 SELECT LOWER(NVL(TRIM('&&wait_class.'), 'on_cpu')) wait_class FROM DUAL
 /
 PRO
 PRO 4. More than Average Active Sessions (AAS) : [{1}|1-36]
 DEF more_than_aas = '&4.';
+UNDEF 4;
 COL more_than_aas NEW_V more_than_aas NOPRI;
 SELECT NVL(TRIM('&&more_than_aas.'), '1') more_than_aas FROM DUAL
 /
@@ -60,6 +62,7 @@ PRO *=All, TP=Transaction Processing, RO=Read Only, BG=Background, IG=Ignore, UN
 PRO
 PRO 5. SQL Type: [{*}|TP|RO|BG|IG|UN|TP,RO|TP,RO,BG] 
 DEF kiev_tx = '&5.';
+UNDEF 5;
 COL kiev_tx NEW_V kiev_tx NOPRI;
 SELECT UPPER(NVL(TRIM('&&kiev_tx.'), '*')) kiev_tx FROM DUAL
 /
@@ -70,6 +73,7 @@ PRO Enter additional SQL Text filtering, such as Table name or SQL Text piece
 PRO
 PRO 6. SQL Text piece (optional):
 DEF sql_text_piece = '&6.';
+UNDEF 6;
 --
 PRO
 PRO Filtering SQL to reduce search space.
@@ -77,6 +81,7 @@ PRO By entering an optional SQL_ID, scope is further reduced
 PRO
 PRO 7. SQL_ID (optional):
 DEF cs_sql_id = '&7.';
+UNDEF 7;
 /
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
@@ -151,6 +156,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'QueryTransactorHosts'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'WriteBucketValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch commit'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch mutation log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetchAllIdentities'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetch_epoch'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readFromTxorStateBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readOnlyBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'validateTransactorState'||k_appl_handle_suffix 
     OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
   THEN RETURN 'TP'; /* Transaction Processing */
   --
@@ -172,6 +186,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch latest revisions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KievTransactionKeys'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for table KIEVMUTATIONLOG partition'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Init lock name for snapshot'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'List snapshot tables.'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Tail read bucket'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performSegmentedScanQuery'||k_appl_handle_suffix 
   THEN RETURN 'RO'; /* Read Only */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Background'||k_appl_handle_suffix 
@@ -213,6 +236,32 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'update_heartbeat'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'verify_is_leader'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checking existence of Mutation Log Table'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONKEYS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KT partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KTK partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KIEVMUTATIONLOG'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Insert dynamic config'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createProxyUser'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createSequence'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'deregister_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropAutoSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropBucketFromMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactionKeys table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactions table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get session count'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'initializeMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isKtPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'register_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateSchemaVersionInDB'||k_appl_handle_suffix 
   THEN RETURN 'BG'; /* Background */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Ignore'||k_appl_handle_suffix 
@@ -224,6 +273,8 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectDatastoreMd'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'SQL Analyze('||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateDataStoreId'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --

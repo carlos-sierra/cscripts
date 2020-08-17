@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/05
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -19,8 +19,8 @@
 --
 ---------------------------------------------------------------------------------------
 --
-@@cs_internal/cs_secondary.sql
---@@cs_internal/cs_pdb_warn.sql
+@@cs_internal/cs_primary.sql
+--@@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
@@ -47,10 +47,12 @@ SELECT resource_name
 PRO
 PRO 3. Resource Name: 
 DEF cs2_resource_name = '&3.';
+UNDEF 3;
 --
 PRO
 PRO 4. Value: [{current_utilization}|max_utilization|initial_allocation|limit_value]
 DEF cs2_value = '&4.'
+UNDEF 4;
 COL cs2_value NEW_V cs2_value NOPRI;
 SELECT NVL('&&cs2_value.', 'current_utilization') cs2_value FROM DUAL
 /
@@ -72,7 +74,7 @@ DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 --DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_resource_name." "&&cs2_value."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -125,7 +127,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Line';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -140,7 +142,7 @@ DEF cs_curve_type = '';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_resource_name." "&&cs2_value."
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

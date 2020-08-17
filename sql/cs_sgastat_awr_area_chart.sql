@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/02
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to CDB
 --
@@ -19,8 +19,8 @@
 --
 ---------------------------------------------------------------------------------------
 --
-@@cs_internal/cs_secondary.sql
---@@cs_internal/cs_pdb_warn.sql
+@@cs_internal/cs_primary.sql
+--@@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
@@ -50,7 +50,7 @@ DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 --DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -154,8 +154,8 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
-DEF cs_chart_type = 'Area';
+-- [Line|Area|SteppedArea|Scatter]
+DEF cs_chart_type = 'SteppedArea';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie
@@ -169,7 +169,7 @@ DEF cs_curve_type = '//';
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
+PRO &&report_foot_note.
 --
 ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

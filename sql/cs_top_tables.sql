@@ -2,11 +2,11 @@
 --
 -- File name:   cs_top_tables.sql
 --
--- Purpose:     Top Tables as per number of rows
+-- Purpose:     Top Tables
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/11/02
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -29,8 +29,9 @@ DEF cs_script_name = 'cs_top_tables';
 --
 PRO 1. ORACLE_MAINT: [{N}|Y]
 DEF cs_oracle_maint = '&1.';
-COL cs_oracle_maint NEW_V cs_oracle_maint;
-SELECT NVL('&&cs_oracle_maint.', 'N') cs_oracle_maint FROM DUAL;
+UNDEF 1;
+COL cs_oracle_maint NEW_V cs_oracle_maint NOPRI;
+SELECT COALESCE('&&cs_oracle_maint.', 'N') AS cs_oracle_maint FROM DUAL;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -40,40 +41,46 @@ PRO SQL> @&&cs_script_name..sql "&&cs_oracle_maint."
 --
 PRO ORACLE MAINT : "&&cs_oracle_maint." [{N}|Y]
 --
-COL num_rows FOR 999,999,999,990;
-COL gbs FOR 9,990.000 HEA 'GBs';
-COL owner FOR A30;
-COL table_name FOR A30;
-COL pdb_name FOR A35;
+COL gb FOR 999,990.000 HEA 'GB';
+COL owner FOR A30 TRUNC;
+COL segment_name FOR A30 TRUNC;
+COL tablespace_name FOR A30 TRUNC;
+COL pdb_name FOR A30 TRUNC;
 --
 BREAK ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF num_rows gbs ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF gb ON REPORT;
 --
 PRO
-PRO TOP TABLES (as per number of rows)
+PRO TOP TABLES
 PRO ~~~~~~~~~~
-SELECT t.num_rows,
-       t.blocks*s.block_size/POWER(2,30) gbs,
-       t.owner,
-       t.table_name,
-       c.name||'('||t.con_id||')' pdb_name
-  FROM cdb_tables t,
-       cdb_tablespaces s,
+SELECT SUM(s.bytes)/1e9 AS gb,
+       s.owner,
+       s.segment_name,
+       s.segment_type,
+       s.tablespace_name,
+       c.name AS pdb_name
+  FROM cdb_segments s,
        cdb_users u,
        v$containers c
- WHERE s.con_id = t.con_id
-   AND s.tablespace_name = t.tablespace_name
-   AND u.con_id = t.con_id
-   AND u.username = t.owner
+ WHERE s.segment_type LIKE 'TABLE%'
+   AND u.con_id = s.con_id
+   AND u.username = s.owner
    AND ('&&cs_oracle_maint.' = 'Y' OR u.oracle_maintained = 'N')
-   AND c.con_id = t.con_id
+   AND c.con_id = s.con_id
    AND c.open_mode = 'READ WRITE'
+ GROUP BY
+       s.owner,
+       s.segment_name,
+       s.segment_type,
+       s.tablespace_name,
+       c.name
+HAVING SUM(s.bytes)/1e9 > 0.001
  ORDER BY
-       t.num_rows DESC NULLS LAST
- FETCH FIRST 20 ROWS ONLY
+       1 DESC
+ FETCH FIRST 30 ROWS ONLY
 /
 --
-CLEAR BREAK COMPUTE;
+CLEAR BREAK COMPUTE COLUMNS;
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_oracle_maint."

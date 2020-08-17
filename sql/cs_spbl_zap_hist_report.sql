@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/01/18
+-- Version:     2020/03/14
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -36,10 +36,12 @@ DEF cs_hours_range_default = '24';
 --
 PRO 3. SQL_ID: 
 DEF cs_sql_id = '&3.';
+UNDEF 3;
 --
 PRO
 PRO 4. Include NULL actions?: [{Y}|N] 
 DEF cs_null = '&4.';
+UNDEF 4;
 COL cs_null NEW_V cs_null;
 SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
 --
@@ -47,6 +49,7 @@ SELECT NVL(UPPER(TRIM('&&cs_null.')),'Y') cs_null FROM DUAL;
 --
 COL snap_id FOR 99999 HEA 'RUNID';
 COL snap_time HEA 'ZAPPER_TIME';
+COL plans FOR 9,990;
 COL zapper_aggressiveness FOR 99999 HEA 'LEVEL';
 COL action_loaded HEA 'LOADED';
 COL action_disabled HEA 'DISABLED';
@@ -55,13 +58,14 @@ COL action_null HEA 'NULL';
 --
 SELECT snap_id,
        zapper_aggressiveness,
-       MIN(snap_time) zapper_time_from,
-       MAX(snap_time) zapper_time_to,
-       SUM(CASE zapper_action WHEN 'LOADED' THEN 1 ELSE 0 END) action_loaded,
-       SUM(CASE zapper_action WHEN 'DISABLED' THEN 1 ELSE 0 END) action_disabled,
-       SUM(CASE zapper_action WHEN 'FIXED' THEN 1 ELSE 0 END) action_fixed,
-       SUM(CASE zapper_action WHEN 'NULL' THEN 1 ELSE 0 END) action_null,
-       COUNT(*) total
+       MIN(snap_time) AS zapper_time_from,
+       MAX(snap_time) AS zapper_time_to,
+       COUNT(DISTINCT plan_hash_value) AS plans,
+       SUM(CASE zapper_action WHEN 'LOADED' THEN 1 ELSE 0 END) AS action_loaded,
+       SUM(CASE zapper_action WHEN 'DISABLED' THEN 1 ELSE 0 END) AS action_disabled,
+       SUM(CASE zapper_action WHEN 'FIXED' THEN 1 ELSE 0 END) AS action_fixed,
+       SUM(CASE zapper_action WHEN 'NULL' THEN 1 ELSE 0 END) AS action_null,
+       COUNT(*) AS total
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
    AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
@@ -95,13 +99,14 @@ PRO
 --
 SELECT snap_id,
        zapper_aggressiveness,
-       MIN(snap_time) zapper_time_from,
-       MAX(snap_time) zapper_time_to,
-       SUM(CASE zapper_action WHEN 'LOADED' THEN 1 ELSE 0 END) action_loaded,
-       SUM(CASE zapper_action WHEN 'DISABLED' THEN 1 ELSE 0 END) action_disabled,
-       SUM(CASE zapper_action WHEN 'FIXED' THEN 1 ELSE 0 END) action_fixed,
-       SUM(CASE zapper_action WHEN 'NULL' THEN 1 ELSE 0 END) action_null,
-       COUNT(*) total
+       MIN(snap_time) AS zapper_time_from,
+       MAX(snap_time) AS zapper_time_to,
+       COUNT(DISTINCT plan_hash_value) AS plans,
+       SUM(CASE zapper_action WHEN 'LOADED' THEN 1 ELSE 0 END) AS action_loaded,
+       SUM(CASE zapper_action WHEN 'DISABLED' THEN 1 ELSE 0 END) AS action_disabled,
+       SUM(CASE zapper_action WHEN 'FIXED' THEN 1 ELSE 0 END) AS action_fixed,
+       SUM(CASE zapper_action WHEN 'NULL' THEN 1 ELSE 0 END) AS action_null,
+       COUNT(*) AS total
   FROM c##iod.sql_plan_baseline_hist
  WHERE 1 = 1
    AND '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')

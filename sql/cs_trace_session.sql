@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/23
+-- Version:     2020/03/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -30,9 +30,11 @@ DEF cs_script_name = 'cs_trace_session';
 PRO
 PRO 1. sid,serial:
 DEF sid_serial = '&1';
+UNDEF 1;
 PRO
 PRO 2. seconds:
 DEF seconds = '&2';
+UNDEF 2;
 PRO
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
@@ -71,7 +73,7 @@ PRO &&trace_filename.
 PRO
 PAUSE Trace completed. Press RETURN to display trace
 PRO
-HOST chmod 666 &&trace_filename.
+HOST chmod 644 &&trace_filename.
 HOST cat &&trace_filename.
 PRO
 PRO &&trace_filename.

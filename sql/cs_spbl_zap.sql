@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/25
+-- Version:     2020/03/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -31,10 +31,12 @@ DEF cs_script_name = 'cs_spbl_zap';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 PRO
 PRO 2. REPORT_ONLY: [{Y}|N]
 DEF report_only = '&2.';
+UNDEF 2;
 COL report_only NEW_V report_only;
 SELECT NVL(UPPER(TRIM('&&report_only.')),'Y') report_only FROM DUAL;
 --
@@ -55,7 +57,7 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_plans_performance.sql
+@@cs_internal/cs_dba_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO

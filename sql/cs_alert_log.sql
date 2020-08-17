@@ -24,7 +24,7 @@ COL trace_dir NEW_V trace_dir FOR A100;
 COL alert_log NEW_V alert_log FOR A20;
 SELECT d.value trace_dir, 'alert_'||t.instance||'.log' alert_log FROM v$diag_info d, v$thread t WHERE d.name = 'Diag Trace';
 HOS cp &&trace_dir./&&alert_log.* /tmp/
-HOS chmod 777 /tmp/&&alert_log.*
+HOS chmod 644 /tmp/&&alert_log.*
 PRO
 PRO Current and prior alert logs on &&trace_dir.
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

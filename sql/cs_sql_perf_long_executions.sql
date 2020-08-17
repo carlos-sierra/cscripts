@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/03/10
+-- Version:     2020/06/26
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -41,6 +41,7 @@ PRO *=All, TP=Transaction Processing, RO=Read Only, BG=Background, IG=Ignore, UN
 PRO
 PRO 3. SQL Type: [{*}|TP|RO|BG|IG|UN|TP,RO|TP,RO,BG] 
 DEF kiev_tx = '&3.';
+UNDEF 3;
 COL kiev_tx NEW_V kiev_tx NOPRI;
 SELECT UPPER(NVL(TRIM('&&kiev_tx.'), '*')) kiev_tx FROM DUAL
 /
@@ -51,6 +52,7 @@ PRO Enter additional SQL Text filtering, such as Table name or SQL Text piece
 PRO
 PRO 4. SQL Text piece (optional):
 DEF sql_text_piece = '&4.';
+UNDEF 4;
 --
 PRO
 PRO Filtering SQL to reduce search space.
@@ -58,10 +60,12 @@ PRO By entering an optional SQL_ID, scope is further reduced
 PRO
 PRO 5. SQL_ID (optional):
 DEF cs_sql_id = '&5.';
+UNDEF 5;
 /
 PRO
 PRO 6. MORE_THAN_SECS : [{0}|0-3600]
 DEF more_than_secs = '&6.';
+UNDEF 6;
 /
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
@@ -90,11 +94,12 @@ COL netwrk FOR A6 HEA 'Netwrk';
 COL queue FOR A6 HEA 'Queue';
 COL sched FOR A6 HEA 'Rsrc|Mgr';
 COL other FOR A6 HEA 'Other';
+COL machine FOR A64 HEA 'Machine';
 --
 COL sql_exec_id HEA 'Execution ID';
 COL sql_exec_start FOR A19 HEA 'SQL Execution Start';
-COL f_sample_time FOR A23 HEA 'First Sample Time';
-COL l_sample_time FOR A23 HEA 'Last Sample Time';
+COL f_sample_time FOR A26 HEA 'First Sample Time';
+COL l_sample_time FOR A26 HEA 'Last Sample Time';
 COL seconds FOR 999,990.000 HEA 'Seconds';
 COL sid_serial FOR A13 HEA '  SID,SERIAL#'; 
 COL xid FOR A16 HEA 'Transaction ID';
@@ -141,6 +146,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'updateTransactorState'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'upsert_transactor_state'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'writeTransactionKeys'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'QueryTransactorHosts'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'WriteBucketValues'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch commit'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'batch mutation log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetchAllIdentities'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'fetch_epoch'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readFromTxorStateBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'readOnlyBeginTxn'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'validateTransactorState'||k_appl_handle_suffix 
     OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
   THEN RETURN 'TP'; /* Transaction Processing */
   --
@@ -162,6 +176,15 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'performSnapshotScanQuery'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'performStartScanValues'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectBuckets'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch latest revisions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch max sequence for KievTransactionKeys'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KIEVMUTATIONLOG'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for table KIEVMUTATIONLOG partition'||k_appl_handle_suffix -- streaming
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Init lock name for snapshot'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'List snapshot tables.'||k_appl_handle_suffix -- snapshot
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Tail read bucket'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'performSegmentedScanQuery'||k_appl_handle_suffix 
   THEN RETURN 'RO'; /* Read Only */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Background'||k_appl_handle_suffix 
@@ -203,6 +226,32 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'update_heartbeat'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateIfWorkspaceEmpty'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'verify_is_leader'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checking existence of Mutation Log Table'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONKEYS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Checks if KIEVTRANSACTIONS table is empty'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Fetch partition interval for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KT partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find High value for KTK partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KIEVMUTATIONLOG'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KT'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find partitions for KTK'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Insert dynamic config'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createProxyUser'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'createSequence'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'deregister_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropAutoSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropBucketFromMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'dropSequenceMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactionKeys table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get KievTransactions table indexes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get session count'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'initializeMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isKtPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isPartitioned'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'log'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'register_host'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'updateSchemaVersionInDB'||k_appl_handle_suffix 
   THEN RETURN 'BG'; /* Background */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Ignore'||k_appl_handle_suffix 
@@ -214,6 +263,8 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'selectDatastoreMd'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'SQL Analyze('||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'validateDataStoreId'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countMetadata'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
@@ -227,6 +278,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.session_id,
        h.session_serial#,
+       h.machine,
        h.xid,
        h.sql_exec_id,
        h.sql_exec_start,
@@ -249,6 +301,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.session_id,
        h.session_serial#,
+       h.machine,
        h.xid,
        h.sql_exec_id,
        h.sql_exec_start,
@@ -275,6 +328,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.session_id,
        h.session_serial#,
+       h.machine,
        h.xid,
        h.sql_exec_id,
        h.sql_exec_start,
@@ -292,6 +346,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        f.con_id,
        f.session_id,
        f.session_serial#,
+       f.machine,
        f.xid,
        f.sql_exec_id,
        f.sql_exec_start,
@@ -320,6 +375,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.session_id,
        h.session_serial#,
+       h.machine,
        h.xid,
        h.sql_exec_id,
        h.sql_exec_start,
@@ -345,6 +401,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.session_id,
        h.session_serial#,
+       h.machine,
        h.xid,
        h.sql_exec_id,
        h.sql_exec_start,
@@ -400,6 +457,7 @@ SELECT TO_CHAR(h.sql_exec_start, '&&cs_datetime_full_format.') sql_exec_start,
        LPAD(ROUND(100 * t.samples_scheduler / t.samples_total)||'%', 6) sched,
        LPAD(ROUND(100 * t.samples_other / t.samples_total)||'%', 6) other,
        LPAD(h.session_id,5)||','||h.session_serial# sid_serial,
+       h.machine,
        h.xid,
        COALESCE(s.sql_type, hs.sql_type) sql_type,
        h.sql_id,

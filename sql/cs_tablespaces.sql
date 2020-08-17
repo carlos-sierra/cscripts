@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/08/29
+-- Version:     2020/04/19
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -19,6 +19,13 @@
 --
 ---------------------------------------------------------------------------------------
 --
+DEF permanent = 'Y';
+DEF undo = 'Y';
+DEF temporary = 'Y';
+-- order_by: [{pdb_name, tablespace_name}|max_size_gb DESC|allocated_gb DESC|used_gb DESC|free_gb DESC]
+DEF order_by = 'pdb_name, tablespace_name';
+DEF rows = '999';
+--
 @@cs_internal/cs_primary.sql
 @@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
@@ -29,6 +36,7 @@ DEF cs_script_name = 'cs_tablespaces';
 --
 PRO 1. Include internal (i.e. SYSTEM, SYSAUX, TEMPORARY, UNDO, ETC.): [{N}|Y] 
 DEF include_internal = '&1.';
+UNDEF 1;
 COL include_internal NEW_V include_internal NOPRI;
 SELECT NVL(UPPER(SUBSTR(TRIM('&&include_internal.'),1)),'N') include_internal FROM DUAL;
 --
@@ -42,16 +50,17 @@ PRO INTERNAL TBS : &&include_internal.
 --
 CLEAR BREAK COMPUTE;
 BREAK ON REPORT;
-COMPUTE COUNT LABEL 'COUNT' OF tablespace_name ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF oem_allocated_space_gbs oem_used_space_gbs met_max_size_gbs met_used_space_gbs ON REPORT; 
+COMPUTE SUM LABEL 'TOTAL' OF allocated_gb used_gb free_gb max_size_gb ON REPORT; 
 --
 COL pdb_name FOR A30;
 COL tablespace_name FOR A30;
-COL oem_allocated_space_gbs FOR 999,990.000 HEA 'OEM|ALLOCATED|SPACE (GBs)';
-COL oem_used_space_gbs FOR 999,990.000 HEA 'OEM|USED|SPACE (GBs)';
-COL oem_used_percent FOR 990.0 HEA 'OEM|USED|PERC';
-COL met_max_size_gbs FOR 999,990.000 HEA 'METRICS|MAX|SIZE (GBs)';
-COL met_used_space_gbs FOR 999,990.000 HEA 'METRICS|USED|SPACE (GBs)';
+COL allocated_gb FOR 999,990.000 HEA 'ALLOCATED|SPACE (GB)';
+COL used_gb FOR 999,990.000 HEA 'USED|SPACE (GB)';
+COL used_percent FOR 990.0 HEA 'USED|PERC';
+COL free_gb FOR 999,990.000 HEA 'FREE|SPACE (GB)';
+COL free_percent FOR 990.0 HEA 'FREE|PERC';
+COL max_size_gb FOR 999,990.000 HEA 'MAX|SIZE (GB)';
+COL met_used_space_GB FOR 999,990.000 HEA 'METRICS|USED|SPACE (GB)';
 COL met_used_percent FOR 990.0 HEA 'METRICS|USED|PERC';
 --
 WITH
@@ -112,7 +121,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ts.contents,
        ts.bigfile,
        ts.block_size,
-       NVL(t.bytes / POWER(2,30), 0) allocated_space, -- GBs
+       NVL(t.bytes, 0) allocated_space_bytes,
        NVL(
        CASE ts.contents
        WHEN 'UNDO'         THEN un.bytes
@@ -123,7 +132,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN 'DICTIONARY' THEN t.bytes - NVL(u.bytes, 0)
          END
        END 
-       / POWER(2,30), 0) used_space -- GBs
+       , 0) used_space_bytes
   FROM cdb_tablespaces ts,
        v$containers    pdb,
        t,
@@ -135,6 +144,12 @@ SELECT /*+ MATERIALIZE NO_MERGE */
          WHEN '&&include_internal.' = 'N' AND ts.contents = 'PERMANENT' AND ts.tablespace_name NOT IN ('SYSTEM', 'SYSAUX') THEN 1
          ELSE 0
        END = 1
+   AND CASE
+         WHEN ts.contents = 'PERMANENT' AND '&&permanent.' = 'Y' THEN 1
+         WHEN ts.contents = 'UNDO' AND '&&undo.' = 'Y' THEN 1
+         WHEN ts.contents = 'TEMPORARY' AND '&&temporary.' = 'Y' THEN 1
+         ELSE 0
+       END = 1         
    AND pdb.con_id            = ts.con_id
    AND t.tablespace_name(+)  = ts.tablespace_name
    AND t.con_id(+)           = ts.con_id
@@ -142,26 +157,38 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND u.con_id(+)           = ts.con_id
    AND un.tablespace_name(+) = ts.tablespace_name
    AND un.con_id(+)          = ts.con_id
-)
+),
+tablespaces AS (
 SELECT o.pdb_name,
-       --o.con_id,
        o.tablespace_name,
        o.contents,
        o.bigfile,
-       --o.block_size,
-       ROUND(o.allocated_space, 3) oem_allocated_space_gbs,
-       ROUND(o.used_space, 3) oem_used_space_gbs,
-       ROUND(100 * o.used_space / o.allocated_space, 3) oem_used_percent, -- as per allocated space
-       ROUND(m.tablespace_size * o.block_size / POWER(2, 30), 3) met_max_size_gbs,
-       ROUND(m.used_space * o.block_size / POWER(2, 30), 3) met_used_space_gbs,
-       ROUND(m.used_percent, 3) met_used_percent -- as per maximum size (considering auto extend)
+       ROUND(m.tablespace_size * o.block_size / POWER(10, 9), 3) AS max_size_gb,
+       ROUND(o.allocated_space_bytes / POWER(10, 9), 3) AS allocated_gb,
+       ROUND(o.used_space_bytes / POWER(10, 9), 3) AS used_gb,
+       ROUND((o.allocated_space_bytes - o.used_space_bytes) / POWER(10, 9), 3) AS free_gb,
+       ROUND(100 * o.used_space_bytes / o.allocated_space_bytes, 3) AS used_percent, -- as per allocated space
+       ROUND(100 * (o.allocated_space_bytes - o.used_space_bytes) / o.allocated_space_bytes, 3) AS free_percent -- as per allocated space
   FROM oem                          o,
        cdb_tablespace_usage_metrics m
  WHERE m.tablespace_name(+) = o.tablespace_name
    AND m.con_id(+)          = o.con_id
+)
+SELECT pdb_name,
+       tablespace_name,
+       contents,
+       bigfile,
+       '|' AS "|",
+       max_size_gb,
+       allocated_gb,
+       used_gb,
+       free_gb,
+       used_percent,
+       free_percent 
+  FROM tablespaces
  ORDER BY
-       o.pdb_name,
-       o.tablespace_name
+       &&order_by.
+FETCH FIRST &&rows. ROWS ONLY
 /
 --
 CLEAR BREAK COMPUTE;

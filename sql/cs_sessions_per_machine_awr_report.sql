@@ -38,9 +38,6 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 @@cs_internal/cs_spool_id.sql
 --
-@@cs_internal/cs_sample_time_from_and_to.sql
-@@cs_internal/cs_snap_id_from_and_to.sql
---
 COL p95 HEA '95th PCTL';
 COL p97 HEA '97th PCTL';
 COL p99 HEA '99th PCTL';

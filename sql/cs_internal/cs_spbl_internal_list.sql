@@ -1,6 +1,10 @@
+@@&&stgtab_sqlbaseline_script.
+--
+COL con_id FOR 999 HEA 'Con|ID';
+COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL created FOR A19 HEA 'Created';
 COL plan_name FOR A30 HEA 'Plan Name';
-COL origin FOR A14 HEA 'Origin';
+COL origin FOR A29 HEA 'Origin';
 COL timestamp FOR A19 HEA 'Timestamp';
 COL last_executed FOR A19 HEA 'Last Executed';
 COL last_modified FOR A19 HEA 'Last Modified';
@@ -27,68 +31,57 @@ COL plan_hash FOR 999999999990 HEA 'Plan Hash';
 COL plan_hash_full FOR 999999999990 HEA 'Plan Hash|Full';
 --
 PRO
-PRO SQL PLAN BASELINES ON STAGING TABLE (&&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SELECT DISTINCT
-       TO_CHAR(created, '&&cs_datetime_full_format.') created, 
-       obj_name plan_name, 
-       origin, 
-       TO_CHAR(last_executed, '&&cs_datetime_full_format.') last_executed, 
-       TO_CHAR(last_modified, '&&cs_datetime_full_format.') last_modified, 
-       DECODE(BITAND(status, 1),   0, 'NO', 'YES') enabled,
-       DECODE(BITAND(status, 2),   0, 'NO', 'YES') accepted,
-       DECODE(BITAND(status, 4),   0, 'NO', 'YES') fixed,
-       DECODE(BITAND(status, 64),  0, 'YES', 'NO') reproduced,
-       DECODE(BITAND(status, 256), 0, 'NO', 'YES') adaptive,
-       description
-  FROM &&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline
- WHERE signature = :cs_signature
- ORDER BY 
-       created, obj_name
-/
---
-PRO
 PRO SQL PLAN BASELINES - LIST (dba_sql_plan_baselines)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
-SELECT TO_CHAR(created, '&&cs_datetime_full_format.') created, 
-       plan_name, 
-       enabled, accepted, fixed, reproduced, adaptive, 
-       origin, 
-       TO_CHAR(last_executed, '&&cs_datetime_full_format.') last_executed, 
-       TO_CHAR(last_modified, '&&cs_datetime_full_format.') last_modified, 
-       description
-  FROM dba_sql_plan_baselines
- WHERE signature = :cs_signature
+SELECT TO_CHAR(s.created, '&&cs_datetime_full_format.') AS created, 
+       s.con_id,
+       c.name AS pdb_name,
+       s.plan_name, 
+       s.enabled, s.accepted, s.fixed, s.reproduced, s.adaptive, 
+       s.origin, 
+       TO_CHAR(s.last_executed, '&&cs_datetime_full_format.') AS last_executed, 
+       TO_CHAR(s.last_modified, '&&cs_datetime_full_format.') AS last_modified, 
+       s.description
+  FROM cdb_sql_plan_baselines s,
+       v$containers c
+ WHERE s.signature = :cs_signature
+   AND c.con_id = s.con_id
  ORDER BY 
-       created, plan_name
+       s.created, s.con_id, s.plan_name
 /
 --
 PRO
 PRO SQL PLAN BASELINES - PERFORMANCE (dba_sql_plan_baselines)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SELECT TO_CHAR(created, '&&cs_datetime_full_format.') created, plan_name, 
-       enabled, accepted, fixed, reproduced, adaptive, 
-       origin, 
-       elapsed_time/GREATEST(executions,1)/1e3 et_per_exec_ms,
-       cpu_time/GREATEST(executions,1)/1e3 cpu_per_exec_ms,
-       buffer_gets/GREATEST(executions,1) buffers_per_exec,
-       disk_reads/GREATEST(executions,1) reads_per_exec,
-       rows_processed/GREATEST(executions,1) rows_per_exec,
-       executions,
-       elapsed_time,
-       cpu_time,
-       buffer_gets,
-       disk_reads,
-       rows_processed
-  FROM dba_sql_plan_baselines 
- WHERE signature = :cs_signature
+SELECT TO_CHAR(s.created, '&&cs_datetime_full_format.') AS created, 
+       s.con_id,
+       c.name AS pdb_name,
+       s.plan_name, 
+       s.enabled, s.accepted, s.fixed, s.reproduced, s.adaptive, 
+       s.origin, 
+       s.elapsed_time/GREATEST(s.executions,1)/1e3 AS et_per_exec_ms,
+       s.cpu_time/GREATEST(s.executions,1)/1e3 AS cpu_per_exec_ms,
+       s.buffer_gets/GREATEST(s.executions,1) AS buffers_per_exec,
+       s.disk_reads/GREATEST(s.executions,1) AS reads_per_exec,
+       s.rows_processed/GREATEST(s.executions,1) AS rows_per_exec,
+       s.executions,
+       s.elapsed_time,
+       s.cpu_time,
+       s.buffer_gets,
+       s.disk_reads,
+       s.rows_processed
+  FROM cdb_sql_plan_baselines s,
+       v$containers c
+ WHERE s.signature = :cs_signature
+   AND c.con_id = s.con_id
  ORDER BY 
-       created, plan_name
+       s.created, s.con_id, s.plan_name
 /
 --
 PRO
 PRO SQL PLAN BASELINES - IDS (dba_sql_plan_baselines)
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~
+-- only works from PDB. do not use CONTAINERS(table_name) since it causes ORA-00600: internal error code, arguments: [kkdolci1], [], [], [], [], [], [],
 SELECT TO_CHAR(a.created, '&&cs_datetime_full_format.') created,
        o.name plan_name,
        DECODE(BITAND(o.flags, 1),   0, 'NO', 'YES') enabled,

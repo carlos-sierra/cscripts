@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/29
+-- Version:     2020/07/14
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -33,6 +33,7 @@ DEF cs_script_name = 'cs_sqlstat_report';
 --
 PRO 1. SQL_ID: 
 DEF cs_sql_id = '&1.';
+UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
@@ -50,8 +51,10 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_sqlstat_reports.sql
-@@cs_internal/cs_dba_hist_sqlstat_delta.sql
+@@cs_internal/cs_&&dba_or_cdb._hist_sqlstats_by_time.sql
+@@cs_internal/cs_plans_awr_1.sql
+@@cs_internal/cs_&&dba_or_cdb._hist_sqlstat_delta_sum.sql
+@@cs_internal/cs_&&dba_or_cdb._hist_sqlstat_delta.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."

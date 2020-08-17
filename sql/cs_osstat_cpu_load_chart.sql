@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/04/20
+-- Version:     2020/06/02
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -47,7 +47,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Load: Number of OS processes running or waiting on the run queue";
 DEF chart_foot_note_3 = "<br>3) DBRM: Number of database sessions requesting CPU and waiting on Resource Manager Scheduler";
 DEF chart_foot_note_4 = "<br>4) CPU Demand: Load + DBRM (number of sessions running or waiting for CPU)<br>";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -56,7 +56,7 @@ PRO ,'CPU Threads'
 PRO ,'Threads Busy'    
 PRO ,'Load'    
 PRO ,'DBRM'       
-PRO ,'CPU Demand'        
+--PRO ,'CPU Demand'        
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -116,7 +116,7 @@ SELECT ', [new Date('||
        ','||q.busy|| 
        ','||q.load|| 
        ','||q.dbrm|| 
-       ','||(q.load + q.dbrm)|| 
+       --','||(q.load + q.dbrm)|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -125,7 +125,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Line';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -135,12 +135,12 @@ DEF cs_chart_option_pie = '//';
 DEF cs_oem_colors_series = '';
 DEF cs_oem_colors_slices = '//';
 -- for line charts
-DEF cs_curve_type = '';
+DEF cs_curve_type = '//';
 --
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
+PRO &&report_foot_note.
 --
 --ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --

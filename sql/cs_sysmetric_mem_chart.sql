@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2019/03/24
+-- Version:     2020/04/21
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -26,7 +26,7 @@
 --
 DEF cs_script_name = 'cs_sysmetric_mem_chart';
 --
---ALTER SESSION SET container = CDB$ROOT;
+ALTER SESSION SET container = CDB$ROOT;
 --
 COL metric_name FOR A45 TRUN;
 COL metric_unit FOR A41 TRUN;
@@ -40,6 +40,7 @@ SELECT DISTINCT
 PRO
 PRO 1. Filter on Metric Name or Unit (e.g. sessions, blocks, undo, commit, transaction, bytes, %):
 DEF metric_filter = '&1.';
+UNDEF 1;
 --
 SELECT DISTINCT
        metric_name,
@@ -55,6 +56,7 @@ SELECT DISTINCT
 PRO
 PRO 2. Metric Name (1):
 DEF metric_name_1 = '&2.';
+UNDEF 2;
 --
 COL cs_metric_unit_1 NEW_V cs_metric_unit_1 NOPRI;
 SELECT metric_unit cs_metric_unit_1 FROM v$sysmetric WHERE metric_name = '&&metric_name_1.' AND ROWNUM = 1
@@ -74,6 +76,7 @@ PRO Enter additional optional Metric Names, consistent with Metric Unit of "&&cs
 PRO
 PRO 3. Metric Name (2):
 DEF metric_name_2 = '&3.';
+UNDEF 3;
 --
 COL cs_metric_unit_2 NEW_V cs_metric_unit_2 NOPRI;
 SELECT metric_unit cs_metric_unit_2 FROM v$sysmetric WHERE metric_name = '&&metric_name_2.' AND ROWNUM = 1
@@ -91,6 +94,7 @@ SELECT DISTINCT
 PRO
 PRO 4. Metric Name (3):
 DEF metric_name_3 = '&4.';
+UNDEF 4;
 --
 COL cs_metric_unit_3 NEW_V cs_metric_unit_3 NOPRI;
 SELECT metric_unit cs_metric_unit_3 FROM v$sysmetric WHERE metric_name = '&&metric_name_3.' AND ROWNUM = 1
@@ -108,6 +112,7 @@ SELECT DISTINCT
 PRO
 PRO 5. Metric Name (4):
 DEF metric_name_4 = '&5.';
+UNDEF 5;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -124,7 +129,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = "&&cs_script_name..sql";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&metric_filter." "&&metric_name_1." "&&metric_name_2." "&&metric_name_3." "&&metric_name_4."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -177,7 +182,7 @@ SELECT ', [new Date('||
 /****************************************************************************************/
 SET HEA ON PAGES 100;
 --
--- [Line|Area|Scatter]
+-- [Line|Area|SteppedArea|Scatter]
 DEF cs_chart_type = 'Line';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
@@ -187,14 +192,14 @@ DEF cs_chart_option_pie = '//';
 DEF cs_oem_colors_series = '//';
 DEF cs_oem_colors_slices = '//';
 -- for line charts
-DEF cs_curve_type = '';
+DEF cs_curve_type = '//';
 --
 @@cs_internal/cs_spool_id_chart.sql
 @@cs_internal/cs_spool_tail_chart.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&metric_filter." "&&metric_name_1." "&&metric_name_2." "&&metric_name_3." "&&metric_name_4."
+PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

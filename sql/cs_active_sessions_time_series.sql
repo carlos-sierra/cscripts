@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2018/07/28
+-- Version:     2020/04/29
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -47,6 +47,7 @@ COL servers FOR 99,990;
 COL on_cpu_pct FOR 990.0 HEA 'ON CPU|PERC %';
 COL scheduler_pct FOR 990.0 HEA 'SCHED|PERC %';
 COL appl_lock_pct FOR 990.0 HEA 'LOCK|PERC %';
+COL conc_pct FOR 990.0 HEA 'CONC|PERC %';
 COL user_io_pct FOR 990.0 HEA 'IO|PERC %';
 --
 PRO
@@ -60,6 +61,7 @@ SELECT CAST(sample_time AS DATE) sample_time,
        SUM(CASE session_state WHEN 'ON CPU' THEN 1 ELSE 0 END) on_cpu,
        SUM(CASE wait_class WHEN 'Scheduler' THEN 1 ELSE 0 END) scheduler,
        SUM(CASE wait_class WHEN 'Application' THEN 1 ELSE 0 END) appl_lock,
+       SUM(CASE wait_class WHEN 'Concurrency' THEN 1 ELSE 0 END) conc,
        SUM(CASE wait_class WHEN 'User I/O' THEN 1 ELSE 0 END) user_io
   FROM dba_hist_active_sess_history
  --WHERE sample_time > SYSTIMESTAMP - 1
@@ -78,6 +80,7 @@ SELECT TO_CHAR(TRUNC(sample_time, 'HH24'), 'YYYY-MM-DD"T"HH24') hour,
        ROUND(100*SUM(on_cpu)/SUM(samples),1) on_cpu_pct,
        ROUND(100*SUM(scheduler)/SUM(samples),1) scheduler_pct,
        ROUND(100*SUM(appl_lock)/SUM(samples),1) appl_lock_pct,
+       ROUND(100*SUM(conc)/SUM(samples),1) conc_pct,
        ROUND(100*SUM(user_io)/SUM(samples),1) user_io_pct
   FROM by_sample_time
  GROUP BY
@@ -97,6 +100,7 @@ SELECT CAST(sample_time AS DATE) sample_time,
        SUM(CASE session_state WHEN 'ON CPU' THEN 1 ELSE 0 END) on_cpu,
        SUM(CASE wait_class WHEN 'Scheduler' THEN 1 ELSE 0 END) scheduler,
        SUM(CASE wait_class WHEN 'Application' THEN 1 ELSE 0 END) appl_lock,
+       SUM(CASE wait_class WHEN 'Concurrency' THEN 1 ELSE 0 END) conc,
        SUM(CASE wait_class WHEN 'User I/O' THEN 1 ELSE 0 END) user_io
   FROM dba_hist_active_sess_history
  --WHERE sample_time > SYSTIMESTAMP - 1
@@ -115,6 +119,7 @@ SELECT TO_CHAR(TRUNC(sample_time, 'DD'), 'YYYY-MM-DD') day,
        ROUND(100*SUM(on_cpu)/SUM(samples),1) on_cpu_pct,
        ROUND(100*SUM(scheduler)/SUM(samples),1) scheduler_pct,
        ROUND(100*SUM(appl_lock)/SUM(samples),1) appl_lock_pct,
+       ROUND(100*SUM(conc)/SUM(samples),1) conc_pct,
        ROUND(100*SUM(user_io)/SUM(samples),1) user_io_pct
   FROM by_sample_time
  GROUP BY
@@ -134,6 +139,7 @@ SELECT CAST(sample_time AS DATE) sample_time,
        SUM(CASE session_state WHEN 'ON CPU' THEN 1 ELSE 0 END) on_cpu,
        SUM(CASE wait_class WHEN 'Scheduler' THEN 1 ELSE 0 END) scheduler,
        SUM(CASE wait_class WHEN 'Application' THEN 1 ELSE 0 END) appl_lock,
+       SUM(CASE wait_class WHEN 'Concurrency' THEN 1 ELSE 0 END) conc,
        SUM(CASE wait_class WHEN 'User I/O' THEN 1 ELSE 0 END) user_io
   FROM dba_hist_active_sess_history
  --WHERE sample_time > SYSTIMESTAMP - 1
@@ -152,6 +158,7 @@ SELECT TO_CHAR(TRUNC(sample_time, 'MM'), 'YYYY-MM') month,
        ROUND(100*SUM(on_cpu)/SUM(samples),1) on_cpu_pct,
        ROUND(100*SUM(scheduler)/SUM(samples),1) scheduler_pct,
        ROUND(100*SUM(appl_lock)/SUM(samples),1) appl_lock_pct,
+       ROUND(100*SUM(conc)/SUM(samples),1) conc_pct,
        ROUND(100*SUM(user_io)/SUM(samples),1) user_io_pct
   FROM by_sample_time
  GROUP BY

@@ -1,23 +1,23 @@
 PRO
 PRO PLANS IN AWR - DISPLAY (dbms_xplan.display_awr)
 PRO ~~~~~~~~~~~~~~~~~~~~~~
-SET HEA OFF;
+SET HEA OFF PAGES 0;
 WITH 
 plans_by_timestamp AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       sql_id,
-       plan_hash_value
-  FROM dba_hist_sql_plan
- WHERE sql_id = '&&cs_sql_id.'
-   AND ('&&cs_plan_hash_value.' IS NULL OR plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
-   AND id = 0
+       h.sql_id,
+       h.plan_hash_value
+  FROM dba_hist_sql_plan h -- cannot use cdb_hist_sql_plan since DBMS_XPLAN only executes with a PDB (would need to use DBMS_SQL to execue from CDB$ROOT)
+ WHERE h.sql_id = '&&cs_sql_id.'
+   AND ('&&cs_plan_hash_value.' IS NULL OR h.plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
+   AND h.id = 0
  ORDER BY
-       timestamp
+       h.timestamp
 )
 SELECT p.plan_table_output
   FROM plans_by_timestamp h,
-       TABLE(DBMS_XPLAN.DISPLAY_AWR(h.sql_id, h.plan_hash_value, NULL, 'ADVANCED')) p
+       TABLE(DBMS_XPLAN.display_awr(h.sql_id, h.plan_hash_value, NULL, 'ADVANCED')) p
 /
-SET HEA ON;
+SET HEA ON PAGES 100;
 --
 
