@@ -17,10 +17,7 @@ CS Scripts Inventory by Type
 * Logs
 * Traces
 * Reports
-* IOD - Internal Oracle Database
 * Miscellaneous Utilities
-* CLI - Command-line Interface
-* KIEV
 
 Latency
 -------
@@ -278,22 +275,6 @@ Reports
 * awr_snapshot.sql                                              - Create AWR snapshot
 * dbms_stats_report.sql                                         - DBMS_STATS Report
 * cs_amw_report.sql                                             - Automatic Maintenance Window Report
-
-IOD - Internal Oracle Database
-------------------------------
-* cs_blackout_begin.sql                                         - Blackout Begin (for OEM IOD Jobs)
-* cs_blackout_end.sql                                           - Blackout End (for OEM IOD Jobs)
-* cs_dbc_snapshot_log_v.sql                                     - DBC Snapshot Log Report
-* iod_db_switchover_hist                                        - History of CDB switchovers
-* iod_versions.sql                                              - Code Version of IOD PL/SQL Packages
-* iod_setup.sql                                                 - Complile IOD PL/SQL Packages (new versions of code)
-* iod_fleet_all.sql                                             - Execute iod_fleet_summary.sql, iod_fleet_inventory.sql and iod_fleet_busy.sql
-* iod_fleet_summary.sql                                         - IOD Feet CDBs Summary
-* iod_fleet_inventory.sql                                       - IOD Fleet CDBs Inventory
-* iod_fleet_busy.sql                                            - IOD Fleet Busy CDBs
-* cdb_attributes_setup.sql                                      - Create cdb_attributes Table and merge_cdb_attributes Procedure for IOD Fleet Inventory
-* collect_ORA-13831_diagnostics.sql                             - Collects ORA-13831 diagnostics
-* collect_ORA-600-qksanGetTextStr_diag.sql                      - Collects ORA-00600 diagnostics
 
 Miscellaneous Utilities
 -----------------------
