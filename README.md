@@ -308,32 +308,5 @@ Miscellaneous Utilities
 * sysdate.sql                                                   - Display SYSDATE in Filename safe format and in YYYY-MM-DDTHH24:MI:SS UTC format
 * view.sql                                                      - Display Text of a given VIEW name
 
-CLI - Command-line Interface
-----------------------------
-* cli_find_sql_v00_SQL_ID_OR_TEXT                               - Find SQL for given SQL_ID or SQL Text
-* cli_find_table_v00_TABLE_NAME                                 - Find Table for given Name
-* cli_sql_patch_one_sql_v00_SQL_TEXT                            - Create SQL Patch for given SQL Text
-* cli_sql_patch_several_sql_v00_REFERENCE.sql                   - Create SQL Patch for multiple SQL_IDs
-
-KIEV
-----
-* cs_kiev_gc_status.sql                                         - KIEV PDB Garbage Collection (GC) status
-* cs_kiev_gc_urgency.sql                                        - Determine list of tables for which GC is urgent
-* cs_kiev_bucket_hist.sql                                       - KIEV Bucket History Report (for GC analysis)
-* cs_kiev_bucket_gc_chart.sql                                   - GC (rows deleted) for given Bucket (time series chart)
-* cs_kiev_bucket_growth_report.sql                              - KIEV Bucket Growth (inserts and deletes) Report
-* cs_kiev_transactions_aggregate_chart.sql                      - KIEV Transactions Aggregare (Latency|TPS|Count) Chart
-* cs_kiev_transactions_aggregate_report.sql                     - KIEV Transactions Aggregare (Latency|TPS|Count) Report
-* cs_kiev_transactions_list_report.sql                          - KIEV Transactions List
-* cs_kiev_transaction_keys_report.sql.sql                       - KIEV Transaction Keys Report
-* cs_kiev_kill.sql                                              - Script to mark Kiev sessions to be killed by IOD Session Killer job process
-* cs_kiev_indexes_metadata.sql                                  - Extracts and stores metadata for all KIEV Indexes from all PDB
-* cs_kiev_indexes_report.sql                                    - KIEV Indexes Inventory Report (show discrepancies between KIEV and DB metadata)
-* cs_vcn_events.sql                                             - Detect EVENTS_RGN stuck on a KIEV VCN PDB
-* cs_wf_instances.sql                                           - WF Instance and Step Instances counts on a KIEV WF PDB
-* kiev/kiev_new_sql_decorators.sql                              - Find new SQL Decorators not yet in IOD_SPM.application_category
-* kiev/percent_of_kiev_sql_doing_full_scans.sql                 - Percentage of KIEV SQL doing Full Scans per Application Category
-* kiev/kiev_txor_leader.sql                                     - KIEV Transactor Leader Switches
-
 Use h.sql or help.sql for "cs" scripts inventory by type, and ls.sql for alphabetical list of "cs" scripts.
 Type q to exit. 
