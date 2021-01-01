@@ -1,0 +1,137 @@
+----------------------------------------------------------------------------------------
+--
+-- File name:   cs_redef_schema.sql
+--
+-- Purpose:     Schema Redefinition (by moving all objects into new Tablespace)
+--
+-- Author:      Carlos Sierra
+--
+-- Version:     2020/12/25
+--
+-- Usage:       Execute connected to PDB
+--
+--              Enter schema name when requested, followed by other parameters
+--
+-- Example:     $ sqlplus / as sysdba
+--              SQL> @cs_redef_schema.sql
+--
+-- Notes:       Developed and tested on 12.1.0.2.
+--
+---------------------------------------------------------------------------------------
+--
+@@cs_internal/cs_primary.sql
+@@cs_internal/cs_cdb_warn.sql
+@@cs_internal/cs_set.sql
+@@cs_internal/cs_def.sql
+@@cs_internal/cs_file_prefix.sql
+--
+DEF cs_script_name = 'cs_redef_schema';
+--
+COL username FOR A30;
+SELECT username
+  FROM dba_users
+ WHERE oracle_maintained = 'N'
+   AND username NOT LIKE 'C##%'
+ ORDER BY
+       username
+/
+PRO
+PRO 1. Schema Owner:
+DEF table_owner = '&1.';
+UNDEF 1;
+COL p_owner NEW_V p_owner FOR A30 NOPRI;
+SELECT username AS p_owner 
+  FROM dba_users 
+ WHERE oracle_maintained = 'N'
+   AND username NOT LIKE 'C##%'
+   AND username = UPPER(TRIM('&&table_owner.')) 
+   AND ROWNUM = 1
+/
+--
+COL tablespace_name FOR A30;
+SELECT tablespace_name
+  FROM dba_tablespaces
+ WHERE contents = 'PERMANENT'
+   AND tablespace_name NOT IN ('SYSTEM', 'SYSAUX')
+ ORDER BY 
+       tablespace_name
+/
+PRO
+PRO 2. Target Tablespace: 
+DEF tbsname = '&2.';
+UNDEF 2;
+COL p_newtbs NEW_V p_newtbs FOR A30 NOPRI;
+SELECT tablespace_name AS p_newtbs
+  FROM dba_tablespaces
+ WHERE contents = 'PERMANENT'
+   AND tablespace_name NOT IN ('SYSTEM', 'SYSAUX')
+   AND tablespace_name = UPPER(TRIM('&&tbsname.'))
+/
+PRO
+PRO 3. Table OLTP Compression: [{FALSE}|TRUE]
+DEF compression = '&3.';
+UNDEF 3;
+COL p_compression NEW_V p_compression NOPRI;
+SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
+/
+PRO
+PRO 4. CLOB Compression and Deduplication: [{CD}|C|NO] CD:Compression and Deduplication, C:Compression, NO:None
+DEF redeflob = '&4.';
+UNDEF 4;
+COL p_lobcomp NEW_V p_lobcomp NOPRI;
+COL p_lobdedup NEW_V p_lobdedup NOPRI; 
+COL p_redeflob NEW_V p_redeflob NOPRI;
+SELECT CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'CD') IN ('CD', 'C') THEN 'TRUE' ELSE 'FALSE' END AS p_lobcomp,
+       CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'CD') = 'CD' THEN 'TRUE' ELSE 'FALSE' END AS p_lobdedup,
+       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'CD' END AS p_redeflob
+FROM DUAL
+/
+PRO
+PRO 5. Degree of Parallelism: [{1}|2|4|8]
+DEF pxdegree = '&5.';
+UNDEF 5;
+COL p_pxdegree NEW_V p_pxdegree NOPRI;
+SELECT CASE WHEN '&&pxdegree.' IN ('1','2','4','8') THEN '&&pxdegree.' ELSE '1' END AS p_pxdegree FROM DUAL
+/
+--
+SELECT '&&cs_file_prefix._&&cs_script_name._&&p_owner.' cs_file_name FROM DUAL;
+--
+@@cs_internal/cs_spool_head.sql
+PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
+@@cs_internal/cs_spool_id.sql
+--
+PRO TABLE_OWNER  : &&p_owner.
+PRO TABLESPACE   : &&p_newtbs.
+PRO OLTP_COMPRES : &&p_compression.
+PRO LOB_COMPRES  : &&p_redeflob.
+PRO PX_DEGREE    : &&p_pxdegree.
+--
+ALTER SESSION SET container = CDB$ROOT;
+--
+PRO
+PRO TABLE REDEFINITION
+PRO ~~~~~~~~~~~~~~~~~~
+SET SERVEROUT ON
+BEGIN
+  &&cs_tools_schema..IOD_SPACE.redefschemanewtbs (
+      p_pdb_name      => '&&cs_con_name.'
+    , p_owner         => '&&p_owner.'
+    , p_pxdegree      =>  &&p_pxdegree.
+    , p_newtbs        => '&&p_newtbs.'
+    , p_compression   => &&p_compression.
+    , p_lobcomp       => &&p_lobcomp.
+    , p_lobdedup      => &&p_lobdedup.
+  );
+END;
+/
+SET SERVEROUT OFF;
+--
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--
+PRO
+PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
+--
+@@cs_internal/cs_spool_tail.sql
+@@cs_internal/cs_undef.sql
+@@cs_internal/cs_reset.sql
+--

@@ -1,1 +1,0 @@
-@@cs_sysmetric_hist_chart.sql "" "" "CPU" "Host CPU Usage Per Sec" "CPU Usage Per Sec" "Background CPU Usage Per Sec" "" ""

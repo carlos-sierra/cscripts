@@ -1,0 +1,1 @@
+@@cs_internal/cs_active_sessions_internal.sql
