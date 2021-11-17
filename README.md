@@ -11,7 +11,6 @@ CS Scripts Inventory by Type (2021-11-17)
 * Kill Sessions
 * Blocked Sessions
 * Locks
-* Snapper (by Tanel Poder)
 * Space Reporting
 * Space Maintenance
 * Container
@@ -190,17 +189,6 @@ Locks
 * locks.sql | cs_locks.sql                                      - Locks Summary and Details
 * cs_locks_mon.sql                                              - Locks Summary and Details - Monitor
 * cs_wait_chains.sql                                            - Wait Chains (text report)
-
-Snapper (by Tanel Poder)
-------------------------
-* snap.sql                                                      - Sampling SID all with interval 5 seconds, taking 1 snapshots
-* snapper_top.sql | cs_snapper_top.sql                          - Sessions Snapper for all sessions using Tanel Poder Snapper
-* snapper_sql_id.sql | cs_snapper_sql_id.sql                    - Sessions Snapper for one SQL_ID using Tanel Poder Snapper
-* snapper_sid.sql | cs_snapper_sid.sql                          - Sessions Snapper for one SID using Tanel Poder Snapper
-* snapper_spid.sql | cs_snapper_spid.sql                        - Sessions Snapper for one SPID (OS PID) using Tanel Poder Snapper
-* snapper_machine.sql | cs_snapper_machine.sql                  - Sessions Snapper for one Machine using Tanel Poder Snapper
-* snapper_module.sql | cs_snapper_module.sql                    - Sessions Snapper for one Module using Tanel Poder Snapper
-* snapper_service.sql | cs_snapper_service.sql                  - Sessions Snapper for one Service using Tanel Poder Snapper
 
 Space Reporting
 ---------------
