@@ -2,11 +2,11 @@
 --
 -- File name:   cs_fs.sql
 --
--- Purpose:     Find SQL statements matching some string
+-- Purpose:     Find application SQL statements matching some string
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2021/07/21
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -31,8 +31,10 @@ DEF rows_per_exec_min = '&&low_value.';
 DEF rows_per_exec_max = '&&high_value.';
 DEF valid = 'Y';
 DEF invalid = 'N';
+--
 DEF last_active_hours = '24';
 DEF include_awr = 'Y';
+DEF short_circuit = 'N';
 --
 @@cs_internal/cs_primary.sql
 @@cs_internal/cs_cdb_warn.sql
@@ -79,14 +81,16 @@ COL sprf FOR 9999;
 COL spch FOR 9999;
 COL first_load_time FOR A19;
 COL last_active_time FOR A19;
-COL len FOR 99,990 HEA 'LENGTH';
-COL prd FOR 99,990 HEA 'WHERE';
+COL sqlid FOR A5 HEA 'SQLHV';
+COL len FOR 99990 HEA 'LENGHT';
+COL prd FOR 99990 HEA 'WHERE';
 COL sql_text_80 FOR A80 HEA 'SQL_TEXT';
 COL pdb_name FOR A35;
 COL please_stop NEW_V please_stop NOPRI;
 DEF please_stop = '';
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -130,7 +134,7 @@ SELECT /* &&cs_script_name. */
               AND     t.table_name = d.to_name
           ) t,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
@@ -143,6 +147,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -156,10 +161,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -203,7 +209,7 @@ SELECT /* &&cs_script_name. */
               AND     t.table_name = d.to_name
           ) t,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
@@ -216,6 +222,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -229,10 +236,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -276,7 +284,7 @@ SELECT /* &&cs_script_name. */
               AND     t.table_name = d.to_name
           ) t,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND ((s.object_status LIKE 'VALID%' AND '&&valid.' = 'Y') OR (s.object_status LIKE 'INVALID%' AND '&&invalid.' = 'Y'))
@@ -288,6 +296,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -301,10 +310,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -331,7 +341,7 @@ SELECT /* &&cs_script_name. */
        'Y' please_stop
   FROM v$sqlstats s,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND c.con_id = s.con_id
@@ -343,6 +353,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
@@ -353,10 +364,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -383,7 +395,7 @@ SELECT /* &&cs_script_name. */
        'Y' please_stop
   FROM v$sqlstats s,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND c.con_id = s.con_id
@@ -395,6 +407,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
@@ -405,10 +418,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
@@ -435,7 +449,7 @@ SELECT /* &&cs_script_name. */
        'Y' please_stop
   FROM v$sqlstats s,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND s.sql_text NOT LIKE '/* SQL Analyze(%'
    AND s.sql_text NOT LIKE '%/* &&cs_script_name. */%'
    AND c.con_id = s.con_id
@@ -446,6 +460,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.sql_text,
@@ -456,10 +471,11 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       6 DESC NULLS LAST, 7 DESC NULLS LAST
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid,
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
@@ -468,7 +484,7 @@ SELECT /* &&cs_script_name. */
        'Y' please_stop
   FROM dba_hist_sqltext h,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND '&&include_awr' = 'Y'
    AND '&&executions_min.' = '&&low_value.'
    AND '&&executions_max.' = '&&high_value.'
@@ -486,10 +502,11 @@ SELECT /* &&cs_script_name. */
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND h.sql_id = '&&search_string.'
  ORDER BY
-       1, 2, 3, 4
+       1
 /
 --
 SELECT /* &&cs_script_name. */
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid,
        h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
@@ -498,7 +515,7 @@ SELECT /* &&cs_script_name. */
        'Y' please_stop
   FROM dba_hist_sqltext h,
        v$containers c
- WHERE '&&please_stop.' IS NULL -- short-circuit if a prior sibling query returned rows
+ WHERE ('&&please_stop.' IS NULL OR '&&short_circuit.' = 'N') -- short-circuit if a prior sibling query returned rows
    AND '&&include_awr' = 'Y'
    AND '&&executions_min.' = '&&low_value.'
    AND '&&executions_max.' = '&&high_value.'
@@ -515,7 +532,7 @@ SELECT /* &&cs_script_name. */
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND UPPER(DBMS_LOB.substr(h.sql_text, 1000)) LIKE UPPER('%&&search_string.%') -- case insensitive
  ORDER BY
-       1, 2, 3, 4
+       1
 /
 --
 PRO

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/01/19
 --
 -- Usage:       Execute connected to CDB.
 --
@@ -41,7 +41,7 @@ DEF report_title = "Top PDBs in terms of Allocated Disk Space between &&cs_sampl
 DEF chart_title = "&&report_title.";
 DEF xaxis_title = "";
 --DEF vaxis_title = "Gibibytes (GiB)";
-DEF vaxis_title = "Gigabytes (GB)";
+DEF vaxis_title = "Gigabytes (GBs)";
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
@@ -54,7 +54,7 @@ DEF chart_foot_note_2 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to.";
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."';
 --
 DEF top_01 = "";
 DEF top_02 = "";

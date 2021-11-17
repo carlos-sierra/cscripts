@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/07/21
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -26,8 +26,8 @@
 --
 DEF cs_script_name = 'cs_sql_perf_long_executions';
 DEF cs_hours_range_default = '168';
-DEF cs_include_sys = 'N';
-DEF cs_include_iod = 'N';
+DEF cs_include_sys = 'Y';
+DEF cs_include_iod = 'Y';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
@@ -104,10 +104,11 @@ COL seconds FOR 999,990.000 HEA 'Seconds';
 COL sid_serial FOR A13 HEA '  SID,SERIAL#'; 
 COL xid FOR A16 HEA 'Transaction ID';
 COL sql_type FOR A4 HEA 'SQL|Type';
-COL sql_plan_hash_value HEA 'Plan|Hash Value';
+COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL sql_text FOR A100 HEA 'SQL Text' TRUNC;
 COL username FOR A30 HEA 'Username' TRUNC;
 COL pdb_name FOR A30 HEA 'PDB Name' TRUNC;
+COL sqlid FOR A5 HEA 'SQLHV';
 --
 BREAK ON pdb_name SKIP PAGE DUP;
 --
@@ -426,7 +427,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        s.con_id,
        s.sql_id,
        application_category(s.sql_text) sql_type,
-       s.sql_text
+       s.sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid
   FROM v$sql s
  WHERE sql_id IS NOT NULL
    AND ('&&cs_sql_id.' IS NULL OR s.sql_id = '&&cs_sql_id.')
@@ -437,14 +439,16 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        s.con_id,
        s.sql_id,
        application_category(s.sql_text),
-       s.sql_text
+       s.sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0')
 ),
 hsql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.sql_id,
        application_category(DBMS_LOB.substr(h.sql_text, 1000)) sql_type,
-       DBMS_LOB.substr(h.sql_text, 1000) sql_text
+       DBMS_LOB.substr(h.sql_text, 1000) sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid
   FROM dba_hist_sqltext h
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
@@ -475,6 +479,7 @@ SELECT TO_CHAR(h.sql_exec_start, '&&cs_datetime_full_format.') sql_exec_start,
        h.xid,
        COALESCE(s.sql_type, hs.sql_type) sql_type,
        h.sql_id,
+       COALESCE(s.sqlid, hs.sqlid) AS sqlid,
        h.sql_plan_hash_value,
        COALESCE(s.sql_text, hs.sql_text) sql_text,
        u.username,

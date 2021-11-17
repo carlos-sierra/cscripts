@@ -23,7 +23,7 @@ SET FEED ON ECHO ON VER ON TI ON TIMI ON;
 -- connect to pdb
 ALTER SESSION SET container = &&pdb_name.;
 --
-CREATE OR REPLACE DIRECTORY CS_TEMP AS '&&directory_path.';
+CREATE OR REPLACE DIRECTORY CS_TEMP_DIR AS '&&directory_path.';
 -- prepares backup owner
 DEF repo_owner = 'C##IOD';
 COL default_tablespace NEW_V default_tablespace NOPRI;
@@ -89,8 +89,10 @@ select LISTAGG(owner||'.'||replace(object_name,chr(36), chr(92)||chr(36) ),',') 
 from dba_objects where owner='C##IOD' and object_type='TABLE' AND object_name LIKE '%_&&backup_timestamp.';
 --
 PRO
-HOS expdp \"sys/&&sys_pwd.@&&connect_string. as sysdba\" file=SPM_&&backup_timestamp..dmp logfile=SPM_&&backup_timestamp..log DIRECTORY=CS_TEMP tables=&&table_list.
-PRO
+HOS expdp \"sys/&&sys_pwd.@&&connect_string. as sysdba\" file=SPM_&&backup_timestamp..dmp logfile=SPM_&&backup_timestamp..log DIRECTORY=CS_TEMP_DIR tables=&&table_list.
+--
+DROP DIRECTORY CS_TEMP_DIR;
+--
 HOS cp &&directory_path./SPM_&&backup_timestamp..* .
 HOS chmod 777 SPM_&&backup_timestamp..*
 HOS ls -lat SPM_&&backup_timestamp..*

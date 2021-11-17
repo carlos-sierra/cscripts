@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/03/11
 --
 -- Usage:       Connecting into CDB.
 --
@@ -19,12 +19,8 @@
 ---------------------------------------------------------------------------------------
 --
 ALTER SESSION SET container = CDB$ROOT;
---
--- enable legacy zapper
--- UPDATE &&cs_tools_schema..zapper_config SET enabled = 'Y' WHERE enabled = 'N'
--- /
 -- enable zapper-19
-UPDATE &&cs_tools_schema..zapper_global SET enabled = 'Y' WHERE enabled = 'N'
+UPDATE C##IOD.zapper_config SET enabled = 'Y' WHERE enabled = 'N'
 /
 COMMIT
 /

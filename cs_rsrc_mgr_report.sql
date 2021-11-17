@@ -39,8 +39,8 @@ PRO SQL> @&&cs_script_name..sql
 @@cs_internal/cs_rsrc_mgr_internal_configuration.sql
 @@cs_internal/cs_rsrc_mgr_internal_directives.sql
 @@cs_internal/cs_rsrc_mgr_internal_history.sql
-@@cs_internal/cs_rsrc_mgr_internal_directives.sql
-@@cs_internal/cs_rsrc_mgr_internal_configuration.sql
+-- @@cs_internal/cs_rsrc_mgr_internal_directives.sql
+-- @@cs_internal/cs_rsrc_mgr_internal_configuration.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql 

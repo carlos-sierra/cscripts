@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2021/10/27
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -38,6 +38,7 @@ SELECT h.parameter_name, COUNT(DISTINCT h.value) AS dist_values
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') - 1 AND TO_NUMBER('&&cs_snap_id_to.')
+   AND &&cs_con_id. IN (1, h.con_id)
  GROUP BY
        h.parameter_name
 HAVING COUNT(DISTINCT h.value) > 1
@@ -52,7 +53,7 @@ UNDEF 3;
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&parameter_name.""
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&parameter_name."
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
@@ -69,6 +70,7 @@ SELECT h.parameter_name, COUNT(DISTINCT h.value) AS dist_values
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') - 1 AND TO_NUMBER('&&cs_snap_id_to.')
+   AND &&cs_con_id. IN (1, h.con_id)
  GROUP BY
        h.parameter_name
 HAVING COUNT(DISTINCT h.value) > 1
@@ -103,7 +105,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') - 1 AND TO_NUMBER('&&cs_snap_id_to.')
-   AND ('&&parameter_name.' IS NULL OR parameter_name = '&&parameter_name.')
+   AND &&cs_con_id. IN (1, h.con_id)
+   AND ('&&parameter_name.' IS NULL OR UPPER(parameter_name) = UPPER('&&parameter_name.'))
 ),
 parameter_changes AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -143,7 +146,7 @@ SELECT CAST(p.begin_interval_time AS DATE) AS begin_time,
 CLEAR BREAK;
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&parameter_name.""
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&parameter_name."
 --
 @@cs_internal/cs_spool_tail.sql
 --

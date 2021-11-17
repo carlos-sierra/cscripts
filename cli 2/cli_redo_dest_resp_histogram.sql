@@ -1,0 +1,1 @@
+select * from v$redo_dest_resp_histogram where frequency > 0;

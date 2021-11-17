@@ -1,0 +1,1 @@
+select value from v$system_parameter where name = 'session_cached_cursors';

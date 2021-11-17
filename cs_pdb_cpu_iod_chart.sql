@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/02/03
 --
 -- Usage:       Execute connected to PDB
 --
@@ -86,7 +86,7 @@ END num_format;
 snap AS (
  SELECT /*+ MATERIALIZE NO_MERGE */
         snap_time, COUNT(*) AS sessions
-   FROM &&cs_tools_schema..iod_session_hist
+   FROM &&cs_tools_schema..iod_session_v
   WHERE con_id = &&cs_con_id.
     AND type = 'USER'
     AND status = 'ACTIVE'

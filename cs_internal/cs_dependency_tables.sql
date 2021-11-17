@@ -104,13 +104,15 @@ SELECT /*+ QB_NAME(get_stats) */
        table_name
 /
 --
+COL object_type HEA 'Object Type';
+COL owner FOR A30 HEA 'Owner';
 COL object_id FOR 999999999 HEA 'Object ID';
 COL object_name FOR A30 HEA 'Object Name' TRUNC;
 COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 --
 PRO
-PRO TABLE OBJECTS (dba_objects)
+PRO TABLE OBJECTS (dba_objects) up to 100 
 PRO ~~~~~~~~~~~~~
 WITH /* OBJECTS */
 v_sqlarea_m AS (
@@ -154,7 +156,8 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
 )
-SELECT o.owner,
+SELECT o.object_type,
+       o.owner,
        o.object_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
@@ -163,9 +166,95 @@ SELECT o.owner,
        dba_objects o
  WHERE o.owner = t.owner
    AND o.object_name = t.table_name
-   AND o.object_type = 'TABLE'
+   AND o.object_type LIKE 'TABLE%'
  ORDER BY
+       o.object_type,
        o.owner,
        o.object_name
+FETCH FIRST 100 ROWS ONLY       
+/
+--
+COL object_type HEA 'Object Type';
+COL owner FOR A30 HEA 'Owner';
+COL object_id FOR 999999999 HEA 'Object ID';
+COL object_name FOR A30 HEA 'Object Name' TRUNC;
+COL created FOR A19 HEA 'Created';
+COL last_ddl_time FOR A19 HEA 'Last DDL Time';
+COL analyzetime FOR A19 HEA 'Analyze Time';
+COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
+COL blkcnt FOR 999,999,990 HEA 'Block Count';
+COL avgrln FOR 999,999,990 HEA 'Avg Row Len';
+COL samplesize FOR 999,999,999,990 HEA 'Sample Size';
+--
+PRO
+PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) up to 100 
+PRO ~~~~~~~~~~~~~~~~~~~~~~
+WITH /* OBJECTS */
+v_sqlarea_m AS (
+SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */ 
+       DISTINCT 
+       hash_value, address
+  FROM v$sqlarea 
+ WHERE sql_id = '&&cs_sql_id.'
+),
+v_object_dependency_m AS (
+SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
+       DISTINCT 
+       o.to_owner, o.to_name
+      --  o.to_hash, o.to_address 
+  FROM v$object_dependency o,
+       v_sqlarea_m s
+ WHERE o.from_hash = s.hash_value 
+   AND o.from_address = s.address
+   AND o.to_type = 2 -- table
+),
+-- v_db_object_cache_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
+--        DISTINCT 
+--        SUBSTR(c.owner,1,30) AS object_owner, 
+--        SUBSTR(c.name,1,30) AS object_name 
+--   FROM v$db_object_cache c,
+--        v_object_dependency_m d
+--  WHERE c.type IN ('TABLE','VIEW') 
+--    AND c.hash_value = d.to_hash
+--    AND c.addr = d.to_address 
+-- ),
+dba_tables_m AS (
+SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
+       t.owner, 
+       t.table_name
+  FROM dba_tables t,
+       v_object_dependency_m o
+      --  v_db_object_cache_m c
+--  WHERE t.owner = c.object_owner
+--    AND t.table_name = c.object_name 
+ WHERE t.owner = o.to_owner
+   AND t.table_name = o.to_name 
+)
+SELECT o.object_type,
+       o.owner,
+       o.object_name,
+       o.object_id,
+       TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
+       TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time,
+       TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       h.rowcnt,
+       h.blkcnt,
+       h.avgrln,
+       h.samplesize
+  FROM dba_tables_m t,
+       dba_objects o,
+       wri$_optstat_tab_history h
+ WHERE o.owner = t.owner
+   AND o.object_name = t.table_name
+   AND o.object_type = 'TABLE'
+   AND h.obj# = o.object_id
+   AND h.analyzetime IS NOT NULL
+ ORDER BY
+       o.object_type,
+       o.owner,
+       o.object_name,
+       h.analyzetime
+FETCH FIRST 100 ROWS ONLY       
 /
 --

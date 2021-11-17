@@ -1,0 +1,2 @@
+-- cs_cpu_sysmetric_for_pdb_hist_chart.sql - CPU System Metrics as per DBA_HIST_CON_SYSMETRIC_SUMM View for a PDB (time series chart)
+@@cs_some_sysmetric_for_pdb_hist_chart.sql "" "" "CentiSeconds Per Second" "CPU Usage Per Sec" "" "" "" "" "" "average" "Scatter" "none"

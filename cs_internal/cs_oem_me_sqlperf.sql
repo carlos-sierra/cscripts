@@ -233,6 +233,7 @@ PRO ~~~~~~~~~~~~~~~~~~
 WITH
 snaps AS (
 SELECT snap_time,
+       plan_hash_value,
        ms_per_execution,
        ms_per_exec_threshold,
        aas_tot,
@@ -248,6 +249,7 @@ SELECT snap_time,
 )
 SELECT snap_time,
        CASE WHEN rn2 <= &&cs_me_top. THEN rn2 END AS top,
+       plan_hash_value,
        ms_per_execution,
        ms_per_exec_threshold,
        CASE WHEN ms_per_execution > ms_per_exec_threshold AND rn2 <= &&cs_me_top. THEN '<-' END AS dummy,

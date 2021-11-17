@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/10/27
 --
 -- Usage:       Execute connected to CDB or PDB
 --

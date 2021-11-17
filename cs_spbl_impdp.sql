@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/14
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB.
 --
@@ -33,12 +33,12 @@ DEF cs_script_name = 'cs_spbl_impdp';
 ACCEPT sys_password CHAR PROMPT 'Enter SYS Password (hidden): ' HIDE
 --
 PRO
-PRO Datapump files on &&cs_temp_dir.
-PRO ~~~~~~~~~~~~~~~~~
-HOS ls /tmp/*_SQL_ID_*.dmp | xargs -n1 basename | sort
+PRO Datapump files on /tmp
+PRO ~~~~~~~~~~~~~~~~~~~~~~
+HOS ls -lt /tmp/*_SPM_EXPDP.dmp
 -- */
 PRO
-PRO 1. DATAPUMP_FILENAME: 
+PRO 1. Enter Datapump filename: (exclude directory path /tmp/)
 DEF dp_file_name = '&1.';
 UNDEF 1;
 COL cs_dp_file_name NEW_V cs_dp_file_name NOPRI;
@@ -60,40 +60,34 @@ DEF cs_plan_id = '';
 --
 HOS cp /tmp/&&cs_dp_file_name..dmp &&cs_temp_dir./
 --
-HOS impdp \"sys/&&sys_password.@&&cs_easy_connect_string. AS SYSDBA\" DIRECTORY=CS_TEMP DUMPFILE=&&cs_dp_file_name..dmp LOGFILE=&&cs_dp_file_name._impdp.log TABLES=&&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline TABLE_EXISTS_ACTION=APPEND
+-- TABLE_EXISTS_ACTION=APPEND
+--
+HOS impdp \"sys/&&sys_password.@&&cs_easy_connect_string. AS SYSDBA\" DIRECTORY=CS_TEMP_DIR DUMPFILE=&&cs_dp_file_name..dmp LOGFILE=&&cs_dp_file_name..impdp.log TABLES=&&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline CONTENT=DATA_ONLY
 UNDEF sys_password
 --
-HOS cp &&cs_temp_dir./&&cs_dp_file_name._impdp.log /tmp/
-HOS chmod 644 /tmp/&&cs_dp_file_name._impdp.log
+HOS cp &&cs_temp_dir./&&cs_dp_file_name..impdp.log /tmp/
+HOS chmod 644 /tmp/&&cs_dp_file_name..impdp.log
 --
 @@cs_internal/cs_temp_dir_drop.sql
 --
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO
-PRO 3. PLAN_NAME on STAGING TABLE(opt):
+PRO 3. Plan Name to unpack from staging table: (opt)
 DEF cs_plan_name = '&3.';
 UNDEF 3;
 --
-COL cs_plan_id NEW_V cs_plan_id NOPRI;
-SELECT TO_CHAR(plan_id) cs_plan_id
-  FROM sys.sqlobj$
- WHERE obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
-   AND signature = TO_NUMBER('&&cs_signature.')
-   AND name = '&&cs_plan_name.'
-/
 PRO
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_dp_file_name." "&&cs_sql_id." "&&cs_plan_name."
 @@cs_internal/cs_spool_id.sql
 --
 PRO DATAPUMP_FILE: &&dp_file_name.
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO PLAN_NAME    : "&&cs_plan_name."
-PRO PLAN_ID      : "&&cs_plan_id."
 --
 SET HEA OFF;
 PRINT :cs_sql_text
@@ -124,4 +118,3 @@ PRO SQL> @&&cs_script_name..sql "&&cs_dp_file_name." "&&cs_sql_id." "&&cs_plan_n
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --
-

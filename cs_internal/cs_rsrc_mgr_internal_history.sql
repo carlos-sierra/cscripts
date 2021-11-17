@@ -30,6 +30,7 @@ SELECT pdb_name AS pluggable_database,
        LAG(aas_pct, 1, 0) OVER (PARTITION BY pdb_name ORDER BY snap_time) AS lag_aas_pct
   FROM &&cs_tools_schema..rsrc_mgr_pdb_hist
  WHERE plan = '&&resource_manager_plan.'
+   AND '&&cs_con_name.' IN ('CDB$ROOT', pdb_name)
 )
 SELECT pluggable_database,
        snap_time,

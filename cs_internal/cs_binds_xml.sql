@@ -1,8 +1,8 @@
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
-COL sum_seconds FOR 999,999,990 HEA 'Sum Secs';
-COL avg_seconds FOR 999,999,990 HEA 'Avg Secs';
-COL max_seconds FOR 999,999,990 HEA 'Max Secs';
+COL sum_seconds FOR 999,999,990 HEA 'Sum Dur Secs';
+COL avg_seconds FOR 999,999,990 HEA 'Avg Dur Secs';
+COL max_seconds FOR 999,999,990 HEA 'Max Dur Secs';
 COL execs FOR 999,990 HEA 'Executions';
 COL last_refresh_time FOR A19 HEA 'Last Captured';
 COL con_id FOR 999 HEA 'Con|ID';
@@ -19,7 +19,7 @@ COL avg_disk_reads FOR 999,999,999,990 HEA 'Avg Disk Reads';
 COL module_action_program FOR A100 HEA 'Module Action Program' TRUNC;
 --
 PRO
-PRO SQL MONITOR BINDS by Sum Secs (v$sql_monitor)
+PRO SQL MONITOR BINDS by Sum Secs (v$sql_monitor) Top 100
 PRO ~~~~~~~~~~~~~~~~~
 --
 WITH 
@@ -74,8 +74,8 @@ SELECT mon.con_id,
        bv.len,
        bv.value
   FROM mon, 
-       xmltable( '/binds/bind'
-                  passing xmltype( mon.binds_xml )
+       XMLTABLE( '/binds/bind'
+                  PASSING XMLTYPE(REPLACE(REPLACE(ASCIISTR(mon.binds_xml), '\FFFF'), CHR(0)))
                   COLUMNS name   VARCHAR2( 30 )   path '@name' ,
                           pos    NUMBER           path '@pos',
                           type   VARCHAR2( 15 )   path '@dtystr' ,
@@ -159,9 +159,9 @@ SELECT SUM(seconds) AS sum_seconds,
        sql_plan_hash_value,
        binds,
        status,
-       sid||','||serial# AS sid_serial#,
-       --username,
-       machine,
+      --  sid||','||serial# AS sid_serial#,
+      --  --username,
+      --  machine,
        TRIM(
        CASE WHEN module IS NOT NULL THEN 'm:'||SUBSTR(module, 1, 64) END||
        CASE WHEN action IS NOT NULL THEN ' a:'||SUBSTR(action, 1, 64) END||
@@ -174,9 +174,9 @@ SELECT SUM(seconds) AS sum_seconds,
        binds,
        status,
        username,
-       sid,
-       serial#,
-       machine,
+      --  sid,
+      --  serial#,
+      --  machine,
        module,
        action,
        program
@@ -185,11 +185,11 @@ SELECT SUM(seconds) AS sum_seconds,
        2 DESC,
        3 DESC,
        5
-FETCH FIRST 300 ROWS ONLY
+FETCH FIRST 100 ROWS ONLY
 /
 --
 PRO
-PRO SQL MONITOR BINDS by Last Captured (v$sql_monitor)
+PRO SQL MONITOR BINDS by Last Captured (v$sql_monitor) Last 100
 PRO ~~~~~~~~~~~~~~~~~
 --
 WITH 
@@ -244,8 +244,8 @@ SELECT mon.con_id,
        bv.len,
        bv.value
   FROM mon, 
-       xmltable( '/binds/bind'
-                  passing xmltype( mon.binds_xml )
+       XMLTABLE( '/binds/bind'
+                  PASSING XMLTYPE(REPLACE(REPLACE(ASCIISTR(mon.binds_xml), '\FFFF'), CHR(0)))
                   COLUMNS name   VARCHAR2( 30 )   path '@name' ,
                           pos    NUMBER           path '@pos',
                           type   VARCHAR2( 15 )   path '@dtystr' ,
@@ -314,7 +314,8 @@ SELECT con_id,
        module,
        action,
        program
-)
+),
+top AS (
 SELECT MAX(last_refresh_time) AS last_refresh_time,
        SUM(seconds) AS sum_seconds,
        ROUND(AVG(seconds)) AS avg_seconds,
@@ -351,6 +352,153 @@ SELECT MAX(last_refresh_time) AS last_refresh_time,
        action,
        program
  ORDER BY
-       1
-FETCH FIRST 300 ROWS ONLY
+       1 DESC
+FETCH FIRST 100 ROWS ONLY
+)
+SELECT last_refresh_time,
+       sum_seconds,
+       avg_seconds,
+       max_seconds,
+       execs,
+       avg_et_secs,
+       avg_cpu_secs,
+       avg_buffer_gets,
+       avg_disk_reads,
+       con_id,
+       pdb_name,
+       sql_plan_hash_value,
+       binds,
+       status,
+       sid_serial#,
+       --username,
+       machine,
+       module_action_program
+  FROM top
+ ORDER BY
+       last_refresh_time
+/
+--
+PRO
+PRO SQL MONITOR BINDS by Sum of Elapsed Time (v$sql_monitor) Top 100
+PRO ~~~~~~~~~~~~~~~~~
+--
+COL sum_duration_secs FOR 999,990 HEA 'Sum|Duration|Seconds';
+COL sum_elapsed_secs FOR 999,990 HEA 'Sum|Elapsed|Seconds';
+COL sum_cpu_secs FOR 999,990 HEA 'Sum|CPU|Seconds';
+COL sum_buffer_gets FOR 999,999,999,990 HEA 'Sum|Buffer|Gets';
+COL sum_disk_reads FOR 999,999,999,990 HEA 'Sum|Disk|Reads';
+COL avg_duration_secs FOR 999,990 HEA 'Avg|Duration|Seconds';
+COL avg_elapsed_secs FOR 999,990 HEA 'Avg|Elapsed|Seconds';
+COL avg_cpu_secs FOR 999,990 HEA 'Avg|CPU|Seconds';
+COL avg_buffer_gets FOR 999,999,999,990 HEA 'Avg|Buffer|Gets';
+COL avg_disk_reads FOR 999,999,999,990 HEA 'Avg|Disk|Reads';
+COL max_duration_secs FOR 999,990 HEA 'Max|Duration|Seconds';
+COL max_elapsed_secs FOR 999,990 HEA 'Max|Elapsed|Seconds';
+COL max_cpu_secs FOR 999,990 HEA 'Max|CPU|Seconds';
+COL max_buffer_gets FOR 999,999,999,990 HEA 'Max|Buffer|Gets';
+COL max_disk_reads FOR 999,999,999,990 HEA 'Max|Disk|Reads';
+COL cnt FOR 999,990 HEA 'Count';
+COL name_and_value FOR A200 HEA 'Bind Name and Value';
+COL min_sql_exec_start HEA 'Min SQL|Exec Start';
+COL max_last_refresh_time HEA 'Max Last|Refresh Time';
+COL d1 FOR A1 HEA '|';
+COL d2 FOR A1 HEA '|';
+COL d3 FOR A1 HEA '|';
+COL d4 FOR A1 HEA '|';
+--
+WITH 
+mon AS (
+SELECT s.key,
+       s.con_id,
+       s.sql_plan_hash_value,
+       s.sql_exec_id,
+       s.sql_exec_start,
+       s.last_refresh_time,
+       (s.last_refresh_time - s.sql_exec_start) * 24 * 3600 AS seconds,
+       s.status,
+       s.username,
+       s.sid,
+       s.session_serial# AS serial#,
+       s.elapsed_time,
+       s.cpu_time,
+       s.buffer_gets,
+       s.disk_reads,
+       s.module,
+       s.action,
+       s.program,
+       bv.pos,
+       bv.name,
+       bv.type,
+       bv.maxlen,
+       bv.len,
+       bv.value
+  FROM v$sql_monitor s, 
+       xmltable( '/binds/bind'
+                  passing xmltype(REPLACE(REPLACE(ASCIISTR(s.binds_xml), '\FFFF'), CHR(0)))
+                  COLUMNS name   VARCHAR2( 30 )   path '@name' ,
+                          pos    NUMBER           path '@pos',
+                          type   VARCHAR2( 15 )   path '@dtystr' ,
+                          maxlen NUMBER           path '@maxlen', 
+                          len    NUMBER           path '@len',
+                          value  VARCHAR2( 4000 ) path '.'
+               ) bv
+ WHERE s.sql_id = '&&cs_sql_id.'
+   AND s.status LIKE 'DONE%'
+   AND s.binds_xml IS NOT NULL
+),
+grp AS (
+SELECT SUM(seconds) AS sum_duration_secs,
+       SUM(elapsed_time) / POWER(10, 6) AS sum_elapsed_secs,
+       SUM(cpu_time) / POWER(10, 6) AS sum_cpu_secs,
+       SUM(buffer_gets) AS sum_buffer_gets,
+       SUM(disk_reads) AS sum_disk_reads,
+       AVG(seconds) AS avg_duration_secs,
+       AVG(elapsed_time) / POWER(10, 6) AS avg_elapsed_secs,
+       AVG(cpu_time) / POWER(10, 6) AS avg_cpu_secs,
+       AVG(buffer_gets) AS avg_buffer_gets,
+       AVG(disk_reads) AS avg_disk_reads,
+       MAX(seconds) AS max_duration_secs,
+       MAX(elapsed_time) / POWER(10, 6) AS max_elapsed_secs,
+       MAX(cpu_time) / POWER(10, 6) AS max_cpu_secs,
+       MAX(buffer_gets) AS max_buffer_gets,
+       MAX(disk_reads) AS max_disk_reads,
+       COUNT(*) AS cnt,
+       MIN(sql_exec_start) AS min_sql_exec_start,
+       MAX(last_refresh_time) AS max_last_refresh_time,
+       name,
+       value
+  FROM mon
+ GROUP BY
+       name,
+       value
+)
+SELECT sum_duration_secs,
+       sum_elapsed_secs,
+       sum_cpu_secs,
+       sum_buffer_gets,
+       sum_disk_reads,
+       '|' AS d1,
+       avg_duration_secs,
+       avg_elapsed_secs,
+       avg_cpu_secs,
+       avg_buffer_gets,
+       avg_disk_reads,
+       '|' AS d2,
+       max_duration_secs,
+       max_elapsed_secs,
+       max_cpu_secs,
+       max_buffer_gets,
+       max_disk_reads,
+       '|' AS d3,
+       name||' = '||value AS name_and_value,
+       '|' AS d4,
+       cnt,
+       min_sql_exec_start,
+       max_last_refresh_time
+  FROM grp
+ ORDER BY
+       sum_duration_secs DESC,
+       name,
+       value
+ FETCH FIRST 100 ROWS ONLY
 /

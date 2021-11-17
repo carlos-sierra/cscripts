@@ -17,6 +17,8 @@ COL histogram FOR A15 HEA 'Histogram';
 COL sample_size FOR 999,999,999,990 HEA 'Sample Size';
 COL last_analyzed FOR A19 HEA 'Last Analyzed';
 COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
+COL data_length FOR 999,999,990 HEA 'Data Length';
+COL char_length FOR 999,999,990 HEA 'Char Length';
 --
 BRE ON table_owner ON table_name ON index_name SKIP 1;
 --
@@ -124,7 +126,9 @@ SELECT /*+ QB_NAME(get_stats) */
        c.histogram,
        c.sample_size,
        TO_CHAR(c.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
-       c.avg_col_len
+       c.avg_col_len,
+       c.data_length, 
+       c.char_length
   FROM dba_tables_m t,
        dba_ind_columns i,
        dba_tab_cols c

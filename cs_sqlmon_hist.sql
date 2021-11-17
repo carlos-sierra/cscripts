@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/08/26
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -29,7 +29,9 @@
 --
 DEF cs_script_name = 'cs_sqlmon_hist';
 --
-@cs_internal/cs_sample_time_from_and_to.sql
+DEF cs_hours_range_default = '168';
+--
+@@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
 COL key1 FOR A13 HEA 'SQL_ID';
@@ -56,14 +58,16 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        --REGEXP_REPLACE(REGEXP_SUBSTR(r.report_summary, '<status>[^\<]*'), '<status>') AS status, -- <status>DONE (ALL ROWS)</status>
        REGEXP_SUBSTR(r.report_summary, '[^\<]*', REGEXP_INSTR(r.report_summary, '<status>', 1, 1, 1)) AS status, -- <status>DONE (ALL ROWS)</status>
        r.con_id,
-       r.key1
-  FROM cdb_hist_reports r
+       r.key1,
+       c.name AS pdb_name
+  FROM cdb_hist_reports r, v$containers c
  WHERE (r.period_end_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.') OR r.period_start_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.'))
    AND r.component_name = 'sqlmonitor'
    AND r.key1 IS NOT NULL
    AND LENGTH(r.key1) = 13
    AND r.dbid = TO_NUMBER('&&cs_dbid.')
    AND r.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND c.con_id = r.con_id
    AND ROWNUM >= 1 /*+ MATERIALIZE NO_MERGE */
 )
 , sqlmonitor_grouped AS (
@@ -81,11 +85,13 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(SUM(r.period_end_time - r.period_start_time) * 24 * 3600 / COUNT(*)) AS secs_avg,
        MIN(r.period_start_time) AS min_start_time,
        MAX(r.period_end_time) AS max_end_time,
-       r.key1
+       r.key1,
+       r.pdb_name
   FROM sqlmonitor_raw r
  WHERE ROWNUM >= 1 /*+ MATERIALIZE NO_MERGE */
  GROUP BY
-       r.key1
+       r.key1,
+       r.pdb_name
 )
 , sqlmonitor_extended AS (
 SELECT r.seconds,
@@ -102,6 +108,7 @@ SELECT r.seconds,
        r.min_start_time,
        r.max_end_time,
        r.key1,
+       r.pdb_name,
        (SELECT s.sql_text FROM v$sql s WHERE s.sql_id = r.key1 AND ROWNUM = 1) sql_text
   FROM sqlmonitor_grouped r
 )
@@ -119,7 +126,8 @@ SELECT r.seconds,
        r.min_start_time,
        r.max_end_time,
        r.key1,
-       r.sql_text
+       r.sql_text,
+       r.pdb_name
   FROM sqlmonitor_extended r
  WHERE 1 = 1
    AND NVL(r.sql_text, 'NULL') NOT LIKE 'BEGIN%'
@@ -127,6 +135,7 @@ SELECT r.seconds,
  ORDER BY
        r.seconds DESC, 
        r.reports DESC
+ FETCH FIRST 1000 ROWS ONLY
 /
 --
 PRO
@@ -176,11 +185,12 @@ SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_sqlmon_top." "&&report_id_from." "&&report_id_to." "&&report_type."
-@@cs_internal/cs_spool_id.sq
+@@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO REPORT_ID    : FROM &&report_id_from. TO &&report_id_to.

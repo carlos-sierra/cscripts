@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/07/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -121,7 +121,7 @@ COL cs2_samples NEW_V cs2_samples NOPRI;
 SELECT TO_CHAR(CEIL((TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.') - TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.')) / &&cs2_plus_days.)) AS cs2_samples FROM DUAL
 /
 --
-COL mas FOR 999,990 HEA 'Maximum Active|Sessions (MAS)'
+COL mas FOR 999,990 HEA 'Maximum Active|Sessions (MAS)';
 COL session_state FOR A13 HEA 'Session|State';
 --
 WITH
@@ -457,26 +457,12 @@ DEF cs2_sql_id = '&9.';
 UNDEF 9;
 --
 PRO
-PRO Dimensions
-PRO ~~~~~~~~~~
-PRO wait_class
-PRO event
-PRO machine
-PRO sql_id
-PRO plan_hash_value
-PRO top_level_sql_id
-PRO blocking_session
-PRO current_obj#
-PRO module
-PRO pdb_name
---
-PRO
-PRO 10. Reporting Dimension: [{wait_class}|event|machine|sql_id|plan_hash_value|top_level_sql_id|blocking_session|current_obj#|module|pdb_name]
+PRO 10. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|top_level_sql_id|blocking_session|current_obj#|module|pdb_name|p1|p2|p3]
 DEF cs2_dimension = '&10.';
 UNDEF 10;
 COL cs2_dimension NEW_V cs2_dimension NOPRI;
-SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'wait_class') cs2_dimension FROM DUAL;
-SELECT CASE WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'blocking_session', 'current_obj#', 'module', 'pdb_name') THEN '&&cs2_dimension.' ELSE 'wait_class' END cs2_dimension FROM DUAL;
+SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
+SELECT CASE WHEN '&&cs2_dimension.' IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'blocking_session', 'current_obj#', 'module', 'pdb_name', 'p1', 'p2', 'p3') THEN '&&cs2_dimension.' ELSE 'event' END cs2_dimension FROM DUAL;
 --
 COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
 SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
@@ -489,10 +475,15 @@ SELECT CASE '&&cs2_dimension.'
          WHEN 'sql_id' THEN q'[h.sql_id]' 
          WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
          WHEN 'top_level_sql_id' THEN q'[h.top_level_sql_id]' 
-         WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'
-         WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]'
+        --  WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'  -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'blocking_session' THEN q'[TO_CHAR(h.blocking_session)]' 
+        --  WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]' -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'current_obj#' THEN q'[TO_CHAR(h.current_obj#)]'
          WHEN 'module' THEN q'[h.module]' 
          WHEN 'pdb_name' THEN q'[TO_CHAR(h.con_id)]'
+         WHEN 'p1' THEN q'[h.p1text||':'||h.p1]'
+         WHEN 'p2' THEN q'[h.p2text||':'||h.p2]'
+         WHEN 'p3' THEN q'[h.p3text||':'||h.p3]'
        END AS cs2_group
   FROM DUAL
 /
@@ -939,7 +930,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'
@@ -990,7 +981,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'

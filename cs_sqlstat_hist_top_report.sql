@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/07/19
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -65,6 +65,8 @@ PRO PARSE_SCHEMA : "%&&cs2_parsing_schema_name.%" [{*}|&&def_parsing_schema_name
 @@cs_internal/cs_sqlstat_top_report_reads.sql
 @@cs_internal/cs_sqlstat_top_report_executions.sql
 @@cs_internal/cs_sqlstat_top_report_parses.sql
+@@cs_internal/cs_sqlstat_top_report_gets_pe.sql
+@@cs_internal/cs_sqlstat_top_report_reads_pe.sql
 @@cs_internal/cs_sqlstat_top_report_sharable_memory.sql
 @@cs_internal/cs_sqlstat_top_report_version_count.sql
 --

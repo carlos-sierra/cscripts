@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/10/27
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -75,7 +75,7 @@ FETCH FIRST 50 ROWS ONLY
 --
 CLEAR BREAK COMPUTE;
 PRO
-PRO 3. Event Name (1):
+PRO 3. Enter 1st Event Name:
 DEF evnt_nam_1 = '&3.';
 UNDEF 3;
 DEF wait_class_1 = '';
@@ -83,7 +83,7 @@ COL wait_class_1 NEW_V wait_class_1 NOPRI;
 SELECT wait_class wait_class_1 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_1.' AND ROWNUM = 1
 /
 PRO
-PRO 4. Event Name (2):
+PRO 4. Enter 2nd Event Name: (opt)
 DEF evnt_nam_2 = '&4.';
 UNDEF 4;
 DEF wait_class_2 = '';
@@ -91,7 +91,7 @@ COL wait_class_2 NEW_V wait_class_2 NOPRI;
 SELECT wait_class wait_class_2 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_2.' AND ROWNUM = 1
 /
 PRO
-PRO 5. Event Name (3):
+PRO 5. Enter 3rd Event Name: (opt)
 DEF evnt_nam_3 = '&5.';
 UNDEF 5;
 DEF wait_class_3 = '';
@@ -99,7 +99,7 @@ COL wait_class_3 NEW_V wait_class_3 NOPRI;
 SELECT wait_class wait_class_3 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_3.' AND ROWNUM = 1
 /
 PRO
-PRO 6. Event Name (4):
+PRO 6. Enter 4th Event Name: (opt)
 DEF evnt_nam_4 = '&6.';
 UNDEF 6;
 DEF wait_class_4 = '';
@@ -107,7 +107,7 @@ COL wait_class_4 NEW_V wait_class_4 NOPRI;
 SELECT wait_class wait_class_4 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_4.' AND ROWNUM = 1
 /
 PRO
-PRO 7. Event Name (5):
+PRO 7. Enter 5th Event Name: (opt)
 DEF evnt_nam_5 = '&7.';
 UNDEF 7;
 DEF wait_class_5 = '';
@@ -115,7 +115,7 @@ COL wait_class_5 NEW_V wait_class_5 NOPRI;
 SELECT wait_class wait_class_5 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_5.' AND ROWNUM = 1
 /
 PRO
-PRO 8. Event Name (6):
+PRO 8. Enter 6th Event Name: (opt)
 DEF evnt_nam_6 = '&8.';
 UNDEF 8;
 DEF wait_class_6 = '';
@@ -123,11 +123,11 @@ COL wait_class_6 NEW_V wait_class_6 NOPRI;
 SELECT wait_class wait_class_6 FROM dba_hist_system_event WHERE event_name = '&&evnt_nam_6.' AND ROWNUM = 1
 /
 PRO
-PRO 9. Graph Type: [{Line}|Scatter]
+PRO 9. Graph Type: [{Scatter}|Line]
 DEF graph_type = '&9.';
 UNDEF 9;
 COL cs_graph_type NEW_V cs_graph_type NOPRI;
-SELECT CASE WHEN '&&graph_type.' IN ('Line', 'Scatter') THEN '&&graph_type.' ELSE 'Line' END AS cs_graph_type FROM DUAL
+SELECT CASE WHEN '&&graph_type.' IN ('Line', 'Scatter') THEN '&&graph_type.' ELSE 'Scatter' END AS cs_graph_type FROM DUAL
 /
 PRO
 PRO 10. Trendlines Type: &&cs_trendlines_types.
@@ -160,7 +160,7 @@ DEF chart_foot_note_2 = "<br>2)";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
 DEF report_foot_note = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&evnt_nam_1." "&&evnt_nam_2." "&&evnt_nam_3." "&&evnt_nam_4." "&&evnt_nam_5." "&&evnt_nam_6." "&&cs_graph_type." "&&cs_trendlines_type."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&evnt_nam_1." "&&evnt_nam_2." "&&evnt_nam_3." "&&evnt_nam_4." "&&evnt_nam_5." "&&evnt_nam_6." "&&cs_graph_type." "&&cs_trendlines_type."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -195,19 +195,19 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE dbid = TO_NUMBER('&&cs_dbid.')
    AND instance_number = TO_NUMBER('&&cs_instance_number.')
    AND snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') - 1 AND TO_NUMBER('&&cs_snap_id_to.')
-   AND wait_class IN ('&&wait_class_1.', '&&wait_class_2.', '&&wait_class_3.', '&&wait_class_4.', '&&wait_class_5.', '&&wait_class_6.')
-   AND event_name IN ('&&evnt_nam_1.', '&&evnt_nam_2.', '&&evnt_nam_3.', '&&evnt_nam_4.', '&&evnt_nam_5.', '&&evnt_nam_6.')
+   AND (wait_class = '&&wait_class_1.' OR wait_class = '&&wait_class_2.' OR wait_class = '&&wait_class_3.' OR wait_class = '&&wait_class_4.' OR wait_class = '&&wait_class_5.' OR wait_class = '&&wait_class_6.')
+   AND (event_name = '&&evnt_nam_1.' OR event_name = '&&evnt_nam_2.' OR event_name = '&&evnt_nam_3.' OR event_name = '&&evnt_nam_4.' OR event_name = '&&evnt_nam_5.' OR event_name = '&&evnt_nam_6.')
 ),
 my_query AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        CAST(s.end_interval_time AS DATE) time,
        (CAST(s.end_interval_time AS DATE) - CAST(s.begin_interval_time AS DATE)) * 24 * 3600 interval_seconds,
-       SUM(CASE event_name WHEN '&&evnt_nam_1.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_1,
-       SUM(CASE event_name WHEN '&&evnt_nam_2.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_2,
-       SUM(CASE event_name WHEN '&&evnt_nam_3.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_3,
-       SUM(CASE event_name WHEN '&&evnt_nam_4.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_4,
-       SUM(CASE event_name WHEN '&&evnt_nam_5.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_5,
-       SUM(CASE event_name WHEN '&&evnt_nam_6.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_6
+       SUM(CASE WHEN event_name = '&&evnt_nam_1.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_1,
+       SUM(CASE WHEN event_name = '&&evnt_nam_2.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_2,
+       SUM(CASE WHEN event_name = '&&evnt_nam_3.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_3,
+       SUM(CASE WHEN event_name = '&&evnt_nam_4.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_4,
+       SUM(CASE WHEN event_name = '&&evnt_nam_5.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_5,
+       SUM(CASE WHEN event_name = '&&evnt_nam_6.' THEN h.time_waited_ms/GREATEST(h.total_waits,1) ELSE 0 END) latency_6
   FROM system_event_history h,
        dba_hist_snapshot s
  WHERE h.total_waits >= 0

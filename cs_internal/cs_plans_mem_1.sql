@@ -52,7 +52,7 @@ SELECT TO_CHAR(r.last_active_time, '&&cs_datetime_full_format.') AS last_active_
        r.plan_hash_value
   FROM ranked_child_cursors r,
        v$containers c
- WHERE r.row_number <= 3 -- up to 3 most recently active child cursors per plan_hash_value
+ WHERE r.row_number <= 3 -- up to N most recently active child cursors per plan_hash_value
    AND c.con_id = r.con_id
  ORDER BY
        r.last_active_time,

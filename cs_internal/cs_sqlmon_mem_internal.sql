@@ -29,11 +29,11 @@ WITH
 sql_mon_mem_reports AS (
 SELECT r.sql_exec_start,
        MAX(r.last_refresh_time) AS last_refresh_time,
-       ROUND((MAX(r.last_refresh_time) - r.sql_exec_start) * 24 * 3600) AS duration,
        r.sql_exec_id,
        MAX(r.status) AS status,
        MAX(r.sql_plan_hash_value) AS plan_hash,
        MAX(r.sql_full_plan_hash_value) AS full_plan_hash,
+       ROUND((MAX(r.last_refresh_time) - r.sql_exec_start) * 24 * 3600) AS duration,
        ROUND(SUM(r.elapsed_time) /  POWER(10, 6), 3) AS elapsed_time,
        ROUND(SUM(r.cpu_time) /  POWER(10, 6), 3) AS cpu_time,
        ROUND(SUM(r.user_io_wait_time) /  POWER(10, 6), 3) AS user_io_wait_time,
@@ -48,8 +48,8 @@ SELECT r.sql_exec_start,
        c.name AS pdb_name,
        MAX(r.username) AS user_name,
        MAX(r.module) AS module,
-       MAX(r.service_name) AS service,
-       MAX(r.program) AS program
+       MAX(r.program) AS program,
+       MAX(r.service_name) AS service
   FROM v$sql_monitor r,
        v$containers c
  WHERE r.sql_id = '&&cs_sql_id.'
@@ -60,7 +60,7 @@ SELECT r.sql_exec_start,
        r.sql_exec_id,
        r.sql_exec_start
  ORDER BY
-       3 DESC, 1 DESC
+       7 DESC, 1 DESC
 FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
 )
 SELECT *

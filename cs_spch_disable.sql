@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/10
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB.
 --
@@ -17,7 +17,7 @@
 --
 -- Notes:       Accesses AWR data thus you must have an Oracle Diagnostics Pack License.
 --
---              Developed and tested on 12.1.0.2.
+--              Developed and tested on 12.1.0.2 and 19c.
 --
 ---------------------------------------------------------------------------------------
 --
@@ -51,6 +51,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name."
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO NAME         : &&cs_name.
@@ -72,7 +73,12 @@ BEGIN
                AND name = NVL('&&cs_name.', name)
              ORDER BY name)
   LOOP
-    DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', value => 'DISABLED');
+    $IF DBMS_DB_VERSION.ver_le_12_1
+    $THEN
+      DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', value => 'DISABLED'); -- 12c
+    $ELSE
+      DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', attribute_value => 'DISABLED'); -- 19c
+    $END
   END LOOP;
 END;
 /

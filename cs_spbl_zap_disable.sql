@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/03/11
 --
 -- Usage:       Connecting into CDB.
 --
@@ -19,15 +19,11 @@
 ---------------------------------------------------------------------------------------
 --
 ALTER SESSION SET container = CDB$ROOT;
---
--- disable legacy zapper
-UPDATE &&cs_tools_schema..zapper_config SET enabled = 'N' WHERE enabled = 'Y'
-/
 -- disable zapper-19
-UPDATE &&cs_tools_schema..zapper_global SET enabled = 'N' WHERE enabled = 'Y'
+UPDATE C##IOD.zapper_config SET enabled = 'N' WHERE enabled = 'Y'
 /
 COMMIT
 /
 PRO
-PRO ZAPPER and ZAPPER-19 are now DISABLED persistently. They will NOT be re-enabled automatically.
+PRO ZAPPER-19 is now DISABLED persistently. It will NOT be re-enabled automatically.
 PRO

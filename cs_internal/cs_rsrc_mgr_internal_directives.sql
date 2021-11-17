@@ -17,6 +17,7 @@ SELECT d.pluggable_database,
        d.directive_type
   FROM dba_cdb_rsrc_plan_directives d, v$containers c, v$rsrcmgrmetric r
  WHERE d.plan = '&&resource_manager_plan.'
+   AND '&&cs_con_name.' IN ('CDB$ROOT', d.pluggable_database)
    AND c.name = d.pluggable_database
    AND c.con_id > 2
    AND r.con_id(+) = c.con_id

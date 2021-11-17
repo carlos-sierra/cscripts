@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2021/06/15
 --
 -- Usage:       Execute connected to CDB.
 --
@@ -73,8 +73,7 @@ PRO DESTINATION  : "&&d_host_name."
 --
 COL seconds FOR 999,999,990;
 COL frequency FOR 999,990;
-BREAK ON source_host_name SKIP PAGE DUPL;
-COMPUTE MAX LABEL "MAX" OF seconds ON source_host_name;
+BREAK ON source_host_name SKIP PAGE DUPL ON dest_host_name SKIP PAGE DUPL;
 --
 PRO
 PRO Data Guard (DG) REDO Transport Duration (v$redo_dest_resp_histogram)
@@ -84,7 +83,7 @@ SELECT host_name AS source_host_name, dest_host_name, time,  duration_seconds AS
  WHERE time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND host_name = NVL('&&s_host_name.', host_name)
    AND dest_host_name = NVL('&&d_host_name.', dest_host_name)
- ORDER BY time, host_name, dest_host_name
+ ORDER BY host_name, dest_host_name, time
 /
 --
 CL BREAK COMPUTE;

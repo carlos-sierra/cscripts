@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/09/13
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -111,6 +111,9 @@ COL rows_per_block FOR 999,999,990.0;
 COL avg_row_len FOR 999,999,990;
 COL sample_size FOR 999,999,999,990;
 --
+PRO
+PRO TABLES (dba_tables) &&table_owner..&&table_name.
+PRO ~~~~~~
 WITH
 my_query AS (
 SELECT DISTINCT
@@ -138,7 +141,7 @@ SELECT TO_CHAR(q.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
 /
 --
 COL hours_since_gathering FOR 999,990.0 HEA 'HOURS|SINCE|GATHERING';
-COL num_rows FOR 999,999,990;
+COL num_rows FOR 999,999,999,990;
 COL inserts FOR 999,999,990 HEA 'INSERTS|SINCE|GATHERING';
 COL updates FOR 999,999,990 HEA 'UPDATES|SINCE|GATHERING';
 COL deletes FOR 999,999,990 HEA 'DELETES|SINCE|GATHERING';
@@ -164,6 +167,40 @@ SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS last_analyzed,
    AND t.table_name = '&&table_name.'
    AND m.table_owner = t.owner
    AND m.table_name = t.table_name
+/
+--
+COL analyzetime FOR A19 HEA 'Analyze Time';
+COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
+COL blkcnt FOR 999,999,990 HEA 'Block Count';
+COL avgrln FOR 999,999,990 HEA 'Avg Row Len';
+COL samplesize FOR 999,999,999,990 HEA 'Sample Size';
+--
+PRO
+PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) &&table_owner..&&table_name.
+PRO ~~~~~~~~~~~~~~~~~~~~~~
+SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       h.rowcnt,
+       h.blkcnt,
+       h.avgrln,
+       h.samplesize
+  FROM dba_objects o,
+       wri$_optstat_tab_history h
+ WHERE o.owner = '&&table_owner.'
+   AND o.object_name = '&&table_name.' 
+   AND o.object_type = 'TABLE'
+   AND h.obj# = o.object_id
+   AND h.analyzetime IS NOT NULL
+ UNION
+SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS analyzetime,
+       t.num_rows AS rowcnt,
+       t.blocks AS blkcnt,
+       t.avg_row_len AS avgrln,
+       t.sample_size AS samplesize
+  FROM dba_tables t
+ WHERE t.owner = '&&table_owner.'
+   AND t.table_name = '&&table_name.' 
+ ORDER BY
+       1
 /
 --
 PRO

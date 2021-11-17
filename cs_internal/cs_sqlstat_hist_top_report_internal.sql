@@ -215,6 +215,7 @@ sqlstat1 AS (
       AND   h.snap_id BETWEEN &&cs_snap_id_from. AND &&cs_snap_id_to.
       AND   ('&&sql_id.' IS NULL OR h.sql_id = '&&sql_id.')
       AND   ('&&cs2_parsing_schema_name.' = '*' OR h.parsing_schema_name LIKE '%&&cs2_parsing_schema_name.%')
+      AND   ROWNUM >= 1 -- MATERIALIZE
       GROUP BY
             h.dbid,
             h.instance_number,
@@ -235,13 +236,13 @@ sqlstat2 AS (
             h.con_id,
             h.module,
             h.parsing_schema_name,
-            h.sharable_mem,
-            h.version_count,
+            h.sharable_mem, -- 11. sharable_memory
+            h.version_count, -- 12. version_count
             h.fetches_delta AS fetches,
-            h.executions_delta AS executions,
-            h.parse_calls_delta AS parse_calls,
-            h.disk_reads_delta AS disk_reads,
-            h.buffer_gets_delta AS buffer_gets,
+            h.executions_delta AS executions, -- 7. executions
+            h.parse_calls_delta AS parse_calls, -- 8. parses 
+            h.disk_reads_delta AS disk_reads, -- 6. reads
+            h.buffer_gets_delta AS buffer_gets, -- 5. gets
             h.rows_processed_delta AS rows_processed,
             h.fetches_delta / &&cs_begin_end_seconds. AS fetches_ps,
             h.executions_delta / &&cs_begin_end_seconds. AS executions_ps,
@@ -255,10 +256,10 @@ sqlstat2 AS (
             h.plsexec_time_delta / POWER(10, 6) AS pl_secs,
             h.javexec_time_delta / POWER(10, 6) AS ja_secs,
             h.rows_processed_delta / GREATEST(h.executions_delta, 1) AS rows_processed_pe,
-            h.buffer_gets_delta / GREATEST(h.executions_delta, 1) AS buffer_gets_pe,
-            h.disk_reads_delta / GREATEST(h.executions_delta, 1) AS disk_reads_pe,
-            h.elapsed_time_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS db_ms_pe,
-            h.cpu_time_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS cpu_ms_pe,
+            h.buffer_gets_delta / GREATEST(h.executions_delta, 1) AS buffer_gets_pe, -- 9. gets_pe
+            h.disk_reads_delta / GREATEST(h.executions_delta, 1) AS disk_reads_pe, -- 10. reads_pe
+            h.elapsed_time_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS db_ms_pe, -- 1. db_latency
+            h.cpu_time_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS cpu_ms_pe, -- 2. cpu_latency
             h.iowait_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS io_ms_pe,
             h.apwait_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS ap_ms_pe,
             h.ccwait_delta / GREATEST(h.executions_delta, 1) / POWER(10, 3) AS cc_ms_pe,
@@ -269,8 +270,8 @@ sqlstat2 AS (
             h.cpu_time_delta / GREATEST(h.rows_processed_delta, 1) / POWER(10, 3) AS cpu_ms_prp,
             h.buffer_gets_delta / GREATEST(h.rows_processed_delta, 1) AS buffer_gets_prp,
             h.disk_reads_delta / GREATEST(h.rows_processed_delta, 1) AS disk_reads_prp,
-            h.elapsed_time_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS db_aas,
-            h.cpu_time_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS cpu_aas,
+            h.elapsed_time_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS db_aas, -- 3. db_load
+            h.cpu_time_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS cpu_aas, -- 4. cpu_load
             h.iowait_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS io_aas,
             h.apwait_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS ap_aas,
             h.ccwait_delta / POWER(10, 6) / &&cs_begin_end_seconds. AS cc_aas,
@@ -296,6 +297,7 @@ sqlstat2 AS (
        AND  t.dbid = h.dbid
        AND  t.sql_id = h.sql_id
        AND  c.con_id = h.con_id
+       AND  ROWNUM >= 1 -- MATERIALIZE
 ),
 sqlstat3 AS (
       SELECT /*+ MATERIALIZE NO_MERGE */
@@ -368,10 +370,10 @@ sqlstat3 AS (
                     v.last_active_time DESC
               FETCH FIRST 1 ROW ONLY
           ) v
-    --  WHERE  (     '&&kiev_tx.' = '*' 
-    --           OR  '&&kiev_tx.' LIKE '%'||s.sql_type||'%' -- does not seem to work on 19c
-    --         ) 
-      WHERE CASE WHEN '&&kiev_tx.' = '*' THEN 1 WHEN '&&kiev_tx.' LIKE '%'||s.sql_type||'%' THEN 1 ELSE 0 END = 1
+     WHERE  (     '&&kiev_tx.' = '*' 
+              OR  '&&kiev_tx.' LIKE '%'||s.sql_type||'%' -- does not seem to work on 19c (unless we add AND ROWNUM >= 1 on subqueries)
+            ) 
+       AND ROWNUM >= 1 -- MATERIALIZE
 ORDER BY &&cs_order_by.
 FETCH FIRST &&top_n. ROWS ONLY
 )

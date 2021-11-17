@@ -1,6 +1,5 @@
-PRO DATE_TIME    : &&cs_date_time.Z
-PRO REFERENCE    : &&cs_reference.
-PRO LOCALE       : &&cs_realm. &&cs_rgn. &&cs_region. &&cs_locale.
+PRO DATE_TIME_UTC: &&cs_date_time.Z
+PRO REFERENCE    : &&cs_extended_reference.
 PRO DATABASE     : &&cs_db_name_u. (&&cs_db_version.) &&cs_containers_count. STARTUP:&&cs_startup_time.
 PRO CONTAINER    : &&cs_con_name. (&&cs_con_id.) &&cs_pdb_open_mode. CREATED:&&pdb_creation.
 PRO CONNECT_STRNG: &&cs_easy_connect_string.

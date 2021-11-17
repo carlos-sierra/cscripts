@@ -600,29 +600,29 @@ SELECT /*+ MATERIALIZE NO_MERGE FULL(s) FULL(t) USE_HASH(s t) LEADING(s t) */
        ','||TO_CHAR(s.end_date_time, 'MI')|| /* minute */
        ','||TO_CHAR(s.end_date_time, 'SS')|| /* second */
        ')'||
-       ','||num_format(t.top_01,1)||
-       ','||num_format(t.top_02,1)||
-       ','||num_format(t.top_03,1)||
-       ','||num_format(t.top_04,1)||
-       ','||num_format(t.top_05,1)||
-       ','||num_format(t.top_06,1)||
-       ','||num_format(t.top_07,1)||
-       ','||num_format(t.top_08,1)||
-       ','||num_format(t.top_09,1)||
-       ','||num_format(t.top_10,1)||
-       ','||num_format(t.top_11,1)||
-       ','||num_format(t.top_12,1)||
+       ','||num_format(t.top_01,3)||
+       ','||num_format(t.top_02,3)||
+       ','||num_format(t.top_03,3)||
+       ','||num_format(t.top_04,3)||
+       ','||num_format(t.top_05,3)||
+       ','||num_format(t.top_06,3)||
+       ','||num_format(t.top_07,3)||
+       ','||num_format(t.top_08,3)||
+       ','||num_format(t.top_09,3)||
+       ','||num_format(t.top_10,3)||
+       ','||num_format(t.top_11,3)||
+       ','||num_format(t.top_12,3)||
        /*
-       ','||num_format(t.top_13,1)||
-       ','||num_format(t.top_14,1)||
-       ','||num_format(t.top_15,1)||
-       ','||num_format(t.top_16,1)||
-       ','||num_format(t.top_17,1)||
-       ','||num_format(t.top_18,1)||
-       ','||num_format(t.top_19,1)||
-       ','||num_format(t.sql_20,1)||
+       ','||num_format(t.top_13,3)||
+       ','||num_format(t.top_14,3)||
+       ','||num_format(t.top_15,3)||
+       ','||num_format(t.top_16,3)||
+       ','||num_format(t.top_17,3)||
+       ','||num_format(t.top_18,3)||
+       ','||num_format(t.top_19,3)||
+       ','||num_format(t.sql_20,3)||
        */
-       ','||num_format(t.top_99,1)||
+       ','||num_format(t.top_99,3)||
        ']' line--,
        --ROW_NUMBER() OVER (ORDER BY s.end_date_time ASC  NULLS LAST) AS head_rn,
        --ROW_NUMBER() OVER (ORDER BY s.end_date_time DESC NULLS LAST) AS tail_rn

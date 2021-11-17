@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/07/21
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -76,7 +76,7 @@ PRO SQL_TEXT     : "&&sql_text_piece."
 PRO SQL_ID       : "&&cs_sql_id."
 --
 COL sql_type FOR A4 HEA 'SQL|Type';
-COL sql_plan_hash_value HEA 'Plan|Hash Value';
+COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL less_than_1s FOR 999,999,990 HEA 'Less than|1 sec';
 COL less_than_2s FOR 999,999,990 HEA 'Less than|2 secs';
 COL less_than_4s FOR 999,999,990 HEA 'Less than|4 secs';
@@ -98,6 +98,7 @@ COL max_seconds FOR 99,990.000 HEA 'Max|secs';
 COL sql_text FOR A100 HEA 'SQL Text' TRUNC;
 COL username FOR A30 HEA 'Username' TRUNC;
 COL pdb_name FOR A30 HEA 'PDB Name' TRUNC;
+COL sqlid FOR A5 HEA 'SQLHV';
 --
 BREAK ON pdb_name SKIP PAGE DUP;
 --
@@ -294,6 +295,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.sql_id IS NOT NULL
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
    AND h.sql_plan_hash_value IS NOT NULL
+   AND ROWNUM >= 1
  UNION
 SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_time,
@@ -317,6 +319,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.sql_id IS NOT NULL
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
    AND h.sql_plan_hash_value IS NOT NULL
+   AND ROWNUM >= 1
 ),
 ash_enum AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -333,6 +336,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ROW_NUMBER() OVER (PARTITION BY h.con_id, h.session_id, h.session_serial#, h.xid, h.sql_exec_id, h.sql_exec_start, h.sql_id, h.sql_plan_hash_value ORDER BY h.sample_time ASC NULLS LAST) row_num_asc,
        ROW_NUMBER() OVER (PARTITION BY h.con_id, h.session_id, h.session_serial#, h.xid, h.sql_exec_id, h.sql_exec_start, h.sql_id, h.sql_plan_hash_value ORDER BY h.sample_time DESC NULLS LAST) row_num_desc
   FROM ash_raw h
+ WHERE ROWNUM >= 1
 ),
 ash_secs AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -361,6 +365,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND l.sql_id = f.sql_id
    AND l.sql_plan_hash_value = f.sql_plan_hash_value
    AND l.user_id = f.user_id
+   AND ROWNUM >= 1
 ),
 ash_grp AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -387,6 +392,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY h.seconds) pctl_99_secs,
        MAX(h.seconds) max_seconds
   FROM ash_secs h
+ WHERE ROWNUM >= 1
  GROUP BY
        h.con_id,
        h.sql_id,
@@ -398,34 +404,40 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        s.con_id,
        s.sql_id,
        application_category(s.sql_text) sql_type,
-       s.sql_text
+       s.sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid
   FROM v$sql s
  WHERE sql_id IS NOT NULL
    AND ('&&cs_sql_id.' IS NULL OR s.sql_id = '&&cs_sql_id.')
    AND ('&&sql_text_piece.' IS NULL OR UPPER(s.sql_text) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
   --  AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(s.sql_text)||CHR(37)) -- does not seem to work on 19c
    AND CASE WHEN '&&kiev_tx.' = '*' THEN 1 WHEN '&&kiev_tx.' LIKE CHR(37)||application_category(s.sql_text)||CHR(37) THEN 1 ELSE 0 END = 1
+   AND ROWNUM >= 1
  GROUP BY
        s.con_id,
        s.sql_id,
        application_category(s.sql_text),
-       s.sql_text
+       s.sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0')
 ),
 hsql AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        h.con_id,
        h.sql_id,
        application_category(DBMS_LOB.substr(h.sql_text, 1000)) sql_type,
-       DBMS_LOB.substr(h.sql_text, 1000) sql_text
+       DBMS_LOB.substr(h.sql_text, 1000) sql_text,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid
   FROM dba_hist_sqltext h
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
    AND ('&&sql_text_piece.' IS NULL OR UPPER(DBMS_LOB.substr(h.sql_text, 1000)) LIKE CHR(37)||UPPER('&&sql_text_piece.')||CHR(37))
   --  AND ('&&kiev_tx.' = '*' OR '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.substr(h.sql_text, 1000))||CHR(37)) -- does not seem to work on 19c
    AND CASE WHEN '&&kiev_tx.' = '*' THEN 1 WHEN '&&kiev_tx.' LIKE CHR(37)||application_category(DBMS_LOB.SUBSTR(h.sql_text, 1000))||CHR(37) THEN 1 ELSE 0 END = 1
+   AND ROWNUM >= 1
 )
-SELECT NVL(s.sql_type, hs.sql_type) sql_type,
+SELECT NVL(s.sql_type, hs.sql_type) AS sql_type,
        h.sql_id,
+       NVL(s.sqlid, hs.sqlid) AS sqlid,
        h.sql_plan_hash_value,
        h.less_than_1s,
        h.less_than_2s,

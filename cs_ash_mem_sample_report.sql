@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/11/07
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -51,8 +51,16 @@ PRO 5. SID,SERIAL (opt):
 DEF cs_sid_serial = '&5.';
 UNDEF 5;
 --
+PRO
+PRO 6. Only LOB DEDUP TX 4 waiting sessions [{N}|Y]:
+DEF cs_only_dedup = '&6.';
+UNDEF 6;
+COL cs_only_dedup NEW_V cs_only_dedup NOPRI;
+SELECT CASE WHEN SUBSTR(TRIM(UPPER('&&cs_only_dedup.')), 1, 1) IN ('N', 'Y') THEN SUBSTR(TRIM(UPPER('&&cs_only_dedup.')), 1, 1) ELSE 'N' END AS cs_only_dedup FROM DUAL
+/
+--
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine." "&&cs_sql_id." "&&cs_sid_serial."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine." "&&cs_sql_id." "&&cs_sid_serial." "&&cs_only_dedup."
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
@@ -60,11 +68,31 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 PRO MACHINE      : "&&cs2_machine."
 PRO SQL_ID       : "&&cs_sql_id."
 PRO SID,SERIAL   : "&&cs_sid_serial."
+PRO ONLY_DEDUP   : "&&cs_only_dedup."
+--
+DEF times_cpu_cores = '1';
+DEF include_hist = 'N';
+DEF include_mem = 'Y';
+PRO
+PRO Sum of Active Sessions per sampled time (spikes greater than &&cs_num_cpu_cores. CPU Cores)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SET SERVEROUT ON;
+@@cs_internal/cs_active_sessions_peaks_internal_v5.sql
+@@cs_internal/cs_active_sessions_peaks_internal_v6.sql
+--
+DEF times_cpu_cores = '0';
+DEF include_hist = 'N';
+DEF include_mem = 'Y';
+PRO
+PRO Sum of Active Sessions per sampled time 
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SET SERVEROUT ON;
+@@cs_internal/cs_active_sessions_peaks_internal_v5.sql
 --
 CL BREAK
 COL sql_text FOR A80 HEA 'SQL Text' TRUNC;
 COL module_action_program FOR A80 HEA 'Module Action Program' TRUNC;
-COL sample_date_time FOR A20 HEA 'Sample Date and Time';
+COL sample_date_time FOR A23 HEA 'Sample Date and Time';
 COL samples FOR 9999,999 HEA 'Active|Sessions';
 COL on_cpu_or_wait_class FOR A14 HEA 'ON CPU or|Wait Class';
 COL on_cpu_or_wait_event FOR A50 HEA 'ON CPU or Timed Event';
@@ -75,91 +103,93 @@ COL plans FOR 99999 HEA 'Plans';
 COL sessions FOR 9999,999 HEA 'Sessions|this SQL';
 COL pdb_name FOR A30 HEA 'PDB Name' TRUNC;
 COL sql_id FOR A13 HEA 'Top|SQL_ID';
---
-PRO
-PRO ASH spikes by sample time and top SQL (spikes higher than &&cs_num_cpu_cores. cpu cores)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-WITH 
-ash_by_sample_and_sql AS (
-SELECT /*+ MATERIALIZE NO_MERGE */
-       h.sample_time,
-       h.sql_id,
-       c.name AS pdb_name,
-       h.con_id,
-       COUNT(*) samples,
-       COUNT(DISTINCT h.sql_plan_hash_value) plans,
-       ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
-  FROM v$active_session_history h, v$containers c
- WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
-   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND ('&&cs2_machine.' IS NULL OR h.machine LIKE '%&&cs2_machine.%')
-   AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
-   AND ('&&cs_sid_serial.' IS NULL OR h.session_id||','||h.session_serial# = '&&cs_sid_serial.')
-   AND c.con_id(+) = h.con_id
- GROUP BY
-       h.sample_time,
-       h.sql_id,
-       c.name,
-       h.con_id
-)
-SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
-       SUM(h.samples) samples,
-       '|' AS "|",
-       MAX(CASE h.row_number WHEN 1 THEN h.sql_id END) sql_id,
-       SUM(CASE h.row_number WHEN 1 THEN h.samples ELSE 0 END) sessions,
-       MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN h.plans END) plans,
-       MAX(CASE h.row_number WHEN 1 THEN h.con_id END) con_id,       
-       MAX(CASE h.row_number WHEN 1 THEN h.pdb_name END) AS pdb_name,       
-       MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) END) sql_text
-  FROM ash_by_sample_and_sql h
- GROUP BY
-       h.sample_time
-HAVING SUM(h.samples) >= &&cs_num_cpu_cores.
- ORDER BY
-       h.sample_time
-/
---
-PRO
-PRO ASH by sample time and top SQL
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-WITH 
-ash_by_sample_and_sql AS (
-SELECT /*+ MATERIALIZE NO_MERGE */
-       h.sample_time,
-       h.sql_id,
-       c.name AS pdb_name,
-       h.con_id,
-       COUNT(*) samples,
-       COUNT(DISTINCT h.sql_plan_hash_value) plans,
-       ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
-  FROM v$active_session_history h, v$containers c
- WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
-   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
-   AND ('&&cs2_machine.' IS NULL OR h.machine LIKE '%&&cs2_machine.%')
-   AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
-   AND ('&&cs_sid_serial.' IS NULL OR h.session_id||','||h.session_serial# = '&&cs_sid_serial.')
-   AND c.con_id(+) = h.con_id
- GROUP BY
-       h.sample_time,
-       h.sql_id,
-       c.name,
-       h.con_id
-)
-SELECT TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
-       SUM(h.samples) samples,
-       '|' AS "|",
-       MAX(CASE h.row_number WHEN 1 THEN h.sql_id END) sql_id,
-       SUM(CASE h.row_number WHEN 1 THEN h.samples ELSE 0 END) sessions,
-       MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN h.plans END) plans,
-       MAX(CASE h.row_number WHEN 1 THEN h.con_id END) con_id,       
-       MAX(CASE h.row_number WHEN 1 THEN h.pdb_name END) AS pdb_name,       
-       MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) END) sql_text
-  FROM ash_by_sample_and_sql h
- GROUP BY
-       h.sample_time
- ORDER BY
-       h.sample_time
-/
+-- --
+-- PRO
+-- PRO ASH spikes by sample time and top SQL (spikes higher than &&cs_num_cpu_cores. cpu cores)
+-- PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- WITH 
+-- ash_by_sample_and_sql AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE */
+--        h.sample_time,
+--        h.sql_id,
+--        c.name AS pdb_name,
+--        h.con_id,
+--        COUNT(*) samples,
+--        COUNT(DISTINCT h.sql_plan_hash_value) plans,
+--        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
+--   FROM v$active_session_history h, v$containers c
+--  WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+--    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND ('&&cs2_machine.' IS NULL OR h.machine LIKE '%&&cs2_machine.%')
+--    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
+--    AND ('&&cs_sid_serial.' IS NULL OR INSTR('&&cs_sid_serial.', h.session_id||','||h.session_serial#) > 0)
+--    AND ('&&cs_only_dedup.' = 'N' OR (h.event = 'enq: TX - row lock contention' AND h.p1text LIKE 'name|mode%' AND h.p1 > 0 AND TO_CHAR(BITAND(h.p1, 65535)) = '4' AND h.current_obj# > 0 AND h.xid IS NOT NULL))
+--    AND c.con_id(+) = h.con_id
+--  GROUP BY
+--        h.sample_time,
+--        h.sql_id,
+--        c.name,
+--        h.con_id
+-- )
+-- SELECT TO_CHAR(h.sample_time, '&&cs_timestamp_full_format.') sample_date_time,
+--        SUM(h.samples) samples,
+--        '|' AS "|",
+--        MAX(CASE h.row_number WHEN 1 THEN h.sql_id END) sql_id,
+--        SUM(CASE h.row_number WHEN 1 THEN h.samples ELSE 0 END) sessions,
+--        MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN h.plans END) plans,
+--        MAX(CASE h.row_number WHEN 1 THEN h.con_id END) con_id,       
+--        MAX(CASE h.row_number WHEN 1 THEN h.pdb_name END) AS pdb_name,       
+--        MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) END) sql_text
+--   FROM ash_by_sample_and_sql h
+--  GROUP BY
+--        h.sample_time
+-- HAVING SUM(h.samples) >= &&cs_num_cpu_cores.
+--  ORDER BY
+--        h.sample_time
+-- /
+-- --
+-- PRO
+-- PRO ASH by sample time and top SQL
+-- PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- WITH 
+-- ash_by_sample_and_sql AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE */
+--        h.sample_time,
+--        h.sql_id,
+--        c.name AS pdb_name,
+--        h.con_id,
+--        COUNT(*) samples,
+--        COUNT(DISTINCT h.sql_plan_hash_value) plans,
+--        ROW_NUMBER () OVER (PARTITION BY h.sample_time ORDER BY COUNT(*) DESC NULLS LAST, h.sql_id) row_number
+--   FROM v$active_session_history h, v$containers c
+--  WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+--    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND ('&&cs2_machine.' IS NULL OR h.machine LIKE '%&&cs2_machine.%')
+--    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
+--    AND ('&&cs_sid_serial.' IS NULL OR INSTR('&&cs_sid_serial.', h.session_id||','||h.session_serial#) > 0)
+--    AND ('&&cs_only_dedup.' = 'N' OR (h.event = 'enq: TX - row lock contention' AND h.p1text LIKE 'name|mode%' AND h.p1 > 0 AND TO_CHAR(BITAND(h.p1, 65535)) = '4' AND h.current_obj# > 0 AND h.xid IS NOT NULL))
+--    AND c.con_id(+) = h.con_id
+--  GROUP BY
+--        h.sample_time,
+--        h.sql_id,
+--        c.name,
+--        h.con_id
+-- )
+-- SELECT TO_CHAR(h.sample_time, '&&cs_timestamp_full_format.') sample_date_time,
+--        SUM(h.samples) samples,
+--        '|' AS "|",
+--        MAX(CASE h.row_number WHEN 1 THEN h.sql_id END) sql_id,
+--        SUM(CASE h.row_number WHEN 1 THEN h.samples ELSE 0 END) sessions,
+--        MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN h.plans END) plans,
+--        MAX(CASE h.row_number WHEN 1 THEN h.con_id END) con_id,       
+--        MAX(CASE h.row_number WHEN 1 THEN h.pdb_name END) AS pdb_name,       
+--        MAX(CASE WHEN h.row_number = 1 AND h.sql_id IS NOT NULL THEN (SELECT SUBSTR(q.sql_text, 1, 100) FROM v$sqlstats q WHERE q.sql_id = h.sql_id AND ROWNUM = 1) END) sql_text
+--   FROM ash_by_sample_and_sql h
+--  GROUP BY
+--        h.sample_time
+--  ORDER BY
+--        h.sample_time
+-- /
 --
 COL sql_id FOR A13 HEA 'SQL_ID';
 COL blocking_session_status FOR A11 HEA 'Blocker|Session|Status';
@@ -218,6 +248,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */ h.*, c.name AS pdb_name
    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ('&&cs2_machine.' IS NULL OR h.machine LIKE '%&&cs2_machine.%')
    AND ('&&cs_sql_id.' IS NULL OR h.sql_id = '&&cs_sql_id.')
+   AND ('&&cs_only_dedup.' = 'N' OR (h.event = 'enq: TX - row lock contention' AND h.p1text LIKE 'name|mode%' AND h.p1 > 0 AND TO_CHAR(BITAND(h.p1, 65535)) = '4' AND h.current_obj# > 0 AND h.xid IS NOT NULL))
    AND c.con_id(+) = h.con_id
 ),
 sess AS (
@@ -231,7 +262,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        session_serial#
 )
 SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
-       TO_CHAR(h.sample_time, '&&cs_datetime_full_format.') sample_date_time,
+       TO_CHAR(h.sample_time, '&&cs_timestamp_full_format.') sample_date_time,
        h.machine,
        h.con_id,
        h.pdb_name,
@@ -305,18 +336,19 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
    AND b4.session_id(+) = b3.blocking_session
    AND b4.session_serial#(+) = b3.blocking_session_serial#
    AND (    '&&cs_sid_serial.' IS NULL 
-         OR h.session_id||','||h.session_serial# = '&&cs_sid_serial.' 
-         OR h.blocking_session||','||h.blocking_session_serial# = '&&cs_sid_serial.' 
-         OR b.blocking_session||','||b.blocking_session_serial# = '&&cs_sid_serial.' 
-         OR b2.blocking_session||','||b2.blocking_session_serial# = '&&cs_sid_serial.' 
-         OR b3.blocking_session||','||b3.blocking_session_serial# = '&&cs_sid_serial.' 
-         OR b4.blocking_session||','||b4.blocking_session_serial# = '&&cs_sid_serial.'
+         OR 's:'||h.session_id||','||h.session_serial# LIKE '%&&cs_sid_serial.%' 
+         OR 'b:'||h.blocking_session||','||h.blocking_session_serial# LIKE '%&&cs_sid_serial.%' 
+         OR 'b2:'||b.blocking_session||','||b.blocking_session_serial# LIKE '%&&cs_sid_serial.%' 
+         OR 'b3:'||b2.blocking_session||','||b2.blocking_session_serial# LIKE '%&&cs_sid_serial.%' 
+         OR 'b4:'||b3.blocking_session||','||b3.blocking_session_serial# LIKE '%&&cs_sid_serial.%' 
+         OR 'b5:'||b4.blocking_session||','||b4.blocking_session_serial# LIKE '%&&cs_sid_serial.%'
        )
   AND sp.sid(+) = h.session_id
   AND sp.serial#(+) = h.session_serial# 
   AND st.sql_id(+) = h.sql_id
  ORDER BY
        h.sample_time,
+       CASE WHEN h.machine LIKE '%iod-%' THEN 1 ELSE 2 END,
        h.machine,
        h.con_id,
        h.session_id,
@@ -325,7 +357,7 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
 /
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine." "&&cs_sql_id." "&&cs_sid_serial."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_machine." "&&cs_sql_id." "&&cs_sid_serial." "&&cs_only_dedup."
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

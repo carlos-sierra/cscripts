@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/06/07
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -123,6 +123,7 @@ SELECT r.seconds,
  ORDER BY
        r.seconds DESC, 
        r.reports DESC
+ FETCH FIRST 1000 ROWS ONLY
 /
 --
 PRO
@@ -156,7 +157,7 @@ SELECT period_end_time AS end_time,
    AND ('&&cs_sql_id.' IS NULL OR h.key1 = '&&cs_sql_id.')
  UNION
 SELECT MAX(r.last_refresh_time) AS end_time,
-       ROUND(MAX(r.elapsed_time)/1e6) AS seconds
+       ROUND(MAX(r.last_refresh_time - r.sql_exec_start) * 24 * 3600) AS seconds
   FROM v$sql_monitor r
  WHERE ('&&cs_sql_id.' IS NULL OR r.sql_id = '&&cs_sql_id.')
  GROUP BY
@@ -168,12 +169,12 @@ SELECT TO_CHAR(MIN(end_time), '&&cs_datetime_full_format.') AS min_time, TO_CHAR
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'Monitored Executions of SQL_ID:"&&cs_sql_id."';
+DEF report_title = 'SQL Monitored Executions of: &&cs_sql_id.';
 DEF chart_title = '&&report_title.';
 DEF xaxis_title = "between &&min_time. and &&max_time.";
 DEF hAxis_maxValue = "&&cs_hAxis_maxValue.";
-DEF cs_trendlines_series = ", 0:{}, 1:{}";
-DEF vaxis_title = "Elapsed Seconds";
+DEF cs_trendlines_series = ", 0:{}, 1:{}, 2:{}, 3:{}";
+DEF vaxis_title = "Seconds";
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 DEF is_stacked = "isStacked: false,";
@@ -188,7 +189,9 @@ DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_trendli
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
-PRO ,{label:'Elapsed Time', id:'1', type:'number'}
+PRO ,{label:'Duration Seconds', id:'1', type:'number'}
+PRO ,{label:'Elapsed Seconds', id:'1', type:'number'}
+PRO ,{label:'CPU Seconds', id:'1', type:'number'}
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -206,7 +209,9 @@ END num_format;
 /****************************************************************************************/
 my_query AS (
 SELECT period_end_time AS end_time,
-       ROUND((period_end_time - period_start_time) * 24 * 3600) AS seconds
+       ROUND((period_end_time - period_start_time) * 24 * 3600) AS duration_seconds,
+       TO_NUMBER(NULL) AS elapsed_seconds,
+       TO_NUMBER(NULL) AS cpu_seconds
   FROM cdb_hist_reports h
  WHERE component_name = 'sqlmonitor'
    AND dbid = TO_NUMBER('&&cs_dbid.')
@@ -214,12 +219,13 @@ SELECT period_end_time AS end_time,
    AND ('&&cs_sql_id.' IS NULL OR h.key1 = '&&cs_sql_id.')
  UNION
 SELECT MAX(r.last_refresh_time) AS end_time,
-       ROUND(MAX(r.elapsed_time)/1e6) AS seconds
+       ROUND(MAX(r.last_refresh_time - r.sql_exec_start) * 24 * 3600) AS duration_seconds,
+       ROUND(MAX(r.elapsed_time)/1e6) AS elapsed_seconds,
+       ROUND(MAX(r.cpu_time)/1e6) AS cpu_seconds
   FROM v$sql_monitor r
  WHERE ('&&cs_sql_id.' IS NULL OR r.sql_id = '&&cs_sql_id.')
  GROUP BY
-       r.sql_exec_id,
-       r.sql_exec_start
+       r.key
 )
 SELECT ', [new Date('||
        TO_CHAR(q.end_time, 'YYYY')|| /* year */
@@ -229,7 +235,9 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_time, 'MI')|| /* minute */
        ','||TO_CHAR(q.end_time, 'SS')|| /* second */
        ')'||
-       ','||num_format(q.seconds)|| 
+       ','||num_format(q.duration_seconds)|| 
+       ','||num_format(q.elapsed_seconds)|| 
+       ','||num_format(q.cpu_seconds)|| 
        ']'
   FROM my_query q
  ORDER BY

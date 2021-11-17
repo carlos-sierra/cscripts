@@ -107,13 +107,14 @@ SELECT /*+ QB_NAME(get_stats) */
        i.index_name
 /
 --
+COL object_type HEA 'Object Type';
 COL object_id FOR 999999999 HEA 'Object ID';
 COL object_name FOR A30 HEA 'Object Name' TRUNC;
 COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 --
 PRO
-PRO INDEX OBJECTS (dba_objects)
+PRO INDEX OBJECTS (dba_objects) up to 100 
 PRO ~~~~~~~~~~~~~
 WITH /* OBJECTS */
 v_sqlarea_m AS (
@@ -157,7 +158,8 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
 )
-SELECT o.owner,
+SELECT o.object_type,
+       o.owner,
        o.object_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
@@ -169,8 +171,10 @@ SELECT o.owner,
    AND i.table_name = t.table_name
    AND o.owner = i.owner
    AND o.object_name = i.index_name
-   AND o.object_type = 'INDEX'
+   AND o.object_type LIKE 'INDEX%'
  ORDER BY
+       o.object_type,
        o.owner,
        o.object_name
+FETCH FIRST 100 ROWS ONLY       
 /

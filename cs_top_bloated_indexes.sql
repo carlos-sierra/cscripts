@@ -26,9 +26,9 @@ COL owner FOR A30 TRUNC;
 COL table_name FOR A30 TRUNC;
 COL index_name FOR A30 TRUNC;
 COL partitioned FOR A4 HEA 'PART';
-COL current_gb FOR 990.000 HEA 'CURRENT|GB';
-COL estimated_gb FOR 990.000 HEA 'ESTIMATED|GB';
-COL wasted_gb FOR 990.000 HEA 'WASTED|GB';
+COL current_gb FOR 9,990.000 HEA 'CURRENT|GB';
+COL estimated_gb FOR 9,990.000 HEA 'ESTIMATED|GB';
+COL wasted_gb FOR 9,990.000 HEA 'WASTED|GB';
 COL wated_perc FOR 990.0 HEA 'WASTED|PERC%';
 COL estimated_bytes_function FOR 999 HEA 'FUNC';
 --

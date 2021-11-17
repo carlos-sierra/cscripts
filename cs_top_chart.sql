@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/08/10
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -32,7 +32,7 @@ DEF cs_script_acronym = 'tc.sql | ';
 --
 DEF cs_display_awr_days = '60';
 DEF cs_top_n = '12';
-DEF cs_hours_range_default = '24';
+DEF cs_hours_range_default = '168';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
@@ -132,7 +132,7 @@ SELECT CASE WHEN '&&sql_id.' IS NULL THEN 'SQL' ELSE 'Plans' END top_what FROM D
 /
 --
 SET HEA OFF;
-SPO cs_dynamic_driver.sql
+SPO &&cs_file_dir.cs_dynamic_driver.sql
           SELECT '@@cs_internal/cs_top_chart_internal.sql "db_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_aas', 'DB Time', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "db_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_exec', 'Latency', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "cpu_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_aas', 'DB Time', 'Main', '*')
@@ -163,8 +163,8 @@ UNION ALL SELECT '@@cs_internal/cs_top_chart_internal.sql "physical_write_bytes_
 /
 SPO OFF;
 SET HEA ON;
-@cs_dynamic_driver.sql
-HOST rm cs_dynamic_driver.sql
+@&&cs_file_dir.cs_dynamic_driver.sql
+HOST rm &&cs_file_dir.cs_dynamic_driver.sql
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

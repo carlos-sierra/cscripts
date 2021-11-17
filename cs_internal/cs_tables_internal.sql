@@ -1,7 +1,8 @@
-COL dummy NOPRI;
+-- COL dummy NOPRI;
 COL pdb_name FOR A30 TRUNC;
 COL owner FOR A30 TRUNC;
 COL table_name FOR A30 TRUNC;
+COL tablespace_name FOR A30 TRUNC;
 COL total_MB NEW_V total_MB FOR 99,999,990.000 HEA 'Total MB';
 COL table_MB NEW_V table_MB FOR 99,999,990.000 HEA 'Table MB';
 COL indexes_MB NEW_V indexes_MB FOR 99,999,990.000 HEA 'Index(es) MB';
@@ -20,12 +21,14 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        c.name pdb_name,
        s.owner,
        s.segment_name table_name,
+       s.tablespace_name,
        SUM(s.bytes) bytes
   FROM cdb_segments s,
        cdb_users u,
        v$containers c
- WHERE s.segment_type LIKE 'TABLE%'
-   AND s.owner NOT LIKE 'C##%'
+ WHERE 1 = 1
+   AND s.segment_type LIKE 'TABLE%'
+  --  AND s.owner NOT LIKE 'C##%'
    AND s.segment_name = COALESCE('&&specific_table.', s.segment_name)
    AND u.con_id = s.con_id
    AND u.username = s.owner
@@ -34,7 +37,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  GROUP BY
        c.name,
        s.owner,
-       s.segment_name
+       s.segment_name,
+       s.tablespace_name
 ),
 dtables AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -43,11 +47,13 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        t.table_name,
        t.num_rows,
        t.avg_row_len,
-       t.last_analyzed
+       t.last_analyzed,
+       t.tablespace_name
   FROM cdb_tables t,
        cdb_users u,
        v$containers c
- WHERE t.owner NOT LIKE 'C##%'
+ WHERE 1 = 1
+  --  AND t.owner NOT LIKE 'C##%'
    AND u.con_id = t.con_id
    AND u.username = t.owner
    AND u.oracle_maintained = 'N'
@@ -64,8 +70,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        cdb_users u,
        v$containers c,
        cdb_indexes i
- WHERE s.segment_type LIKE '%INDEX%'
-   AND s.owner NOT LIKE 'C##%'
+ WHERE 1 = 1
+   AND s.segment_type LIKE '%INDEX%'
+  --  AND s.owner NOT LIKE 'C##%'
    AND u.con_id = s.con_id
    AND u.username = s.owner
    AND u.oracle_maintained = 'N'
@@ -89,8 +96,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        cdb_users u,
        v$containers c,
        cdb_lobs l
- WHERE s.segment_type LIKE 'LOB%'
-   AND s.owner NOT LIKE 'C##%'
+ WHERE 1 = 1
+   AND s.segment_type LIKE 'LOB%'
+  --  AND s.owner NOT LIKE 'C##%'
    AND s.segment_type <> 'LOBINDEX'
    AND u.con_id = s.con_id
    AND u.username = s.owner
@@ -104,9 +112,10 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        s.owner,
        l.table_name
 )
-SELECT NULL dummy,
+SELECT -- NULL dummy,
        t.owner,
        t.table_name,
+       NVL(d.tablespace_name, t.tablespace_name) AS tablespace_name,
        (NVL(t.bytes,0)+NVL(i.bytes,0)+NVL(l.bytes,0))/POWER(10,6) total_MB,
        NVL(t.bytes,0)/POWER(10,6) table_MB,
        NVL(l.bytes,0)/POWER(10,6) lobs_MB,

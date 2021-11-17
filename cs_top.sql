@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/07/21
 --
 -- Usage:       Execute connected to PDB or CDB
 --
@@ -32,8 +32,6 @@ DEF cs_minutes = '1';
 DEF cs_top = '30';
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
---
-@@cs_internal/cs_signature.sql
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql 

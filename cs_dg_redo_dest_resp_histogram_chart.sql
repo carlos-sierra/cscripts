@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/04/27
 --
 -- Usage:       Execute connected to CDB.
 --
@@ -95,7 +95,7 @@ WHERE rn BETWEEN 1 AND 6
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = "Data Guard (DG) REDO Transport Duration (v$redo_dest_resp_histogram)";
-DEF chart_title = "Data Guard (DG) REDO Transport Duration";
+DEF chart_title = "Data Guard (DG) REDO Transport Duration between &&cs_sample_time_from. and &&cs_sample_time_to. UTC";
 DEF xaxis_title = "&&source_dest_host_name.";
 DEF vaxis_title = "Duration (Seconds)";
 -- DEF hAxis_maxValue = "&&cs_hAxis_maxValue.";

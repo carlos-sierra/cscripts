@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/10
+-- Version:     2021/05/16
 --
 -- Usage:       Execute connected to PDB or CDB. 
 --
@@ -39,10 +39,14 @@
 -- prompt Pivoting output using Tom Kyte's printtab....
 --
 SET TERM OFF;
+-- added my_sid to avoid collisons accross concurrent executions of this script
+COL my_sid NEW_V my_sid NOPRI;
+SELECT SYS_CONTEXT('USERENV', 'SID') AS my_sid FROM DUAL
+/
 SPO &&cs_file_name..txt APP;
 SPO OFF;
-SAVE "/tmp/sql_pr_tmpfile.sql" REPLACE;
-STORE SET "/tmp/set_pr_tmpfile.sql" REPLACE;
+SAVE "/tmp/sql_pr_tmpfile_&&my_sid..sql" REPLACE;
+STORE SET "/tmp/set_pr_tmpfile_&&my_sid..sql" REPLACE;
 SET TERM ON HEA OFF TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON SERVEROUT ON SIZE UNL TRIM ON LIN 4050;
 --
 --PRO
@@ -60,27 +64,27 @@ SELECT CASE
        END AS cs_option,
        CASE 
          WHEN LOWER(SUBSTR(TRIM(q'[&&cs_parameter.]'), -4, 4)) = '.sql' THEN TRIM(q'[&&cs_parameter.]')
-         WHEN TRIM(q'[&&cs_parameter.]') IS NULL THEN '/tmp/sql_pr_tmpfile.sql'
+         WHEN TRIM(q'[&&cs_parameter.]') IS NULL THEN '/tmp/sql_pr_tmpfile_&&my_sid..sql'
          ELSE TRIM(';' FROM TRIM('"' FROM TRIM(q'[&&cs_parameter.]')))
        END AS cs_parameter
   FROM DUAL
 /
 --
-SPOOL "/tmp/sql2_pr_tmpfile.sql";
+SPOOL "/tmp/sql2_pr_tmpfile_&&my_sid..sql";
 PRO &&cs_parameter.
 SPOOL OFF;
 --
 COL script_name NEW_V script_name NOPRI;
 SELECT CASE '&&cs_option.'
        WHEN '1' THEN q'[&&cs_parameter.]'
-       WHEN '2' THEN '/tmp/sql2_pr_tmpfile.sql'
-       WHEN '3' THEN '/tmp/sql_pr_tmpfile.sql'
+       WHEN '2' THEN '/tmp/sql2_pr_tmpfile_&&my_sid..sql'
+       WHEN '3' THEN '/tmp/sql_pr_tmpfile_&&my_sid..sql'
        END AS script_name
   FROM DUAL
 /
 --
 GET "&&script_name." NOLIST;
-SAVE "/tmp/sql_pr_tmpfile.sql" REPLACE;
+SAVE "/tmp/sql_pr_tmpfile_&&my_sid..sql" REPLACE;
 --
 0 c clob := q'\
 0 declare
@@ -102,18 +106,22 @@ SAVE "/tmp/sql_pr_tmpfile.sql" REPLACE;
 666666      dbms_sql.parse(  l_theCursor, c, dbms_sql.native );;
 666666      dbms_sql.describe_columns( l_theCursor, l_colCnt, l_descTbl );;
 666666      for i in 1 .. l_colCnt loop
+666666        if l_descTbl(i).col_type not in (112, 113) then -- excludes blob and clob (see https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqr06002.htm#SQLQR959)
 666666          dbms_sql.define_column( l_theCursor, i,
 666666                                  l_columnValue, 4000 );;
+666666        end if;;
 666666      end loop;;
 666666      l_status := dbms_sql.execute(l_theCursor);;
 666666      while ( dbms_sql.fetch_rows(l_theCursor) > 0 ) loop
 666666          dbms_output.put_line( '+--------------------------------+' );;
 666666          for i in 1 .. l_colCnt loop
+666666            if l_descTbl(i).col_type not in (112, 113) then -- excludes blob and clob (see https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqr06002.htm#SQLQR959)
 666666                  dbms_sql.column_value( l_theCursor, i,
 666666                                         l_columnValue );;
 666666                  dbms_output.put_line
 666666                      ( '|'||lpad( lower(l_descTbl(i).col_name),
 666666                        31 ) || ' : ' || l_columnValue );;
+666666            end if;;
 666666          end loop;;
 666666      end loop;;
 666666      dbms_output.put_line( '+--------------------------------+' );;
@@ -126,8 +134,8 @@ SET TERM ON;
 SPO &&cs_file_name..txt APP;
 /
 --
-@"/tmp/set_pr_tmpfile.sql";
+@"/tmp/set_pr_tmpfile_&&my_sid..sql";
 GET "&&script_name." NOLIST;
-HOST rm "/tmp/set_pr_tmpfile.sql" "/tmp/sql_pr_tmpfile.sql" "/tmp/sql2_pr_tmpfile.sql";
+HOST rm "/tmp/set_pr_tmpfile_&&my_sid..sql" "/tmp/sql_pr_tmpfile_&&my_sid..sql" "/tmp/sql2_pr_tmpfile_&&my_sid..sql";
 SET TERM ON;
 --

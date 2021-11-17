@@ -16,6 +16,8 @@ COL histogram FOR A15 HEA 'Histogram';
 COL sample_size FOR 999,999,999,990 HEA 'Sample Size';
 COL last_analyzed FOR A19 HEA 'Last Analyzed';
 COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
+COL data_length FOR 999,999,990 HEA 'Data Length';
+COL char_length FOR 999,999,990 HEA 'Char Length';
 --
 BRE ON owner ON table_name SKIP 1;
 --
@@ -122,7 +124,9 @@ SELECT /*+ QB_NAME(get_stats) */
        c.histogram,
        c.sample_size,
        TO_CHAR(c.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
-       c.avg_col_len
+       c.avg_col_len,
+       c.data_length, 
+       c.char_length
   FROM dba_tables_m t,
        dba_tab_cols c
  WHERE c.owner = t.owner
@@ -135,56 +139,42 @@ SELECT /*+ QB_NAME(get_stats) */
 --
 CL BRE;
 --
-SET HEA OFF;
-PRO
-PRO COLUMN USAGE REPORT (dbms_stats.report_col_usage)
-PRO ~~~~~~~~~~~~~~~~~~~
-WITH /* OBJECTS */
-v_sqlarea_m AS (
-SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */ 
-       DISTINCT 
-       hash_value, address
-  FROM v$sqlarea 
- WHERE sql_id = '&&cs_sql_id.'
-),
-v_object_dependency_m AS (
-SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
-       DISTINCT 
-       o.to_owner, o.to_name
-      --  o.to_hash, o.to_address 
-  FROM v$object_dependency o,
-       v_sqlarea_m s
- WHERE o.from_hash = s.hash_value 
-   AND o.from_address = s.address
-   AND o.to_type = 2 -- table
-),
--- v_db_object_cache_m AS (
--- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
+-- SET HEA OFF;
+-- PRO
+-- PRO COLUMN USAGE REPORT (dbms_stats.report_col_usage)
+-- PRO ~~~~~~~~~~~~~~~~~~~
+-- WITH /* OBJECTS */
+-- v_sqlarea_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */ 
 --        DISTINCT 
---        SUBSTR(c.owner,1,30) AS object_owner, 
---        SUBSTR(c.name,1,30) AS object_name 
---   FROM v$db_object_cache c,
---        v_object_dependency_m d
---  WHERE c.type IN ('TABLE','VIEW') 
---    AND c.hash_value = d.to_hash
---    AND c.addr = d.to_address 
+--        hash_value, address
+--   FROM v$sqlarea 
+--  WHERE sql_id = '&&cs_sql_id.'
 -- ),
-dba_tables_m AS (
-SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
-       t.owner, 
-       t.table_name
-  FROM dba_tables t,
-       v_object_dependency_m o
-      --  v_db_object_cache_m c
---  WHERE t.owner = c.object_owner
---    AND t.table_name = c.object_name 
- WHERE t.owner = o.to_owner
-   AND t.table_name = o.to_name 
-)
-SELECT DBMS_STATS.report_col_usage(t.owner, t.table_name)
-  FROM dba_tables_m t
- ORDER BY
-       t.owner, t.table_name
-/
-SET HEA ON;
+-- v_object_dependency_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
+--        DISTINCT 
+--        o.to_owner, o.to_name
+--       --  o.to_hash, o.to_address 
+--   FROM v$object_dependency o,
+--        v_sqlarea_m s
+--  WHERE o.from_hash = s.hash_value 
+--    AND o.from_address = s.address
+--    AND o.to_type = 2 -- table
+-- ),
+-- dba_tables_m AS (
+-- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
+--        t.owner, 
+--        t.table_name
+--   FROM dba_tables t,
+--        v_object_dependency_m o
+--  WHERE t.owner = o.to_owner
+--    AND t.table_name = o.to_name 
+-- )
+-- SELECT DBMS_STATS.report_col_usage(t.owner, t.table_name)
+--   FROM dba_tables_m t
+--  ORDER BY
+--        t.owner, t.table_name
+-- /
+-- SET HEA ON;
 --

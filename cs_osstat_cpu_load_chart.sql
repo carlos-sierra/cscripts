@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2021/08/17
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -52,11 +52,10 @@ DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&
 @@cs_internal/cs_spool_head_chart.sql
 --
 PRO ,{label:'CPU Cores', id:'1', type:'number'}
-PRO ,{label:'CPU Threads', id:'2', type:'number'}
-PRO ,{label:'Threads Busy', id:'3', type:'number'}
+-- PRO ,{label:'CPU Threads', id:'2', type:'number'}
+-- PRO ,{label:'Threads Busy', id:'3', type:'number'}
 PRO ,{label:'DBRM', id:'4', type:'number'}
 PRO ,{label:'Load', id:'5', type:'number'}
--- PRO ,{label:'CPU Demand', id:'5', type:'number'}
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -122,11 +121,10 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.time, 'SS')|| /* second */
        ')'||
        ','||num_format(q.cores, 1)|| 
-       ','||num_format(q.cpus, 1)|| 
-       ','||num_format(q.busy, 1)|| 
+      --  ','||num_format(q.cpus, 1)|| 
+      --  ','||num_format(q.busy, 1)|| 
        ','||num_format(q.dbrm, 1)|| 
        ','||num_format(q.load, 1)|| 
-       --','||num_format(q.load + q.dbrm, 1)|| 
        ']'
   FROM my_query q
  ORDER BY

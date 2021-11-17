@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/10/15
 --
 -- Usage:       Execute connected to PDB
 --
@@ -23,6 +23,7 @@
 @@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
+@@cs_internal/cs_blackout.sql
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_redef_table';
@@ -105,13 +106,13 @@ COL p_compression NEW_V p_compression NOPRI;
 SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
 /
 PRO
-PRO 5. CLOB Compression and Deduplication: [{CD}|C|NO] CD:Compression and Deduplication, C:Compression, NO:None
+PRO 5. CLOB Compression and Deduplication: [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
 DEF redeflob = '&5.';
 UNDEF 5;
 COL api_name NEW_V api_name NOPRI;
 COL p_redeflob NEW_V p_redeflob NOPRI;
-SELECT CASE UPPER(TRIM('&&redeflob.')) WHEN 'CD' THEN 'REDEFLOBCD' WHEN 'C' THEN 'REDEFLOBC' WHEN 'NO' THEN 'REDEFNOLOBCD' ELSE 'REDEFLOBCD' END AS api_name,
-       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'CD' END AS p_redeflob
+SELECT CASE UPPER(TRIM('&&redeflob.')) WHEN 'C' THEN 'REDEFLOBC' WHEN 'CD' THEN 'REDEFLOBCD' WHEN 'NO' THEN 'REDEFNOLOBCD' ELSE 'REDEFLOBC' END AS api_name,
+       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('C', 'CD', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'C' END AS p_redeflob
 FROM DUAL
 /
 PRO
@@ -130,10 +131,10 @@ PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_table_name." "&&p_newtbs." "&&
 --
 PRO TABLE_OWNER  : &&p_owner.
 PRO TABLE_NAME   : &&p_table_name.
-PRO TABLESPACE   : &&p_newtbs.
-PRO OLTP_COMPRES : &&p_compression.
-PRO LOB_COMPRES  : &&p_redeflob.
-PRO PX_DEGREE    : &&p_pxdegree.
+PRO TABLESPACE   : &&p_newtbs. [{&&tablespace_name_d.}|<TABLESPACE_NAME>]
+PRO OLTP_COMPRES : &&p_compression. [{FALSE}|TRUE]
+PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
 DEF specific_table = '&&p_table_name.';
 DEF order_by = 't.pdb_name, t.owner, t.table_name';
@@ -151,6 +152,7 @@ DEF total_MB_b = "&&total_MB.";
 DEF table_MB_b = "&&table_MB.";
 DEF indexes_MB_b = "&&indexes_MB.";
 DEF lobs_MB_b = "&&lobs_MB.";
+@@cs_internal/cs_lobs_internal.sql
 --
 ALTER SESSION SET container = CDB$ROOT;
 --
@@ -158,6 +160,7 @@ PRO
 PRO TABLE REDEFINITION
 PRO ~~~~~~~~~~~~~~~~~~
 SET SERVEROUT ON
+ALTER SESSION SET DDL_LOCK_TIMEOUT = 10;
 BEGIN
   &&cs_tools_schema..IOD_SPACE.&&api_name.(
       p_pdb_name      => '&&cs_con_name.'
@@ -181,6 +184,7 @@ DEF total_MB_a = "&&total_MB.";
 DEF table_MB_a = "&&table_MB.";
 DEF indexes_MB_a = "&&indexes_MB.";
 DEF lobs_MB_a = "&&lobs_MB.";
+@@cs_internal/cs_lobs_internal.sql
 --
 COL type FOR A10 HEA 'OBJECT';
 COL MB_before FOR 99,999,990.0;

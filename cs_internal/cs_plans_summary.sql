@@ -31,7 +31,7 @@ SELECT s.con_id,
        c.name AS pdb_name,
        TO_CHAR(MAX(s.last_active_time), '&&cs_datetime_full_format.') AS last_active_time,
        s.plan_hash_value,
-       p.plan_hash_value_2,
+      --  p.plan_hash_value_2,
        s.full_plan_hash_value,
        COUNT(*) AS cursors,
        '|' AS "|",
@@ -61,29 +61,31 @@ SELECT s.con_id,
        (SUM(s.cpu_time)/NULLIF(SUM(s.executions), 0)/1e3) / GREATEST(SUM(s.rows_processed)/NULLIF(SUM(s.executions), 0), &&cs_min_rows_per_exec_cap.) AS ms_per_capped_rows
   FROM v$sql s,
        v$containers c
-       OUTER APPLY ( -- could be CROSS APPLY since we expect one and only one row 
-         SELECT TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) AS plan_hash_value_2 
-           FROM v$sql_plan p
-          WHERE p.con_id = s.con_id
-            AND p.address = s.address
-            AND p.hash_value = s.hash_value
-            AND p.sql_id = s.sql_id
-            AND p.plan_hash_value = s.plan_hash_value
-            AND p.child_address = s.child_address
-            AND p.child_number = s.child_number
-            AND p.other_xml IS NOT NULL
-            AND p.id = 1
-            AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */
-          ORDER BY
-                p.timestamp DESC, p.id
-          FETCH FIRST 1 ROW ONLY -- redundant. expecting one and only one row 
-       ) p
+      --  had to remove this part due to performance issues on sql with hcv (e.g.: DBPERF-7505)
+      --  OUTER APPLY ( -- could be CROSS APPLY since we expect one and only one row 
+      --    SELECT TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) AS plan_hash_value_2 
+      --      FROM v$sql_plan p
+      --     WHERE p.con_id = s.con_id
+      --       AND p.address = s.address
+      --       AND p.hash_value = s.hash_value
+      --       AND p.sql_id = s.sql_id
+      --       AND p.plan_hash_value = s.plan_hash_value
+      --       AND p.child_address = s.child_address
+      --       AND p.child_number = s.child_number
+      --       AND p.other_xml IS NOT NULL
+      --       --AND p.id = 1
+      --       AND TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) >= 0
+      --       AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */
+      --     ORDER BY
+      --           p.timestamp DESC, p.id
+      --     FETCH FIRST 1 ROW ONLY -- redundant. expecting one and only one row 
+      --  ) p
  WHERE s.sql_id = '&&cs_sql_id.'
    AND c.con_id = s.con_id
  GROUP BY
-       s.con_id, c.name, s.plan_hash_value, p.plan_hash_value_2, s.full_plan_hash_value
+       s.con_id, c.name, s.plan_hash_value, /*p.plan_hash_value_2,*/ s.full_plan_hash_value
  ORDER BY
-       1, 3, 4, 5, 6
+       1, 2, 3, 4
 /
 PRO Note (H) = "*" means High. Expecting less than &&cs_cpu_ms_per_row. CPU ms per row processed, less than &&cs_buffer_gets_per_row. Buffer Gets per row processed, and less than &&cs_disk_reads_per_row. Disk Reads per row processed.
 --

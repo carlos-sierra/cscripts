@@ -119,18 +119,22 @@ SET TERM OFF;
 666666      dbms_sql.parse(  l_theCursor, c, dbms_sql.native );;
 666666      dbms_sql.describe_columns( l_theCursor, l_colCnt, l_descTbl );;
 666666      for i in 1 .. l_colCnt loop
+666666        if l_descTbl(i).col_type not in (112, 113) then -- excludes blob and clob (see https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqr06002.htm#SQLQR959)
 666666          dbms_sql.define_column( l_theCursor, i,
 666666                                  l_columnValue, 4000 );;
+666666        end if;;
 666666      end loop;;
 666666      l_status := dbms_sql.execute(l_theCursor);;
 666666      while ( dbms_sql.fetch_rows(l_theCursor) > 0 ) loop
 666666          dbms_output.put_line( '+--------------------------------+' );;
 666666          for i in 1 .. l_colCnt loop
+666666            if l_descTbl(i).col_type not in (112, 113) then -- excludes blob and clob (see https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqr06002.htm#SQLQR959)
 666666                  dbms_sql.column_value( l_theCursor, i,
 666666                                         l_columnValue );;
 666666                  dbms_output.put_line
 666666                      ( '|'||lpad( lower(l_descTbl(i).col_name),
 666666                        31 ) || ' : ' || l_columnValue );;
+666666            end if;;
 666666          end loop;;
 666666      end loop;;
 666666      dbms_output.put_line( '+--------------------------------+' );;

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/09/13
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -46,8 +46,11 @@ SELECT UPPER(TRIM(NVL('&&table_owner.', '&&owner.'))) table_owner FROM DUAL
 --
 COL name NEW_V name FOR A30 HEA 'TABLE_NAME';
 COL num_rows FOR 99,999,999,990;
+COL blocks FOR 99,999,999,990;
+COL rows_per_block FOR 999,990.0;
+COL avg_row_len FOR 999,990;
 COL lobs FOR 9990;
-SELECT t.table_name name, t.num_rows,
+SELECT t.table_name name, t.num_rows, t.blocks, ROUND(t.num_rows / NULLIF(t.blocks, 0), 1) AS rows_per_block, t.avg_row_len,
        (SELECT COUNT(*) FROM dba_lobs l WHERE l.owner = t.owner AND l.table_name = t.table_name) AS lobs,
        t.partitioned
   FROM dba_tables t,
@@ -78,7 +81,7 @@ DEF specific_table = '&&table_name.';
 DEF order_by = 't.pdb_name, t.owner, t.table_name';
 DEF fetch_first_N_rows = '1';
 PRO
-PRO SUMMARY
+PRO SUMMARY &&table_owner..&&table_name.
 PRO ~~~~~~~
 @@cs_internal/cs_tables_internal.sql
 --
@@ -95,7 +98,7 @@ BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF mebibytes megabytes segments ON REPORT;
 --
 PRO
-PRO SEGMENTS (dba_segments) top 100
+PRO SEGMENTS (dba_segments) top 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~
 WITH
 t AS (
@@ -135,7 +138,7 @@ SELECT ROUND(bytes/POWER(10,6),3) AS megabytes, segment_type, owner, column_name
 /
 --
 PRO
-PRO SEGMENT TYPE (dba_segments)
+PRO SEGMENT TYPE (dba_segments) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~
 WITH
 t AS (
@@ -194,7 +197,7 @@ COL compression FOR A12 HEA 'Compression';
 COL tablespace_name FOR A30 HEA 'Tablespace';
 --
 PRO
-PRO TABLES (dba_tables)
+PRO TABLES (dba_tables) &&table_owner..&&table_name.
 PRO ~~~~~~
 SELECT CASE t.partitioned WHEN 'YES' THEN (SELECT TRIM(TO_CHAR(COUNT(*))) FROM dba_tab_partitions tp WHERE tp.table_owner = t.owner AND tp.table_name = t.table_name) ELSE t.partitioned END AS partitioned,
        t.degree,
@@ -221,21 +224,61 @@ SELECT CASE t.partitioned WHEN 'YES' THEN (SELECT TRIM(TO_CHAR(COUNT(*))) FROM d
    AND p.name = 'db_block_size'
 /
 --
+COL analyzetime FOR A19 HEA 'Analyze Time';
+COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
+COL blkcnt FOR 999,999,990 HEA 'Block Count';
+COL avgrln FOR 999,999,990 HEA 'Avg Row Len';
+COL samplesize FOR 999,999,999,990 HEA 'Sample Size';
+--
+PRO
+PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) &&table_owner..&&table_name.
+PRO ~~~~~~~~~~~~~~~~~~~~~~
+SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       h.rowcnt,
+       h.blkcnt,
+       h.avgrln,
+       h.samplesize
+  FROM dba_objects o,
+       wri$_optstat_tab_history h
+ WHERE o.owner = '&&table_owner.'
+   AND o.object_name = '&&table_name.' 
+   AND o.object_type = 'TABLE'
+   AND h.obj# = o.object_id
+   AND h.analyzetime IS NOT NULL
+ UNION
+SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS analyzetime,
+       t.num_rows AS rowcnt,
+       t.blocks AS blkcnt,
+       t.avg_row_len AS avgrln,
+       t.sample_size AS samplesize
+  FROM dba_tables t
+ WHERE t.owner = '&&table_owner.'
+   AND t.table_name = '&&table_name.' 
+ ORDER BY
+       1
+/
+--
+COL object_type HEA 'Object Type';
 COL object_id FOR 999999999 HEA 'Object ID';
 COL object_name FOR A30 HEA 'Object Name' TRUNC;
 COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 --
 PRO
-PRO TABLE OBJECTS (dba_objects)
+PRO TABLE OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
-SELECT o.object_id,
+SELECT o.object_type,
+       o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time
   FROM dba_objects o
  WHERE o.owner = '&&table_owner.'
    AND o.object_name = '&&table_name.' 
-   AND o.object_type = 'TABLE'
+   AND o.object_type LIKE 'TABLE%'
+ ORDER BY
+       o.object_type,
+       o.object_id
+FETCH FIRST 100 ROWS ONLY       
 /
 --
 COL index_name FOR A30 HEA 'Index Name';
@@ -262,7 +305,7 @@ COL compression FOR A13 HEA 'Compression';
 COL tablespace_name FOR A30 HEA 'Tablespace';
 --
 PRO
-PRO INDEXES (dba_indexes)
+PRO INDEXES (dba_indexes) &&table_owner..&&table_name.
 PRO ~~~~~~~
 SELECT i.index_name,
        CASE i.partitioned WHEN 'YES' THEN (SELECT TRIM(TO_CHAR(COUNT(*))) FROM dba_ind_partitions ip WHERE ip.index_owner = i.owner AND ip.index_name = i.index_name) ELSE i.partitioned END AS partitioned,
@@ -298,9 +341,10 @@ SELECT i.index_name,
 /
 --
 PRO
-PRO INDEX OBJECTS (dba_objects)
+PRO INDEX OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
-SELECT o.object_name,
+SELECT o.object_type,
+       o.object_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time
@@ -310,9 +354,11 @@ SELECT o.object_name,
    AND i.table_name = '&&table_name.'
    AND o.owner = i.owner
    AND o.object_name = i.index_name
-   AND o.object_type = 'INDEX'
+   AND o.object_type LIKE 'INDEX%'
  ORDER BY
+       o.object_type,
        o.object_name
+FETCH FIRST 100 ROWS ONLY       
 /
 --
 COL part_sub FOR A12 HEA 'LEVEL';
@@ -323,7 +369,7 @@ COL column_position FOR 999 HEA 'POS';
 COL column_name FOR A30 TRUNC;
 --
 PRO
-PRO PARTITION KEYS (dba_part_key_columns and dba_subpart_key_columns)
+PRO PARTITION KEYS (dba_part_key_columns and dba_subpart_key_columns) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~~
 --
 WITH /* PART_KEY_COLUMNS */
@@ -394,11 +440,13 @@ COL histogram FOR A15 HEA 'Histogram';
 COL sample_size FOR 999,999,999,990 HEA 'Sample Size';
 COL last_analyzed FOR A19 HEA 'Last Analyzed';
 COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
+COL data_length FOR 999,999,990 HEA 'Data Length';
+COL char_length FOR 999,999,990 HEA 'Char Length';
 --
 BRE ON index_name SKIP 1;
 --
 PRO
-PRO INDEX COLUMNS (dba_ind_columns) 
+PRO INDEX COLUMNS (dba_ind_columns) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT i.index_name,
        i.column_position,
@@ -455,7 +503,9 @@ SELECT i.index_name,
        c.histogram,
        c.sample_size,
        TO_CHAR(c.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
-       c.avg_col_len
+       c.avg_col_len,
+       c.data_length, 
+       c.char_length
   FROM dba_ind_columns i,
        dba_tab_cols c
  WHERE i.table_owner = '&&table_owner.'
@@ -485,11 +535,13 @@ COL histogram FOR A15 HEA 'Histogram';
 COL sample_size FOR 999,999,999,990 HEA 'Sample Size';
 COL last_analyzed FOR A19 HEA 'Last Analyzed';
 COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
+COL data_length FOR 999,999,990 HEA 'Data Length';
+COL char_length FOR 999,999,990 HEA 'Char Length';
 --
 BRE ON owner ON table_name SKIP 1;
 --
 PRO
-PRO TABLE COLUMNS (dba_tab_cols) 
+PRO TABLE COLUMNS (dba_tab_cols) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT c.column_id,
        c.column_name,
@@ -545,7 +597,9 @@ SELECT c.column_id,
        c.histogram,
        c.sample_size,
        TO_CHAR(c.last_analyzed, '&&cs_datetime_full_format.') last_analyzed,
-       c.avg_col_len
+       c.avg_col_len,
+       c.data_length, 
+       c.char_length
   FROM dba_tab_cols c
  WHERE c.owner = '&&table_owner.'
    AND c.table_name = '&&table_name.'
@@ -574,7 +628,7 @@ BRE ON owner ON table_name SKIP 1;
 --
 SET HEA OFF;
 PRO
-PRO COLUMN USAGE REPORT (dbms_stats.report_col_usage)
+PRO COLUMN USAGE REPORT (dbms_stats.report_col_usage) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~~~~~~~
 SELECT DBMS_STATS.report_col_usage('&&table_owner.', '&&table_name.')
   FROM DUAL
@@ -634,7 +688,7 @@ COL index_name FOR A30 HEA 'Index Name' TRUNC;
 COL metadata FOR A200 HEA 'Metadata';
 --
 PRO
-PRO TABLE METADATA (DBMS_METADATA.get_ddl)
+PRO TABLE METADATA (DBMS_METADATA.get_ddl) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~~
 SELECT t.owner, t.table_name, DBMS_METADATA.get_ddl('TABLE', t.table_name, t.owner) AS metadata
   FROM dba_tables t
@@ -645,7 +699,7 @@ SELECT t.owner, t.table_name, DBMS_METADATA.get_ddl('TABLE', t.table_name, t.own
 /
 --
 PRO
-PRO INDEX METADATA (DBMS_METADATA.get_ddl)
+PRO INDEX METADATA (DBMS_METADATA.get_ddl) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~~
 SELECT i.owner, i.table_name, i.index_name, DBMS_METADATA.get_ddl('INDEX', i.index_name, i.owner) AS metadata
   FROM dba_tables t,
@@ -664,7 +718,7 @@ COL num_rows FOR 999,999,999,990 HEA 'Num Rows';
 COL kievlive FOR A8 HEA 'KievLive';
 --
 PRO
-PRO KIEV LIVE (dba_tab_histograms)
+PRO KIEV LIVE (dba_tab_histograms) &&table_owner..&&table_name.
 PRO ~~~~~~~~~
 SELECT SUBSTR(UTL_RAW.CAST_TO_VARCHAR2(SUBSTR(LPAD(TO_CHAR(h.endpoint_value,'fmxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'),30,'0'),1,12)), 1, 8) kievlive,
        h.endpoint_number - LAG(h.endpoint_number, 1, 0) OVER (ORDER BY h.endpoint_value) num_rows
@@ -682,7 +736,7 @@ PRO scp &&cs_host_name.:&&cs_file_prefix._&&cs_script_name.*.txt &&cs_local_dir.
 PRO scp &&cs_host_name.:&&cs_file_dir.&&cs_reference_sanitized._*.* &&cs_local_dir.
 --
 PRO
-PRO TOP_KEYS (if dba_tables.num_rows < 25MM)
+PRO TOP_KEYS (if dba_tables.num_rows < 25MM) &&table_owner..&&table_name.
 PRO ~~~~~~~~
 --
 SET HEA OFF;

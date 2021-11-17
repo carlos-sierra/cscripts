@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/02/11
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -66,27 +66,27 @@ ORDER BY
        statistic#
 /
 PRO
-PRO 4. Stat Name 1: 
+PRO 4. Enter 1st Stat Name: 
 DEF stat_name_1 = '&4.';
 UNDEF 4;
 PRO
-PRO 5. Stat Name 2: (opt)
+PRO 5. Enter 2nd Stat Name: (opt)
 DEF stat_name_2 = '&5.';
 UNDEF 5;
 PRO
-PRO 6. Stat Name 3: (opt)
+PRO 6. Enter 3rd Stat Name: (opt)
 DEF stat_name_3 = '&6.';
 UNDEF 6;
 PRO
-PRO 7. Stat Name 4: (opt)
+PRO 7. Enter 4th Stat Name: (opt)
 DEF stat_name_4 = '&7.';
 UNDEF 7;
 PRO
-PRO 8. Stat Name 5: (opt)
+PRO 8. Enter 5th Stat Name: (opt)
 DEF stat_name_5 = '&8.';
 UNDEF 8;
 PRO
-PRO 9. Stat Name 6: (opt)
+PRO 9. Enter 6th Stat Name: (opt)
 DEF stat_name_6 = '&9.';
 UNDEF 9;
 PRO

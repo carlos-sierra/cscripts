@@ -1,3 +1,5 @@
+SELECT REPLACE('&&cs_file_name.', '$') AS cs_file_name FROM DUAL;
+--
 SPO &&cs_file_name..html
 PRO <html>
 PRO <!-- $Header: &&cs_file_name..html carlos.sierra $ -->
@@ -36,4 +38,4 @@ PRO
 PRO function drawChart() {
 PRO var data = google.visualization.arrayToDataTable([
 PRO [
-PRO 'Date Column'
+PRO '&&spool_chart_1st_column.'

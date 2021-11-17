@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2021/06/02
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -38,21 +38,30 @@ SELECT COUNT(*) sessions,
        machine
 /
 PRO
-PRO 1. Enter MACHINE:
+PRO 1. Enter MACHINE: (for all enter %)
 DEF machine = '&1.';
 UNDEF 1;
 PRO
-PRO 2. Enter STATUS: [{ALL}|ACTIVE|INACTIVE]
+PRO 2. Enter STATUS: [{INACTIVE}|ACTIVE|ALL]
 DEF status = '&2.';
 UNDEF 2;
 COL status NEW_V status NOPRI;
-SELECT CASE WHEN UPPER(TRIM('&&status.')) IN ('ACTIVE', 'INACTIVE') THEN  UPPER(TRIM('&&status.')) ELSE 'ALL' END AS status FROM DUAL
+SELECT CASE WHEN UPPER(TRIM('&&status.')) IN ('ACTIVE', 'INACTIVE') THEN  UPPER(TRIM('&&status.')) ELSE 'INACTIVE' END AS status FROM DUAL
+/
+PRO
+PRO 3. Last Call Elapsed Time Seconds: [{3600}]
+DEF last_call_et = '&3.';
+UNDEF 3;
+COL last_call_et_secs NEW_V last_call_et_secs NOPRI;
+SELECT NVL('&&last_call_et.', '3600') AS last_call_et_secs FROM DUAL
 /
 --
 VAR machine VARCHAR2(64);
 EXEC :machine := '&&machine.';
 VAR status VARCHAR2(8);
 EXEC :status := '&&status.';
+VAR last_call_et NUMBER;
+EXEC :last_call_et := TO_NUMBER('&&last_call_et_secs.');
 --
 SET SERVEROUT ON;
 DECLARE
@@ -66,7 +75,7 @@ BEGIN
   SELECT sid||','||serial# 
   BULK COLLECT INTO l_sid_serial 
   FROM v$session 
-  WHERE type = 'USER' AND :machine IS NOT NULL AND machine LIKE '%'||:machine||'%' AND :status IN ('ALL', status) AND sid <> SYS_CONTEXT('USERENV', 'SID');
+  WHERE type = 'USER' AND :machine IS NOT NULL AND machine LIKE '%'||:machine||'%' AND :status IN ('ALL', status) AND last_call_et > :last_call_et AND sid <> SYS_CONTEXT('USERENV', 'SID');
   --
   IF l_sid_serial.LAST >= l_sid_serial.FIRST THEN -- sessions found
     SYS.DBMS_SYSTEM.KSDWRT(dest => 2, tst => TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS.FF3')||' cs_kill_machine: killing '||(l_sid_serial.LAST - l_sid_serial.FIRST + 1)||' sessions from machine %'||:machine||'% with status '||:status);

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/29
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB.
 --
@@ -47,7 +47,7 @@ UNDEF 2;
 -- get other_xml with hints
 VAR cs_other_xml CLOB;
 BEGIN
-  SELECT other_xml INTO :cs_other_xml FROM v$sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL AND id = 1 AND ROWNUM = 1;
+  SELECT other_xml INTO :cs_other_xml FROM v$sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL ORDER BY id FETCH FIRST 1 ROW ONLY;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN
     :cs_other_xml := NULL;
@@ -55,7 +55,7 @@ END;
 /
 BEGIN
   IF :cs_other_xml IS NULL THEN
-    SELECT other_xml INTO :cs_other_xml FROM dba_hist_sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL AND id = 1 AND ROWNUM = 1;
+    SELECT other_xml INTO :cs_other_xml FROM dba_hist_sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL ORDER BY id FETCH FIRST 1 ROW ONLY;
   END IF;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN
@@ -68,6 +68,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value."
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.

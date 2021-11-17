@@ -20,6 +20,7 @@ COL enabled FOR A10 HEA 'Enabled';
 COL accepted FOR A10 HEA 'Accepted';
 COL fixed FOR A10 HEA 'Fixed' PRI;
 COL reproduced FOR A10 HEA 'Reproduced';
+COL autopurge FOR A10 HEA 'Autopurge';
 COL adaptive FOR A10 HEA 'Adaptive';
 COL plan_id FOR 999999999990 HEA 'Plan ID';
 COL plan_hash_2 FOR 999999999990 HEA 'Plan Hash 2';
@@ -33,11 +34,12 @@ SELECT TO_CHAR(created, '&&cs_timestamp_full_format.') AS created,
        TO_CHAR(last_modified, '&&cs_datetime_full_format.') AS last_modified, 
        TO_CHAR(last_executed, '&&cs_datetime_full_format.') AS last_executed, 
        obj_name AS plan_name,  
-       DECODE(BITAND(status, 1),   0, 'NO', 'YES') enabled,
-       DECODE(BITAND(status, 2),   0, 'NO', 'YES') accepted,
-       DECODE(BITAND(status, 4),   0, 'NO', 'YES') fixed,
-       DECODE(BITAND(status, 64),  0, 'YES', 'NO') reproduced,
-       DECODE(BITAND(status, 256), 0, 'NO', 'YES') adaptive,
+       DECODE(BITAND(status, 1),   0, 'NO', 'YES') AS enabled,
+       DECODE(BITAND(status, 2),   0, 'NO', 'YES') AS accepted,
+       DECODE(BITAND(status, 4),   0, 'NO', 'YES') AS fixed,
+       DECODE(BITAND(status, 64),  0, 'YES', 'NO') AS reproduced,
+       DECODE(BITAND(status, 128), 0, 'NO', 'YES') AS autopurge,
+       DECODE(BITAND(status, 256), 0, 'NO', 'YES') AS adaptive,
        origin, 
        description
   FROM &&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline
@@ -53,11 +55,12 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SELECT TO_CHAR(created, '&&cs_timestamp_full_format.') AS created, 
        TO_CHAR(last_modified, '&&cs_datetime_full_format.') AS last_modified, 
        obj_name AS plan_name,  
-       DECODE(BITAND(status, 1),   0, 'NO', 'YES') enabled,
-       DECODE(BITAND(status, 2),   0, 'NO', 'YES') accepted,
-       DECODE(BITAND(status, 4),   0, 'NO', 'YES') fixed,
-       DECODE(BITAND(status, 64),  0, 'YES', 'NO') reproduced,
-       DECODE(BITAND(status, 256), 0, 'NO', 'YES') adaptive,
+       DECODE(BITAND(status, 1),   0, 'NO', 'YES') AS enabled,
+       DECODE(BITAND(status, 2),   0, 'NO', 'YES') AS accepted,
+       DECODE(BITAND(status, 4),   0, 'NO', 'YES') AS fixed,
+       DECODE(BITAND(status, 64),  0, 'YES', 'NO') AS reproduced,
+       DECODE(BITAND(status, 128), 0, 'NO', 'YES') AS autopurge,
+       DECODE(BITAND(status, 256), 0, 'NO', 'YES') AS adaptive,
        origin, 
        elapsed_time/GREATEST(executions,1)/1e3 AS et_per_exec_ms,
        cpu_time/GREATEST(executions,1)/1e3 AS cpu_per_exec_ms,
@@ -84,11 +87,12 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SELECT TO_CHAR(created, '&&cs_timestamp_full_format.') AS created, 
        TO_CHAR(last_modified, '&&cs_datetime_full_format.') AS last_modified, 
        obj_name AS plan_name,  
-       DECODE(BITAND(status, 1),   0, 'NO', 'YES') enabled,
-       DECODE(BITAND(status, 2),   0, 'NO', 'YES') accepted,
-       DECODE(BITAND(status, 4),   0, 'NO', 'YES') fixed,
-       DECODE(BITAND(status, 64),  0, 'YES', 'NO') reproduced,
-       DECODE(BITAND(status, 256), 0, 'NO', 'YES') adaptive,
+       DECODE(BITAND(status, 1),   0, 'NO', 'YES') AS enabled,
+       DECODE(BITAND(status, 2),   0, 'NO', 'YES') AS accepted,
+       DECODE(BITAND(status, 4),   0, 'NO', 'YES') AS fixed,
+       DECODE(BITAND(status, 64),  0, 'YES', 'NO') AS reproduced,
+       DECODE(BITAND(status, 128), 0, 'NO', 'YES') AS autopurge,
+       DECODE(BITAND(status, 256), 0, 'NO', 'YES') AS adaptive,
        origin, 
        TO_NUMBER(extractvalue(xmltype(other_xml),'/*/info[@type = "plan_hash"]')) plan_hash, -- normal plan_hash_value
        TO_NUMBER(extractvalue(xmltype(other_xml),'/*/info[@type = "plan_hash_2"]')) plan_hash_2, -- plan_hash_value ignoring transient object names (must be same than plan_id for a baseline to be used)

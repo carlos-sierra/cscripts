@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/03/18
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -111,15 +111,23 @@ COL inserts_per_sec FOR 999,990.000 HEA 'INSERTS|PER SEC';
 COL updates_per_sec FOR 999,990.000 HEA 'UPDATES|PER SEC';
 COL deletes_per_sec FOR 999,990.000 HEA 'DELETES|PER SEC';
 COL growth_per_sec FOR 999,990.000 HEA 'GROWTH|PER SEC';
+COL inserts FOR 999,999,990;
+COL deletes FOR 999,999,990;
+COL growth FOR 999,999,990;
+COL updates FOR 999,999,990;
 COL partition_name FOR A30 TRUNC;
 BREAK ON REPORT;
-COMPUTE AVG LABEL 'AVG' MAX LABEL 'MAX' OF inserts_per_sec updates_per_sec deletes_per_sec growth_per_sec ON REPORT;
+COMPUTE AVG LABEL 'AVG' MAX LABEL 'MAX' OF inserts_per_sec updates_per_sec deletes_per_sec growth_per_sec inserts deletes growth updates ON REPORT;
 --
 SELECT timestamp,
        ROUND(inserts / ((timestamp - last_analyzed) * 24 * 60 * 60), 3) AS inserts_per_sec,
        ROUND(deletes / ((timestamp - last_analyzed) * 24 * 60 * 60), 3) AS deletes_per_sec,
        ROUND((inserts - deletes) / ((timestamp - last_analyzed) * 24 * 60 * 60), 3) AS growth_per_sec,
        ROUND(updates / ((timestamp - last_analyzed) * 24 * 60 * 60), 3) AS updates_per_sec,
+       inserts,
+       deletes,
+       inserts - deletes AS growth,
+       updates,
        partition_name
   FROM &&cs_tools_schema..dbc_tab_modifications
  WHERE pdb_name = '&&cs_con_name.'

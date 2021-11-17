@@ -6,7 +6,7 @@ SET HEA OFF PAGES 0;
 WITH
 ranked_child_cursors AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       con_id,
+       s.con_id,
        sql_id,
        child_number,
        ROW_NUMBER () OVER (PARTITION BY plan_hash_value ORDER BY 
@@ -24,14 +24,16 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        is_shareable,
        is_bind_aware,
        is_bind_sensitive,
-       parsing_schema_name
-  FROM v$sql s
- WHERE sql_id = '&&cs_sql_id.'
-   AND ('&&cs_plan_hash_value.' IS NULL OR plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
+       parsing_schema_name,
+       c.name AS pdb_name
+  FROM v$sql s, v$containers c
+ WHERE s.sql_id = '&&cs_sql_id.'
+   AND ('&&cs_plan_hash_value.' IS NULL OR s.plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
+   AND c.con_id = s.con_id
  ORDER BY
-       last_active_time,
-       con_id,
-       child_number       
+       s.last_active_time,
+       s.con_id,
+       s.child_number       
 )
 SELECT CASE WHEN p.plan_table_output LIKE 'SQL_ID  %' 
        THEN 
@@ -42,15 +44,13 @@ SELECT CASE WHEN p.plan_table_output LIKE 'SQL_ID  %'
          CASE WHEN r.is_shareable <> 'Y' THEN ', Is_Not_Shareable' END||
          CASE WHEN r.is_bind_aware = 'Y' THEN ', Is_Bind_Aware' END||
          ', Con_ID:'||TRIM(TO_CHAR(r.con_id))||
-         ', PDB_Name:'||c.name||
+         ', PDB_Name:'||r.pdb_name||
          ', Parsing_Schema:'||parsing_schema_name
        ELSE p.plan_table_output
        END AS plan_table_output
   FROM ranked_child_cursors r,
-       v$containers c,
        TABLE(DBMS_XPLAN.display_cursor(r.sql_id, r.child_number, 'ADVANCED ALLSTATS LAST')) p
- WHERE r.row_number <= 5 -- up to 5 most recently active child cursors per plan_hash_value
-   AND c.con_id = r.con_id
+ WHERE r.row_number <= 3 -- up to N most recently active child cursors per plan_hash_value
 /
 SET HEA ON PAGES 100;
 --

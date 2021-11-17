@@ -3,13 +3,14 @@ DEF cs_tools_schema = 'C##IOD';
 DEF cs_stgtab_owner = '&&cs_tools_schema.';
 DEF cs_stgtab_prefix = 'iod';
 DEF cs_file_dir = '/tmp/';
-DEF cs_temp_dir = '/u01/app/oracle/tools';
-DEF cs_timestamp_full_format = 'YYYY-MM-DD"T"HH24:MI:SS.FF6';
+DEF cs_temp_dir = '/u01/app/oracle/tools/tmp';
+DEF cs_timestamp_full_format = 'YYYY-MM-DD"T"HH24:MI:SS.FF3';
 DEF cs_datetime_full_format = 'YYYY-MM-DD"T"HH24:MI:SS';
 DEF cs_datetime_display_format = 'yyyy-mm-ddThh:mi:ss';
 DEF cs_datetime_short_format = 'YYYY-MM-DD"T"HH24.MI.SS';
 DEF cs_datetime_hh24_format = 'YYYY-MM-DD"T"HH24';
 DEF cs_datetime_dd_format = 'YYYY-MM-DD';
+DEF cs_datetime_dense_format = 'YYYYMMDD_HH24MISS';
 DEF cs_def_reference = 'oci_dbperf';
 DEF cs_me_top = '10';
 DEF cs_me_last = '10';
@@ -27,6 +28,7 @@ DEF cs_sqlmon_top = '100';
 DEF chart_foot_note_0 = 'Notes:';
 DEF chart_foot_note_1 = '<br>1) Drag to Zoom, and right click to reset Chart.';
 DEF is_stacked = "isStacked: true,";
+DEF cs_legend_position = 'right';
 DEF vaxis_baseline = "";
 DEF vaxis_viewwindow = "";
 DEF hAxis_maxValue = "";
@@ -58,6 +60,9 @@ DEF cs_realm = '';
 DEF cs_rgn = '';
 DEF cs_region = '';
 DEF cs_locale = '';
+DEF cs_other_acronym = '';
+DEF cs_onsr = '';
+DEF cs_dedicated = '';
 DEF cs_dbid = '';
 DEF cs_db_name = '';
 DEF cs_db_name_u = '';
@@ -70,6 +75,7 @@ DEF cs_startup_time = '';
 DEF cs_startup_days = '';
 DEF cs_date_time = '';
 DEF cs_file_date_time = '';
+DEF cs_file_timestamp = '';
 DEF cs_current_schema = '';
 DEF cs_containers_count = '';
 DEF cs_cdb_availability_perc = '';
@@ -81,7 +87,10 @@ DEF cs_file_name = '';
 DEF cs_script_name = '';
 DEF cs_script_acronym = '';
 DEF spool_id_chart_footer_script = 'cs_null.sql';
+DEF spool_chart_1st_column = 'Date Column';
 --
+DEF cs_min_snap_id = '';
+DEF cs_min_snap_end_time = '';
 DEF cs_max_snap_id = '';
 DEF cs_max_snap_end_time = '';
 DEF cs_last_snap_mins = '';
@@ -98,6 +107,8 @@ DEF cs_signature = '';
 DEF cs_sql_handle = '';
 DEF cs_plan_hash_value = '';
 DEF cs_application_category = '';
+DEF cs_normalized_signature = '';
+DEF cs_sqlid = '';
 --
 DEF cs_sample_time_from = '';
 DEF cs_sample_time_to = '';
@@ -108,6 +119,9 @@ COL cs_realm NEW_V cs_realm FOR A3 NOPRI;
 COL cs_region NEW_V cs_region FOR A14 NOPRI;
 COL cs_rgn NEW_V cs_rgn FOR A3 NOPRI;
 COL cs_locale NEW_V cs_locale FOR A6 NOPRI;
+COL cs_other_acronym NEW_V cs_other_acronym FOR A8 NOPRI;
+COL cs_onsr NEW_V cs_onsr FOR A1 NOPRI;
+COL cs_dedicated NEW_V cs_dedicated FOR A1 NOPRI;
 COL cs_dbid NEW_V cs_dbid FOR A12 NOPRI;
 COL cs_db_name NEW_V cs_db_name FOR A9 NOPRI;
 COL cs_db_name_u NEW_V cs_db_name_u FOR A9 NOPRI;
@@ -115,6 +129,7 @@ COL cs_db_open_mode NEW_V cs_db_open_mode FOR A10 NOPRI;
 COL cs_con_id NEW_V cs_con_id FOR A4 NOPRI;
 COL cs_con_name NEW_V cs_con_name FOR A30 NOPRI;
 COL cs_current_schema NEW_V cs_current_schema FOR A30 NOPRI;
+COL cs_oracle_home NEW_V cs_oracle_home NOPRI;
 COL cs_pdb_open_mode NEW_V cs_pdb_open_mode FOR A10 NOPRI;
 COL cs_instance_number NEW_V cs_instance_number FOR A1 NOPRI;
 COL cs_cpu_load NEW_V cs_cpu_load FOR A3 NOPRI;
@@ -130,7 +145,8 @@ COL cs_host_name NEW_V cs_host_name FOR A64 NOPRI;
 COL cs_startup_time NEW_V cs_startup_time FOR A19 NOPRI;
 COL cs_startup_days NEW_V cs_startup_days FOR A5 NOPRI;
 COL cs_date_time NEW_V cs_date_time FOR A19 NOPRI;
-COL cs_file_date_time NEW_V cs_file_date_time FOR A15 NOPRI;
+COL cs_file_date_time NEW_V cs_file_date_time FOR A19 NOPRI;
+COL cs_file_timestamp NEW_V cs_file_timestamp FOR A15 NOPRI;
 COL cs_easy_connect_string NEW_V cs_easy_connect_string FOR A132 NOPRI;
 COL cs_containers_count NEW_V cs_containers_count NOPRI;
 COL cs_cdb_availability_perc NEW_V cs_cdb_availability_perc FOR A3 NOPRI;
@@ -139,6 +155,8 @@ COL cs_file_prefix NEW_V cs_file_prefix NOPRI;
 COL cs_file_name NEW_V cs_file_name NOPRI;
 COL cs_script_name NEW_V cs_script_name NOPRI;
 --
+COL cs_min_snap_id NEW_V cs_min_snap_id FOR A6 NOPRI;
+COL cs_min_snap_end_time NEW_V cs_min_snap_end_time FOR A19 NOPRI;
 COL cs_max_snap_id NEW_V cs_max_snap_id FOR A6 NOPRI;
 COL cs_max_snap_end_time NEW_V cs_max_snap_end_time FOR A19 NOPRI;
 COL cs_last_snap_mins NEW_V cs_last_snap_mins FOR A7 NOPRI;
@@ -161,6 +179,7 @@ COL pdb_creation NEW_V pdb_creation NOPRI;
 --
 VAR cs_signature NUMBER;
 VAR cs_sql_text CLOB;
+VAR kiev_metadata_date VARCHAR2(30);
 --
 SET TERM OFF;
 --
@@ -185,8 +204,10 @@ SELECT CASE WHEN COUNT(*) > 0 THEN 'cs_spch_internal_stgtab_sqlpatch.sql' ELSE '
 SELECT SYS_CONTEXT('USERENV', 'CON_ID') AS cs_con_id,
        SYS_CONTEXT('USERENV', 'CON_NAME') AS cs_con_name,
        SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS cs_current_schema,
+       SYS_CONTEXT('USERENV', 'ORACLE_HOME') AS cs_oracle_home,
        TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_full_format.')) AS cs_date_time,
-       TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_short_format.')) AS cs_file_date_time
+       TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_short_format.')) AS cs_file_date_time,
+       TRIM(TO_CHAR(SYSDATE , '&&cs_datetime_dense_format.')) AS cs_file_timestamp
   FROM DUAL
 /
 --
@@ -202,6 +223,9 @@ SELECT TRIM(TO_CHAR(i.instance_number)) AS cs_instance_number,
        i.host_name AS cs_host_name,
        TO_CHAR(i.startup_time, '&&cs_datetime_full_format.') AS cs_startup_time,
        TRIM(TO_CHAR(ROUND(SYSDATE - i.startup_time, 1), '990.0')) AS cs_startup_days
+  FROM v$instance i
+/
+SELECT i.version_full AS cs_db_version -- 19c
   FROM v$instance i
 /
 --
@@ -257,7 +281,10 @@ SELECT TO_CHAR(ROUND(100 * &&cs_tools_schema..PDB_CONFIG.get_cdb_availability), 
 SELECT &&cs_tools_schema..IOD_META_AUX.get_region('&&cs_host_name.') AS cs_region FROM DUAL
 /
 --
-SELECT &&cs_tools_schema..IOD_META_AUX.get_realm('&&cs_region.') AS cs_realm, &&cs_tools_schema..IOD_META_AUX.get_region_acronym('&&cs_region.') AS cs_rgn FROM DUAL
+SELECT REPLACE(&&cs_tools_schema..IOD_META_AUX.get_realm('&&cs_region.'), '?', 'X') AS cs_realm, REPLACE(&&cs_tools_schema..IOD_META_AUX.get_region_acronym('&&cs_region.'), '?', 'X') AS cs_rgn FROM DUAL
+/
+--
+SELECT REPLACE(&&cs_tools_schema..IOD_META_AUX.get_other_acronym('&&cs_region.'), '?', 'X') AS cs_other_acronym, REPLACE(&&cs_tools_schema..IOD_META_AUX.get_onsr('&&cs_region.'), '?', 'X') AS cs_onsr, REPLACE(&&cs_tools_schema..IOD_META_AUX.get_dedicated('&&cs_region.'), '?', 'X') AS cs_dedicated FROM DUAL
 /
 --
 SELECT &&cs_tools_schema..IOD_META_AUX.get_locale(value) AS cs_locale FROM v$parameter WHERE name = 'db_domain'
@@ -286,7 +313,7 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
   FROM v$parameter p, dba_cdb_rsrc_plan_directives r
  WHERE p.name = 'resource_manager_plan'
    AND r.directive_type(+) = 'PDB'
-   AND r.plan(+) = REPLACE(value, 'FORCE:')
+   AND r.plan(+) = REPLACE(p.value, 'FORCE:')
    AND r.pluggable_database(+) = '&&cs_con_name.'
 /
 --
@@ -300,7 +327,7 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
   FROM v$parameter p, dba_cdb_rsrc_plan_directives r
  WHERE p.name = 'resource_manager_plan'
    AND r.directive_type(+) = 'DEFAULT_DIRECTIVE'
-   AND r.plan(+) = REPLACE(value, 'FORCE:')
+   AND r.plan(+) = REPLACE(p.value, 'FORCE:')
    AND r.pluggable_database(+) = 'ORA$DEFAULT_PDB_DIRECTIVE'
 /
 --
@@ -331,6 +358,17 @@ SELECT 'SHAPE:'||host_shape AS cs_host_shape, 'DISK:'||disk_config AS cs_disk_co
        timestamp DESC
 FETCH FIRST 1 ROW ONLY
 /
+--
+BEGIN
+  FOR i IN (SELECT owner, table_name FROM dba_tables WHERE owner = UPPER('&&cs_tools_schema.') AND table_name = UPPER('kiev_ind_columns'))
+  LOOP
+    EXECUTE IMMEDIATE 'SELECT TO_CHAR(timestamp, ''&&cs_timestamp_full_format.'') AS kiev_metadata_date FROM '||i.owner||'.'||i.table_name||' WHERE ROWNUM = 1' INTO :kiev_metadata_date;
+  END LOOP;
+END;
+/
+COL kiev_metadata_date NEW_V kiev_metadata_date NOPRI;
+SELECT :kiev_metadata_date AS kiev_metadata_date FROM DUAL
+/ 
 -- 
 ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
@@ -367,6 +405,16 @@ SELECT --s.pdb,
        END||'/'||
        s.name cs_easy_connect_string
   FROM service s
+/
+--
+SELECT TRIM(TO_CHAR(snap_id)) cs_min_snap_id,
+       TRIM(TO_CHAR(end_interval_time, '&&cs_datetime_full_format.')) cs_min_snap_end_time
+  FROM dba_hist_snapshot
+ WHERE dbid = TO_NUMBER('&&cs_dbid.')
+   AND instance_number = TO_NUMBER('&&cs_instance_number.')
+ ORDER BY
+       snap_id ASC
+ FETCH FIRST 1 ROW ONLY
 /
 --
 SELECT TRIM(TO_CHAR(snap_id)) cs_max_snap_id,
@@ -420,7 +468,7 @@ SELECT TRIM(TO_CHAR(MIN(snap_id))) cs_startup_snap_id
 --
 DEF cs_kiev_owner = '';
 COL cs_kiev_owner NEW_V cs_kiev_owner NOPRI;
-SELECT owner cs_kiev_owner FROM dba_tables WHERE table_name = 'KIEVBUCKETS' AND num_rows > 0 ORDER BY num_rows
+SELECT owner cs_kiev_owner FROM dba_tables WHERE table_name = 'KIEVDATASTOREMETADATA' AND num_rows > 0 ORDER BY num_rows
 /
 DEF cs_jason_value = '';
 COL cs_jason_value NEW_V cs_jason_value NOPRI;
@@ -438,7 +486,7 @@ SELECT CASE WHEN '&&cs_kiev_owner.' IS NULL THEN 'NOT_KIEV' ELSE NVL('&&cs_jason
 SET TERM ON;
 --CLEAR SCREEN;
 PRO
-PRO Reference: (e.g. IOD-, DBPERF-, KIEV-, CHANGE-, DBPERFOCI-) 
+PRO Reference: (e.g. IOD-, DBPERF-, KIEV-, NOC-, CHANGE-) 
 PRO Enter Reference: &&cs_reference.
 COL cs_reference NEW_V cs_reference NOPRI;
 SELECT NVL('&&cs_reference.', '&&cs_def_reference.') cs_reference FROM DUAL;
@@ -449,3 +497,11 @@ DEF target_local_directory = '&&cs_def_local_dir.';
 COL cs_local_dir NEW_V cs_local_dir NOPRI;
 SELECT NVL('&&target_local_directory.', '&&cs_def_local_dir.') cs_local_dir FROM DUAL;
 --
+DEF cs_extended_reference = '';
+COL cs_extended_reference NEW_V cs_extended_reference NOPRI;
+SELECT '&&cs_reference. &&cs_realm. &&cs_region. &&cs_rgn. &&cs_locale. &&cs_db_name_u. &&cs_con_name.'||
+       NVL2('&&cs_other_acronym.', ' &&cs_other_acronym.', NULL)||
+       CASE '&&cs_onsr.' WHEN 'Y' THEN ' ONSR' END||
+       CASE '&&cs_dedicated.' WHEN 'Y' THEN ' DEDICATED' END AS cs_extended_reference 
+  FROM DUAL
+/

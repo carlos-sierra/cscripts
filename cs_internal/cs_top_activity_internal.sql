@@ -14,6 +14,7 @@ COL version_count FOR 9990 HEA 'VC';
 COL has_baseline FOR A2 HEA 'BL';
 COL has_profile FOR A2 HEA 'PR';
 COL has_patch FOR A2 HEA 'PA';
+COL sqlid FOR A5 HEA 'SQLHV';
 --
 BREAK ON REPORT ON type SKIP 1 DUPL;
 COMPUTE SUM LABEL "TOT:" OF aas ON REPORT;
@@ -208,10 +209,10 @@ ash AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(COUNT(*) / (&&cs_minutes. * 60), 3) AS aas,
        COUNT(DISTINCT a.session_id||','||a.session_serial#) AS sessions,
-       a.sql_id,
+       COALESCE(a.sql_id, '"null"') AS sql_id,
        a.sql_plan_hash_value,
-       CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END AS timed_event,
-       a.module,
+       SUBSTR(CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END, 1, 35) AS timed_event,
+       SUBSTR(a.module, 1, 25) AS module,
        c.con_id,
        c.name AS pdb_name,
        a.sql_opname,
@@ -219,15 +220,16 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) AS row_number
   FROM v$active_session_history a,
        v$containers c
- WHERE a.sql_id IS NOT NULL
+ WHERE 1 = 1
+   --AND a.sql_id IS NOT NULL
    --AND a.sample_time > SYSTIMESTAMP - INTERVAL '&&cs_minutes.' MINUTE
    AND a.sample_time > SYSDATE - (&&cs_minutes. / 24 / 60)
    AND c.con_id = a.con_id
  GROUP BY
-       a.sql_id,
+       COALESCE(a.sql_id, '"null"'),
        a.sql_plan_hash_value,
-       CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END,
-       a.module,
+       SUBSTR(CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END, 1, 35),
+       SUBSTR(a.module, 1, 25),
        c.con_id,
        c.name,
        a.sql_opname,
@@ -243,6 +245,7 @@ SELECT a.row_number,
        s.has_profile,
        s.has_patch,
        s.sql_text,
+       s.sql_fulltext,
        a.module,
        a.con_id,
        a.timed_event,
@@ -250,8 +253,8 @@ SELECT a.row_number,
        a.sql_opname,
        a.user_id
   FROM ash a
-       CROSS APPLY (
-         SELECT REPLACE(REPLACE(s.sql_text, CHR(10), ' '), CHR(9), ' ') AS sql_text,
+       OUTER APPLY (
+         SELECT REPLACE(REPLACE(s.sql_text, CHR(10), ' '), CHR(9), ' ') AS sql_text, sql_fulltext,
                 CASE WHEN s.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN s.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
                 CASE WHEN s.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch 
@@ -272,6 +275,16 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.
        a.aas,
        a.sessions,
        a.sql_id,
+-- ERROR at line 256:
+-- ORA-00900: invalid SQL statement
+-- ORA-06512: at "SYS.DBMS_SQLTUNE_UTIL0", line 197
+-- ORA-06512: at "SYS.DBMS_SQLTUNE", line 11039
+-- ORA-06512: at line 1
+      --  CASE 
+      --    WHEN a.sql_id = '"null"' 
+      --    THEN '00000' 
+      --    ELSE LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') 
+      --  END AS sqlid,
        a.sql_plan_hash_value,
        s.version_count,
        a.has_baseline,
@@ -294,6 +307,7 @@ SELECT a.type,
        a.aas,
        a.sessions,
        a.sql_id,
+      --  a.sqlid,
        a.sql_plan_hash_value,
        a.version_count,
        a.has_baseline,
@@ -309,4 +323,4 @@ SELECT a.type,
        a.row_number
 /
 --
-CLEAR BREAK COMPUTE;
+-- CLEAR BREAK COMPUTE;

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/01/01
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB or CDB.
 --
@@ -57,6 +57,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&report_only."
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO REPORT_ONLY  : "&&report_only."

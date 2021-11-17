@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/05/05
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -119,7 +119,7 @@ DEF parsing_schema_name = '&8.';
 UNDEF 8;
 --
 SET HEA OFF;
-SPO cs_dynamic_driver.sql
+SPO &&cs_file_dir.cs_dynamic_driver.sql
           SELECT '@@cs_internal/cs_sqlstat_chart_internal.sql "db_time"' FROM DUAL WHERE '&&metric_group.' IN ('db_time', 'Time', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_sqlstat_chart_internal.sql "latency"' FROM DUAL WHERE '&&metric_group.' IN ('latency', 'Time', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_sqlstat_chart_internal.sql "time_per_row"' FROM DUAL WHERE '&&metric_group.' IN ('time_per_row', 'Time', 'Rows', 'Main', '*')
@@ -134,8 +134,8 @@ UNION ALL SELECT '@@cs_internal/cs_sqlstat_chart_internal.sql "memory"' FROM DUA
 /
 SPO OFF;
 SET HEA ON;
-@cs_dynamic_driver.sql
-HOST rm cs_dynamic_driver.sql
+@&&cs_file_dir.cs_dynamic_driver.sql
+HOST rm &&cs_file_dir.cs_dynamic_driver.sql
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

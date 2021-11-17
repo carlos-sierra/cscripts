@@ -1,5 +1,5 @@
 PRO
-PRO READS between &&cs_begin_date_from. and &&cs_end_date_to. (greater than zero)
+PRO READS between &&cs_begin_date_from. and &&cs_end_date_to. (total, greater than 0)
 PRO ~~~~~
 SET TERM OFF;
 DEF cs_order_by = 's.disk_reads DESC NULLS LAST, s.buffer_gets DESC NULLS LAST';

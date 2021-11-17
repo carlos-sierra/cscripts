@@ -124,15 +124,15 @@ WHERE  (r.period_end_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_dateti
        AND r.component_name = 'sqlmonitor' 
        AND r.report_name = 'main' 
        AND r.key1 = '&&cs_sql_id.' 
-ORDER BY r.period_end_time - r.period_end_time DESC, r.period_start_time DESC
+ORDER BY r.period_end_time - r.period_start_time DESC, r.period_start_time DESC
 FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
 )
 SELECT  r.sql_exec_start,
         r.last_refresh_time,
         r.report_id,
         r.status,
-        r.duration,
         r.plan_hash,
+        r.duration,
         ROUND(r.elapsed_time / POWER(10, 6), 3) AS elapsed_time,
         ROUND(r.cpu_time / POWER(10, 6), 3) AS cpu_time,
         ROUND(r.user_io_wait_time / POWER(10, 6), 3) AS user_io_wait_time,
@@ -147,8 +147,8 @@ SELECT  r.sql_exec_start,
         r.con_name AS pdb_name,
         r.user_name,
         r.module,
-        r.service,
-        r.program
+        r.program,
+        r.service
   FROM  sql_mon_hist_reports r
  ORDER BY
         r.sql_exec_start, r.last_refresh_time, r.report_id

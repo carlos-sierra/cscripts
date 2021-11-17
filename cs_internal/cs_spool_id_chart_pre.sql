@@ -12,7 +12,7 @@ PRO title: '&&chart_title.',
 PRO titleTextStyle: {fontSize: 18, bold: false},
 --PRO focusTarget: 'category',  //focusTarget:[{datum}|category]
 PRO focusTarget: '&&cs_chart_option_focustarget.',
-PRO legend: {position: 'right', textStyle: {fontSize: 14}},
+PRO legend: {position: '&&cs_legend_position.', textStyle: {fontSize: 14}},
 PRO tooltip: {textStyle: {fontSize: 14}},
 PRO &&cs_trendlines. trendlines: {type: '&&cs_trendlines_type.', degree: 2, lineWidth:10, opacity:0.2 &&cs_trendlines_series. }, //type:[{linear}|polynomial|exponential]
 --PRO hAxis: {title: '&&xaxis_title.', gridlines: {count: -1}, titleTextStyle: {fontSize: 16, bold: false}},

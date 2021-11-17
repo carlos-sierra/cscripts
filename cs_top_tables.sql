@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/10/20
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -42,7 +42,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_oracle_maint."
 PRO ORACLE MAINT : "&&cs_oracle_maint." [{N}|Y]
 --
 COL gb FOR 999,990.000 HEA 'GB';
-COL owner FOR A30 TRUNC;
+COL owner FOR A30 TRUNC PRI;
 COL segment_name FOR A30 TRUNC;
 COL tablespace_name FOR A30 TRUNC;
 COL pdb_name FOR A30 TRUNC;
@@ -53,19 +53,17 @@ COMPUTE SUM LABEL 'TOTAL' OF gb ON REPORT;
 PRO
 PRO TOP TABLES
 PRO ~~~~~~~~~~
-SELECT SUM(s.bytes)/1e9 AS gb,
+SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
+       SUM(s.bytes)/1e9 AS gb,
        s.owner,
        s.segment_name,
        s.segment_type,
        s.tablespace_name,
        c.name AS pdb_name
   FROM cdb_segments s,
-       cdb_users u,
        v$containers c
  WHERE s.segment_type LIKE 'TABLE%'
-   AND u.con_id = s.con_id
-   AND u.username = s.owner
-   AND ('&&cs_oracle_maint.' = 'Y' OR u.oracle_maintained = 'N')
+   AND (s.con_id, s.owner) IN (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') MATERIALIZE NO_MERGE */ DISTINCT con_id, username FROM cdb_users WHERE '&&cs_oracle_maint.' = 'Y' OR oracle_maintained = 'N')
    AND c.con_id = s.con_id
    AND c.open_mode = 'READ WRITE'
  GROUP BY

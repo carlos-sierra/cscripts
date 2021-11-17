@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/02/03
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -49,7 +49,7 @@ SELECT CASE WHEN UPPER(TRIM('&&cs2_status.')) IN ('ACTIVE', 'INACTIVE', 'KILLED'
 --
 COL machine HEA 'Machine' PRI;
 SELECT COALESCE(machine, '"null"') AS machine, COUNT(*), MIN(snap_time) AS min_snap_time, MAX(snap_time) AS max_snap_time
-  FROM &&cs_tools_schema..iod_session_hist
+  FROM &&cs_tools_schema..iod_session_v
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND '&&cs_con_id' IN ('1', con_id)
    AND '&&cs2_type.' IN (type, '*')
@@ -100,7 +100,7 @@ WITH
 by_machine AS (
 SELECT COALESCE(machine, '"null"') AS machine,
        ROW_NUMBER() OVER(ORDER BY COUNT(*) DESC) AS rn
-  FROM &&cs_tools_schema..iod_session_hist
+  FROM &&cs_tools_schema..iod_session_v
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ('&&cs2_machine.' IS NULL OR COALESCE(machine, '"null"') LIKE CHR(37)||'&&cs2_machine.'||CHR(37))
    AND '&&cs_con_id' IN ('1', con_id)
@@ -222,7 +222,7 @@ SELECT snap_time AS time,
          WHEN '&&series_13.' THEN '&&series_13.'
          ELSE '"all others"' 
        END AS dimension_group
-  FROM &&cs_tools_schema..iod_session_hist
+  FROM &&cs_tools_schema..iod_session_v
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ('&&cs2_machine.' IS NULL OR COALESCE(machine, '"null"') LIKE CHR(37)||'&&cs2_machine.'||CHR(37))
    AND '&&cs_con_id' IN ('1', con_id)

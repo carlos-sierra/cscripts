@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/10/15
 --
 -- Usage:       Execute connected to PDB
 --
@@ -23,6 +23,7 @@
 @@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
+@@cs_internal/cs_blackout.sql
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_redef_schema';
@@ -75,15 +76,15 @@ COL p_compression NEW_V p_compression NOPRI;
 SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
 /
 PRO
-PRO 4. CLOB Compression and Deduplication: [{CD}|C|NO] CD:Compression and Deduplication, C:Compression, NO:None
+PRO 4. CLOB Compression and Deduplication: [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
 DEF redeflob = '&4.';
 UNDEF 4;
 COL p_lobcomp NEW_V p_lobcomp NOPRI;
 COL p_lobdedup NEW_V p_lobdedup NOPRI; 
 COL p_redeflob NEW_V p_redeflob NOPRI;
-SELECT CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'CD') IN ('CD', 'C') THEN 'TRUE' ELSE 'FALSE' END AS p_lobcomp,
-       CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'CD') = 'CD' THEN 'TRUE' ELSE 'FALSE' END AS p_lobdedup,
-       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'CD' END AS p_redeflob
+SELECT CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'C') IN ('CD', 'C') THEN 'TRUE' ELSE 'FALSE' END AS p_lobcomp,
+       CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'C') = 'CD' THEN 'TRUE' ELSE 'FALSE' END AS p_lobdedup,
+       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'C' END AS p_redeflob
 FROM DUAL
 /
 PRO
@@ -103,8 +104,8 @@ PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_newtbs." "&&p_compression." "&
 PRO TABLE_OWNER  : &&p_owner.
 PRO TABLESPACE   : &&p_newtbs.
 PRO OLTP_COMPRES : &&p_compression.
-PRO LOB_COMPRES  : &&p_redeflob.
-PRO PX_DEGREE    : &&p_pxdegree.
+PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
 ALTER SESSION SET container = CDB$ROOT;
 --

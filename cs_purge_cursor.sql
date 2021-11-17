@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/20
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB.
 --
@@ -40,6 +40,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 --
@@ -49,46 +50,50 @@ SET HEA ON;
 --
 @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
 --
-DEF plan_name_backup = '';
-COL plan_name_backup NEW_V plan_name_backup NOPRI;
-SELECT name AS plan_name_backup FROM dba_sql_patches WHERE signature = :cs_signature AND category = 'DEFAULT' AND ROWNUM = 1
-/
-DEF cs_name = '&&plan_name_backup.';
-DEF cs_category = 'BACKUP';
+-- DEF plan_name_backup = '';
+-- COL plan_name_backup NEW_V plan_name_backup NOPRI;
+-- SELECT name AS plan_name_backup FROM dba_sql_patches WHERE signature = :cs_signature AND category = 'DEFAULT' AND ROWNUM = 1
+-- /
+-- DEF cs_name = '&&plan_name_backup.';
+-- DEF cs_category = 'BACKUP';
+-- --
+-- PRO
+-- PRO Backup SQL Patch (if any)
+-- PRO ~~~~~~~~~~~~~~~~
+-- @@cs_internal/cs_spch_internal_category.sql
+-- --
+-- DEF hints_text = 'DUMMY';
+-- --
+-- PRO
+-- PRO Create and Drop DUMMY SQL Patch
+-- PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- @@cs_internal/cs_spch_internal_create.sql
+-- @@cs_internal/cs_spch_internal_drop.sql
+-- --
+-- DEF cs_category = 'DEFAULT';
+-- --
+-- PRO
+-- PRO Restore SQL Patch (if any)
+-- PRO ~~~~~~~~~~~~~~~~~
+-- @@cs_internal/cs_spch_internal_category.sql
+-- --
+-- PRO
+-- PRO DBMS_SHARED_POOL.PURGE
+-- PRO ~~~~~~~~~~~~~~~~~~~~~~
+-- DECLARE
+--   l_name     VARCHAR2(64);
+-- BEGIN
+--   SELECT address||','||hash_value INTO l_name FROM v$sqlarea WHERE sql_id = '&&cs_sql_id.' AND ROWNUM = 1; -- there are cases where it comes back with > 1 row!!!
+--   SYS.DBMS_SHARED_POOL.PURGE(name => l_name, flag => 'C', heaps => 1); -- not always does the job
+-- EXCEPTION
+--   WHEN NO_DATA_FOUND THEN
+--     NULL;
+-- END;
+-- /
 --
-PRO
-PRO Backup SQL Patch (if any)
-PRO ~~~~~~~~~~~~~~~~
-@@cs_internal/cs_spch_internal_category.sql
---
-DEF hints_text = 'DUMMY';
---
-PRO
-PRO Create and Drop DUMMY SQL Patch
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-@@cs_internal/cs_spch_internal_create.sql
-@@cs_internal/cs_spch_internal_drop.sql
---
-DEF cs_category = 'DEFAULT';
---
-PRO
-PRO Restore SQL Patch (if any)
-PRO ~~~~~~~~~~~~~~~~~
-@@cs_internal/cs_spch_internal_category.sql
---
-PRO
-PRO DBMS_SHARED_POOL.PURGE
-PRO ~~~~~~~~~~~~~~~~~~~~~~
-DECLARE
-  l_name     VARCHAR2(64);
-BEGIN
-  SELECT address||','||hash_value INTO l_name FROM v$sqlarea WHERE sql_id = '&&cs_sql_id.' AND ROWNUM = 1; -- there are cases where it comes back with > 1 row!!!
-  SYS.DBMS_SHARED_POOL.PURGE(name => l_name, flag => 'C', heaps => 1); -- not always does the job
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN
-    NULL;
-END;
-/
+SET SERVEROUT ON;
+@@cs_internal/cs_internal_purge_cursor "&&cs_sql_id."
+SET SERVEROUT OFF;
 --
 @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
 --

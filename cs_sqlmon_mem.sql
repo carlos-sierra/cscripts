@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/08/26
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -48,16 +48,20 @@ SELECT r.sql_id,
        r.sql_exec_id,
        r.sql_exec_start,
        r.status,
-       MAX(r.last_refresh_time) last_refresh_time,
-       MAX(r.sql_text) sql_text,
-       MAX(r.elapsed_time)/1e6 seconds
-  FROM v$sql_monitor r
+       MAX(r.last_refresh_time) AS last_refresh_time,
+       MAX(r.sql_text) AS sql_text,
+       MAX(r.elapsed_time)/1e6 AS seconds,
+       c.name AS pdb_name
+  FROM v$sql_monitor r, v$containers c
  WHERE r.sql_id IS NOT NULL
+   AND c.con_id = r.con_id
+   AND ROWNUM >= 1 /*+ MATERIALIZE NO_MERGE */
  GROUP BY
        r.sql_id,
        r.sql_exec_id,
        r.sql_exec_start,
-       r.status
+       r.status,
+       c.name
 )
 SELECT SUM(seconds) seconds,
        COUNT(*) reports,
@@ -72,13 +76,16 @@ SELECT SUM(seconds) seconds,
        MIN(sql_exec_start) min_sql_exec_start,
        MAX(last_refresh_time) max_last_refresh_time,
        sql_id,
-       REPLACE(MAX(sql_text), CHR(10), CHR(32)) sql_text
+       REPLACE(MAX(sql_text), CHR(10), CHR(32)) sql_text,
+       pdb_name
   FROM individual_executions
  GROUP BY
-       sql_id
+       sql_id,
+       pdb_name
  ORDER BY
        1 DESC, 
        2 DESC
+ FETCH FIRST 1000 ROWS ONLY
 /
 --
 PRO
@@ -131,6 +138,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_sqlmon_top." "&&sql_exec_id
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.

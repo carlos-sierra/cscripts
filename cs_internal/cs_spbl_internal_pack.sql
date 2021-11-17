@@ -5,7 +5,7 @@ DECLARE
 BEGIN
   FOR i IN (SELECT sql_handle, plan_name 
               FROM dba_sql_plan_baselines 
-             WHERE signature = &&cs_signature.
+             WHERE signature = TO_NUMBER('&&cs_signature.')
                AND plan_name = COALESCE('&&cs_plan_name.', plan_name)
              ORDER BY signature, plan_name)
   LOOP

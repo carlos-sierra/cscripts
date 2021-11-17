@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/08/06
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -154,7 +154,7 @@ SELECT ', [new Date('||
 SET HEA ON PAGES 100;
 --
 -- [Line|Area|SteppedArea|Scatter]
-DEF cs_chart_type = 'Line';
+DEF cs_chart_type = 'Scatter';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie

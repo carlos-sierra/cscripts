@@ -35,6 +35,6 @@ GET cs_internal/&&cs_script_name._internal.sql NOLIST
 666666             &&skip_parsing_schema_name. s.parsing_schema_name,
 666666             s.pdb_name
 666666   FROM sqlstat3 s
-666666  WHERE s.version_count > 1024;
+666666  WHERE s.version_count >= 1024;
 SET TERM ON;
 /

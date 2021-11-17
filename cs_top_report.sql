@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/05/05
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -118,7 +118,7 @@ SELECT CASE WHEN '&&sql_id.' IS NULL THEN 'SQL' ELSE 'Plans' END top_what FROM D
 /
 --
 SET HEA OFF;
-SPO cs_dynamic_driver.sql
+SPO &&cs_file_dir.cs_dynamic_driver.sql
           SELECT '@@cs_internal/cs_top_report_internal.sql "db_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_aas', 'DB Time', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_report_internal.sql "db_time_exec"' FROM DUAL WHERE '&&computed_metric.' IN ('db_time_exec', 'Latency', 'Main', '*')
 UNION ALL SELECT '@@cs_internal/cs_top_report_internal.sql "cpu_time_aas"' FROM DUAL WHERE '&&computed_metric.' IN ('cpu_time_aas', 'DB Time', 'Main', '*')
@@ -149,8 +149,8 @@ UNION ALL SELECT '@@cs_internal/cs_top_report_internal.sql "physical_write_bytes
 /
 SPO OFF;
 SET HEA ON;
-@cs_dynamic_driver.sql
-HOST rm cs_dynamic_driver.sql
+@&&cs_file_dir.cs_dynamic_driver.sql
+HOST rm &&cs_file_dir.cs_dynamic_driver.sql
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

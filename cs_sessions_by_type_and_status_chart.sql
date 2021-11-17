@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/02/03
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -34,7 +34,7 @@ ALTER SESSION SET container = CDB$ROOT;
 --
 COL machine HEA 'Machine';
 SELECT machine, COUNT(*), MIN(snap_time) AS min_snap_time, MAX(snap_time) AS max_snap_time
-  FROM &&cs_tools_schema..iod_session_hist
+  FROM &&cs_tools_schema..iod_session_v
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND &&cs_con_id IN (1, con_id)
  GROUP BY
@@ -91,7 +91,7 @@ SELECT snap_time AS time,
        SUM(CASE WHEN type = 'USER' AND status <> 'ACTIVE' THEN 1 ELSE 0 END) AS user_inactive,
        SUM(CASE WHEN type = 'RECURSIVE' THEN 1 ELSE 0 END) AS recursive,
        SUM(CASE WHEN type = 'BACKGROUND' THEN 1 ELSE 0 END) AS background
-  FROM &&cs_tools_schema..iod_session_hist
+  FROM &&cs_tools_schema..iod_session_v
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ('&&cs2_machine.' IS NULL OR machine LIKE CHR(37)||'&&cs2_machine.'||CHR(37))
    AND &&cs_con_id IN (1, con_id)

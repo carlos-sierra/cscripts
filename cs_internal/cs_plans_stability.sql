@@ -16,6 +16,7 @@ COL is_bind_aware FOR A9 HEA 'Is Bind|Aware';
 COL is_bind_sensitive FOR A9 HEA 'Is Bind|Sensitive';
 COL optimizer_cost FOR 9999999999 HEA 'Optimizer|Cost';
 COL optimizer_env_hash_value FOR 9999999999 HEA 'Optimizer|Hash Value';
+COL baseline_repro_fail FOR A8 HEA 'Failed|Baseline';
 COL sql_plan_baseline FOR A30 HEA 'SQL Plan Baseline';
 COL sql_profile FOR A30 HEA 'SQL Profile';
 COL sql_patch FOR A30 HEA 'SQL Patch';
@@ -30,7 +31,7 @@ SELECT s.con_id,
        TO_CHAR(s.last_active_time, '&&cs_datetime_full_format.') AS last_active_time,
        s.child_number,
        s.plan_hash_value,
-       p.plan_hash_value_2,
+      --  p.plan_hash_value_2,
        s.full_plan_hash_value,
        REPLACE(s.last_load_time, '/', 'T') AS last_load_time,
        s.executions,
@@ -43,6 +44,7 @@ SELECT s.con_id,
        s.is_bind_sensitive,
        s.optimizer_cost, 
        s.optimizer_env_hash_value,
+      --  p.baseline_repro_fail,
        s.sql_plan_baseline,
        s.sql_profile,
        s.sql_patch,
@@ -50,23 +52,26 @@ SELECT s.con_id,
        s.parsing_schema_name
   FROM v$sql s,
        v$containers c
-       OUTER APPLY ( -- could be CROSS APPLY since we expect one and only one row 
-         SELECT TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) AS plan_hash_value_2 
-           FROM v$sql_plan p
-          WHERE p.con_id = s.con_id
-            AND p.address = s.address
-            AND p.hash_value = s.hash_value
-            AND p.sql_id = s.sql_id
-            AND p.plan_hash_value = s.plan_hash_value
-            AND p.child_address = s.child_address
-            AND p.child_number = s.child_number
-            AND p.other_xml IS NOT NULL
-            AND p.id = 1
-            AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */
-          ORDER BY
-                p.timestamp DESC, p.id
-          FETCH FIRST 1 ROW ONLY -- redundant. expecting one and only one row 
-       ) p
+      --  had to remove this part due to performance issues on sql with hcv (e.g.: DBPERF-7505)
+      --  OUTER APPLY ( -- could be CROSS APPLY since we expect one and only one row 
+      --    SELECT TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) AS plan_hash_value_2,
+      --           UPPER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "baseline_repro_fail"]')) AS baseline_repro_fail
+      --      FROM v$sql_plan p
+      --     WHERE p.con_id = s.con_id
+      --       AND p.address = s.address
+      --       AND p.hash_value = s.hash_value
+      --       AND p.sql_id = s.sql_id
+      --       AND p.plan_hash_value = s.plan_hash_value
+      --       AND p.child_address = s.child_address
+      --       AND p.child_number = s.child_number
+      --       AND p.other_xml IS NOT NULL
+      --       --AND p.id = 1
+      --       -- AND TO_NUMBER(EXTRACTVALUE(XMLTYPE(p.other_xml),'/*/info[@type = "plan_hash_2"]')) >= 0
+      --       AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */
+      --     ORDER BY
+      --           p.timestamp DESC, p.id
+      --     FETCH FIRST 1 ROW ONLY -- redundant. expecting one and only one row 
+      --  ) p
  WHERE s.sql_id = '&&cs_sql_id.'
    AND c.con_id = s.con_id
  ORDER BY

@@ -30,22 +30,14 @@ SELECT TO_CHAR(s.created, '&&cs_datetime_full_format.') AS created,
        s.created, s.con_id, s.name
 /
 --
-PRO
-PRO CBO_HINTS
-PRO ~~~~~~~~~
--- only works from PDB. do not use CONTAINERS(table_name) since it causes ORA-00600: internal error code, arguments: [kkdolci1], [], [], [], [], [], [],
--- SELECT CAST(EXTRACTVALUE(VALUE(x), '/hint') AS VARCHAR2(500)) outline_hints
---   FROM XMLTABLE('/outline_data/hint' 
--- PASSING (SELECT XMLTYPE(d.comp_data) xml 
---            FROM sys.sqlobj$data d
---           WHERE d.obj_type = 1 /* 1:profile, 2:baseline, 3:patch */ 
---             AND d.signature = :cs_signature)) x
+-- PRO
+-- PRO CBO_HINTS
+-- PRO ~~~~~~~~~
+-- BREAK ON category SKIP PAGE DUPL; 
+-- SELECT d.category, x.outline_hint
+--   FROM sys.sqlobj$data d,
+--        XMLTABLE('/outline_data/hint' PASSING XMLTYPE(d.comp_data) COLUMNS outline_hint VARCHAR2(500) PATH '.') x
+--  WHERE d.obj_type = 1 /* 1:profile, 2:baseline, 3:patch */ 
+--    AND d.signature = :cs_signature
 -- /
-BREAK ON category SKIP PAGE DUPL; 
-SELECT d.category, x.outline_hint
-  FROM sys.sqlobj$data d,
-       XMLTABLE('/outline_data/hint' PASSING XMLTYPE(d.comp_data) COLUMNS outline_hint VARCHAR2(500) PATH '.') x
- WHERE d.obj_type = 1 /* 1:profile, 2:baseline, 3:patch */ 
-   AND d.signature = :cs_signature
-/
-CLEAR BREAK;
+-- CLEAR BREAK;

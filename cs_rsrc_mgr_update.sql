@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/16
+-- Version:     2021/11/08
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -35,7 +35,7 @@ DEF max_utilization_limit = '96';
 DEF min_shares = '1';
 DEF max_shares = '16';
 DEF min_days_to_expire = '0';
-DEF max_days_to_expire = '365';
+DEF max_days_to_expire = '3650';
 --
 COL pdb_name NEW_V pdb_name FOR A30;
 ALTER SESSION SET container = CDB$ROOT;
@@ -43,13 +43,14 @@ ALTER SESSION SET container = CDB$ROOT;
 @@cs_internal/cs_rsrc_mgr_internal_set.sql
 @@cs_internal/cs_rsrc_mgr_internal_configuration.sql
 @@cs_internal/cs_rsrc_mgr_internal_directives.sql
+@@cs_internal/cs_rsrc_mgr_internal_history.sql
 --
 PRO
 PRO 1. Enter Pluggable Database name:
 DEF cs_pluggable_database = '&1.';
 UNDEF 1;
 COL cs_pluggable_database NEW_V cs_pluggable_database NOPRI;
-SELECT UPPER(TRIM('&&cs_pluggable_database.')) AS cs_pluggable_database FROM DUAL;
+SELECT UPPER(TRIM(NVL('&&cs_pluggable_database.', '&&cs_con_name.'))) AS cs_pluggable_database FROM DUAL;
 PRO
 PRO 2. Enter CPU Utilization Limit: [{&&default_utilization_limit.}|&&min_utilization_limit.-&&max_utilization_limit.]
 DEF new_utilization_limit = '&2.';
@@ -93,9 +94,10 @@ PRO UTILIZATION  : &&new_utilization_limit.
 PRO SHARES       : &&new_shares.
 PRO EXPIRE_IN    : &&days_to_expire. day(s)
 --
-@@cs_internal/cs_rsrc_mgr_internal_history.sql
-@@cs_internal/cs_rsrc_mgr_internal_directives.sql
+@@cs_internal/cs_rsrc_mgr_internal_set.sql
 @@cs_internal/cs_rsrc_mgr_internal_configuration.sql
+@@cs_internal/cs_rsrc_mgr_internal_directives.sql
+@@cs_internal/cs_rsrc_mgr_internal_history.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_pluggable_database." "&&new_utilization_limit." "&&new_shares." "&&days_to_expire."

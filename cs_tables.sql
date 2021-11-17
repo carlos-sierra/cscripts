@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2021/09/09
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -31,8 +31,8 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 PRO SQL> @&&cs_script_name..sql 
 @@cs_internal/cs_spool_id.sql
 --
-BREAK ON dummy;
-COMPUTE SUM OF total_MB table_MB indexes_MB tabs lobs_MB est_data_MB lobs idxs num_rows ON dummy;
+BREAK ON REPORT;
+COMPUTE SUM OF total_MB table_MB indexes_MB tabs lobs_MB est_data_MB lobs idxs num_rows ON REPORT;
 --
 DEF specific_table = '';
 DEF order_by = 't.pdb_name, t.owner, t.table_name';

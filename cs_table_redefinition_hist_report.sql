@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2021/10/18
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -84,6 +84,7 @@ COL all_index_size_mbs_after FOR 999,990 HEA 'Index(es)|Size (MBs)|After';
 COL lobs_saved_percent FOR 999,990.0 HEA 'Lob(s)|Saved|Percent';
 COL all_lobs_size_mbs_before FOR 999,990 HEA 'Lob(s)|Size (MBs)|Before';
 COL all_lobs_size_mbs_after FOR 999,990 HEA 'Lob(s)|Size (MBs)|After';
+COL error_message FOR A120 HEA 'Error Message';
 --
 WITH
 hist AS (
@@ -101,7 +102,8 @@ SELECT snap_time,
        NVL(table_size_mbs_after, 0) + NVL(all_index_size_mbs_after, 0) + NVL(all_lobs_size_mbs_after, 0) total_size_mbs_after,       
        table_size_mbs_after,
        all_index_size_mbs_after,
-       all_lobs_size_mbs_after
+       all_lobs_size_mbs_after,
+       error_message
   FROM &&cs_tools_schema..table_redefinition_hist
  WHERE '&&cs_con_name.' IN (pdb_name, 'CDB$ROOT')
    AND snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
@@ -126,7 +128,8 @@ SELECT snap_time,
        all_index_size_mbs_after,
        100 * (all_lobs_size_mbs_before - all_lobs_size_mbs_after) / NULLIF(all_lobs_size_mbs_before, 0) lobs_saved_percent,
        all_lobs_size_mbs_before,
-       all_lobs_size_mbs_after
+       all_lobs_size_mbs_after,
+       error_message
   FROM hist
  ORDER BY
        snap_time,

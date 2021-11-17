@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/08
+-- Version:     2021/10/25
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -48,13 +48,14 @@ COL p98 FOR 99,999 HEA '98th|PCTL';
 COL p99 FOR 99,999 HEA '99th|PCTL';
 COL p99 FOR 99,999 HEA '99th|PCTL';
 COL p999 FOR 99,999 HEA '99.9th|PCTL';
+COL p9999 FOR 99,999 HEA '99.99th|PCTL';
 COL max FOR 99,999 HEA 'MAX';
 COL min_sample_time FOR A19 HEA 'SAMPLE_TIME_FROM';
 COL max_sample_time FOR A19 HEA 'SAMPLE_TIME_TO';
 COL max_date FOR A19;
 --
 BREAK ON pdb_name SKIP PAGE DUPL;
-COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 max ON pdb_name;
+COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 p9999 max ON pdb_name;
 --
 PRO
 PRO Sessions Percentiles per PDB and Machine (when executed from CDB$ROOT)
@@ -90,6 +91,7 @@ SELECT con_id,
        PERCENTILE_DISC(0.98) WITHIN GROUP (ORDER BY cnt) p98,
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY cnt) p99,
        PERCENTILE_DISC(0.999) WITHIN GROUP (ORDER BY cnt) p999,
+      --  PERCENTILE_DISC(0.9999) WITHIN GROUP (ORDER BY cnt) p9999,
        MAX(cnt) max,
        TO_CHAR(MIN(CASE rn WHEN 1 THEN min_sample_time END), 'YYYY-MM-DD"T"HH24:MI:SS') AS max_date,
        TO_CHAR(MIN(min_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') min_sample_time,
@@ -104,7 +106,7 @@ SELECT con_id,
 /
 --
 BREAK ON machine SKIP PAGE DUPL;
-COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 max ON machine;
+COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 p9999 max ON machine;
 --
 PRO
 PRO Sessions Percentiles per Machine and PDB (when executed from CDB$ROOT)
@@ -140,6 +142,7 @@ SELECT machine,
        PERCENTILE_DISC(0.98) WITHIN GROUP (ORDER BY cnt) p98,
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY cnt) p99,
        PERCENTILE_DISC(0.999) WITHIN GROUP (ORDER BY cnt) p999,
+      --  PERCENTILE_DISC(0.9999) WITHIN GROUP (ORDER BY cnt) p9999,
        MAX(cnt) max,
        TO_CHAR(MIN(CASE rn WHEN 1 THEN min_sample_time END), 'YYYY-MM-DD"T"HH24:MI:SS') AS max_date,
        TO_CHAR(MIN(min_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') min_sample_time,
@@ -154,7 +157,7 @@ SELECT machine,
 /
 --
 BREAK ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 max ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 p9999 max ON REPORT;
 --
 PRO
 PRO Sessions Percentiles per PDB (when executed from CDB$ROOT)
@@ -187,6 +190,7 @@ SELECT con_id,
        PERCENTILE_DISC(0.98) WITHIN GROUP (ORDER BY cnt) p98,
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY cnt) p99,
        PERCENTILE_DISC(0.999) WITHIN GROUP (ORDER BY cnt) p999,
+      --  PERCENTILE_DISC(0.9999) WITHIN GROUP (ORDER BY cnt) p9999,
        MAX(cnt) max,
        TO_CHAR(MIN(CASE rn WHEN 1 THEN min_sample_time END), 'YYYY-MM-DD"T"HH24:MI:SS') AS max_date,
        TO_CHAR(MIN(min_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') min_sample_time,
@@ -199,7 +203,7 @@ SELECT con_id,
 /
 --
 BREAK ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 max ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF p95 p97 p98 p99 p999 p9999 max ON REPORT;
 --
 PRO
 PRO Sessions Percentiles per Machine
@@ -230,6 +234,7 @@ SELECT machine,
        PERCENTILE_DISC(0.98) WITHIN GROUP (ORDER BY cnt) p98,
        PERCENTILE_DISC(0.99) WITHIN GROUP (ORDER BY cnt) p99,
        PERCENTILE_DISC(0.999) WITHIN GROUP (ORDER BY cnt) p999,
+      --  PERCENTILE_DISC(0.9999) WITHIN GROUP (ORDER BY cnt) p9999,
        MAX(cnt) max,
        TO_CHAR(MIN(CASE rn WHEN 1 THEN min_sample_time END), 'YYYY-MM-DD"T"HH24:MI:SS') AS max_date,
        TO_CHAR(MIN(min_sample_time), 'YYYY-MM-DD"T"HH24:MI:SS') min_sample_time,

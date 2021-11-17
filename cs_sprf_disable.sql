@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/20
+-- Version:     2021/07/21
 --
 -- Usage:       Connecting into PDB.
 --
@@ -51,6 +51,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name."
 @@cs_internal/cs_spool_id.sql
 --
 PRO SQL_ID       : &&cs_sql_id.
+PRO SQLHV        : &&cs_sqlid.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.

@@ -3,6 +3,7 @@ COL samples FOR 999,999,990 HEA 'Samples';
 COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL sql_full_plan_hash_value FOR 9999999999 HEA 'Full Plan|Hash Value';
 COL sql_plan_line_id FOR 9999 HEA 'Plan|Line';
+COL current_obj# FOR 999999999999 HEA 'Current|Obj#';
 COL in_connection_mgmt FOR A6 HEA 'In|Connec|Mgmt';
 COL in_parse FOR A6 HEA 'In|Parse';
 COL in_hard_parse FOR A6 HEA 'In|Hard|Parse';
@@ -15,6 +16,7 @@ COL in_bind FOR A6 HEA 'In|Bind';
 COL in_cursor_close FOR A6 HEA 'In|Cursor|Close';
 COL in_sequence_load FOR A6 HEA 'In|Seq|Load';
 COL on_cpu_or_wait_event FOR A50 HEA 'ON CPU or Timed Event';
+COL object_name FOR A128 HEA 'Object Name';
 --
 COL dummy FOR A1 NOPRI;
 BREAK ON dummy SKIP PAGE;
@@ -32,6 +34,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_full_plan_hash_value,
        h.sql_plan_line_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END AS on_cpu_or_wait_event,
+       h.current_obj#,
        h.in_connection_mgmt,
        h.in_parse,
        h.in_hard_parse,
@@ -50,6 +53,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_full_plan_hash_value,
        h.sql_plan_line_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END,
+       h.current_obj#,
        h.in_connection_mgmt,
        h.in_parse,
        h.in_hard_parse,
@@ -61,7 +65,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.in_bind,
        h.in_cursor_close,
        h.in_sequence_load
-)
+),
+all_groups AS (
 SELECT '1' AS dummy,
        100 * SUM(samples) / SUM(SUM(samples)) OVER() AS perc,
        SUM(samples) AS samples,
@@ -69,6 +74,45 @@ SELECT '1' AS dummy,
        sql_full_plan_hash_value,
        sql_plan_line_id,
        on_cpu_or_wait_event,
+       current_obj#,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+  FROM ash_detailed
+ GROUP BY
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       current_obj#,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+ UNION ALL
+SELECT '2' AS dummy,
+       100 * SUM(samples) / SUM(SUM(samples)) OVER() AS perc,
+       SUM(samples) AS samples,
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        in_connection_mgmt,
        in_parse,
        in_hard_parse,
@@ -105,6 +149,7 @@ SELECT '3' AS dummy,
        sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -129,6 +174,7 @@ SELECT '4' AS dummy,
        sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        NULL on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -152,6 +198,7 @@ SELECT '5' AS dummy,
        TO_NUMBER(NULL) sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -166,6 +213,29 @@ SELECT '5' AS dummy,
   FROM ash_detailed
  GROUP BY
        on_cpu_or_wait_event
+)
+SELECT dummy,
+       perc,
+       samples,
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       current_obj#,
+       (SELECT owner||'.'||object_name||CASE WHEN subobject_name IS NOT NULL THEN '.'||subobject_name END||' '||object_type FROM dba_objects WHERE object_id = current_obj# AND ROWNUM = 1) AS object_name,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+  FROM all_groups
+ WHERE perc >= 0.5
  ORDER BY
        1 ASC, 2 DESC, 3 DESC
 /
@@ -182,6 +252,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_full_plan_hash_value,
        h.sql_plan_line_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END AS on_cpu_or_wait_event,
+       h.current_obj#,
        h.in_connection_mgmt,
        h.in_parse,
        h.in_hard_parse,
@@ -204,6 +275,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_full_plan_hash_value,
        h.sql_plan_line_id,
        CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END,
+       h.current_obj#,
        h.in_connection_mgmt,
        h.in_parse,
        h.in_hard_parse,
@@ -215,7 +287,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.in_bind,
        h.in_cursor_close,
        h.in_sequence_load
-)
+),
+all_groups AS (
 SELECT '1' AS dummy,
        100 * SUM(samples) / SUM(SUM(samples)) OVER() AS perc,
        SUM(samples) AS samples,
@@ -223,6 +296,45 @@ SELECT '1' AS dummy,
        sql_full_plan_hash_value,
        sql_plan_line_id,
        on_cpu_or_wait_event,
+       current_obj#,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+  FROM ash_detailed
+ GROUP BY
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       current_obj#,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+ UNION ALL
+SELECT '2' AS dummy,
+       100 * SUM(samples) / SUM(SUM(samples)) OVER() AS perc,
+       SUM(samples) AS samples,
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        in_connection_mgmt,
        in_parse,
        in_hard_parse,
@@ -259,6 +371,7 @@ SELECT '3' AS dummy,
        sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -283,6 +396,7 @@ SELECT '4' AS dummy,
        sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        NULL on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -306,6 +420,7 @@ SELECT '5' AS dummy,
        TO_NUMBER(NULL) sql_full_plan_hash_value,
        TO_NUMBER(NULL) sql_plan_line_id,
        on_cpu_or_wait_event,
+       TO_NUMBER(NULL) AS current_obj#,
        NULL in_connection_mgmt,
        NULL in_parse,
        NULL in_hard_parse,
@@ -320,6 +435,29 @@ SELECT '5' AS dummy,
   FROM ash_detailed
  GROUP BY
        on_cpu_or_wait_event
+)
+SELECT dummy,
+       perc,
+       samples,
+       sql_plan_hash_value,
+       sql_full_plan_hash_value,
+       sql_plan_line_id,
+       on_cpu_or_wait_event,
+       current_obj#,
+       (SELECT owner||'.'||object_name||CASE WHEN subobject_name IS NOT NULL THEN '.'||subobject_name END||' '||object_type FROM dba_objects WHERE object_id = current_obj# AND ROWNUM = 1) AS object_name,
+       in_connection_mgmt,
+       in_parse,
+       in_hard_parse,
+       in_sql_execution,
+       in_plsql_execution,
+       in_plsql_rpc,
+       in_plsql_compilation,
+       in_java_execution,
+       in_bind,
+       in_cursor_close,
+       in_sequence_load
+  FROM all_groups
+ WHERE perc >= 0.5
  ORDER BY
        1 ASC, 2 DESC, 3 DESC
 /
