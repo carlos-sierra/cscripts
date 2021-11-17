@@ -1,4 +1,4 @@
-CS Scripts Inventory by Type (2021-10-26)
+CS Scripts Inventory by Type (2021-11-17)
 ============================
 * Latency
 * Load
