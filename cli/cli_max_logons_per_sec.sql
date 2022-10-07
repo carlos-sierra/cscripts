@@ -1,1 +1,0 @@
-select 'avg_avg:'||round(avg(average))||' max_avg:'||round(max(average))||' max_max:'||round(max(maxval)) from DBA_HIST_SYSMETRIC_SUMMARY where metric_name = 'Logons Per Sec';

@@ -3,7 +3,6 @@ CS Scripts Inventory by Type (2022-10-07)
 * Latency
 * Load
 * SQL Performance
-* ZAPPER
 * SPBL - SQL Plan Baselines
 * SPRF - SQL Profiles
 * SPCH - SQL Patches
@@ -11,7 +10,6 @@ CS Scripts Inventory by Type (2022-10-07)
 * Kill Sessions
 * Blocked Sessions
 * Locks
-* Health Checks (HC)
 * Database Resource Manager (DBRM)
 * Space Reporting
 * Space Maintenance
@@ -22,10 +20,7 @@ CS Scripts Inventory by Type (2022-10-07)
 * Logs
 * Traces
 * Reports
-* IOD - Internal Oracle Database
 * Miscellaneous Utilities
-* CLI - Command-line Interface
-* KIEV
 
 Latency
 -------
@@ -96,15 +91,6 @@ SQL Performance
 * cs_sql_perf_concurrency.sql                                   - Concurrency Histogram of SQL with more than N Concurrent Sessions
 * cs_sql_perf_high_aas.sql                                      - SQL with AAS per hour for a given Timed Event higher than N (time series text report)
 * cs_purge_cursor.sql                                           - Purge Cursor(s) for SQL_ID using DBMS_SHARED_POOL.PURGE and SQL Patch
-
-ZAPPER
-------
-* z.sql | cs_spbl_zap.sql                                       - Zap a SQL Plan Baseline for given SQL_ID or entire PDB or entire CDB
-* zl.sql | cs_spbl_zap_hist_list.sql                            - SQL Plan Baseline - Zapper History List
-* zr.sql | cs_spbl_zap_hist_report.sql                          - SQL Plan Baseline - Zapper History Report
-* zi.sql | cs_spbl_zap_ignore.sql                               - Add SQL_ID to Zapper exclusion list (Zapper to ignore such SQL_ID)
-* zd.sql | cs_spbl_zap_disable.sql                              - Disable ZAPPER on CDB
-* ze.sql | cs_spbl_zap_enable.sql                               - Enable ZAPPER on CDB
 
 SPBL - SQL Plan Baselines
 -------------------------
@@ -224,18 +210,6 @@ Locks
 * locks.sql | cs_locks.sql                                      - Locks Summary and Details
 * cs_locks_mon.sql                                              - Locks Summary and Details - Monitor
 * cs_wait_chains.sql                                            - Wait Chains (text report)
-
-Health Checks (HC)
-------------------
-* cs_hc_tests_results.sql                                       - Health Check (HC) Tests Results (for one or all PDBs)
-* cs_hc_pdb_manifest.sql                                        - Health Check (HC) PDB Manifest - Detailed Utilization Metrics
-* cs_hc_pdb_utilization.sql                                     - Health Check (HC) PDB Utilization
-* cs_hc_sql_alerts_recent.sql                                   - Health Check (HC) SQL Alerts - Recent (for one or all PDBs)
-* cs_hc_sql_alerts_hist.sql                                     - Health Check (HC) SQL Alerts - History (for one SQL)
-* cs_hc_sql_ignore_longexecs.sql                                - Add SQL_ID to LONGEXECS exclusion list (HC SQL to ignore such SQL_ID)
-* cs_hc_sql_ignore_highaas.sql                                  - Add SQL_ID to HIGHAAS exclusion list (HC SQL to ignore such SQL_ID)
-* cs_hc_sql_ignore_regress.sql                                  - Add SQL_ID to REGRESS exclusion list (HC SQL to ignore such SQL_ID)
-* cs_hc_sql_ignore_nonscale.sql                                 - Add SQL_ID to NONSCALE exclusion list (HC SQL to ignore such SQL_ID)
 
 Database Resource Manager (DBRM)
 --------------------------------
@@ -393,33 +367,6 @@ Reports
 * cs_dbms_stats_auto.sql                                        - Generate DBMS_STATS.report_gather_auto_stats
 * cs_amw_report.sql                                             - Automatic Maintenance Window Report
 
-IOD - Internal Oracle Database
-------------------------------
-* cs_iod_log.sql                                                - IOD PL/SQL Libraries Log
-* cs_blackout_begin.sql                                         - Blackout Begin - for IOD/DBPERF Jobs
-* cs_blackout_end.sql                                           - Blackout End - for IOD/DBPERF Jobs
-* cs_blackout_status.sql                                        - Blackout Status - for IOD/DBPERF Jobs
-* cs_blackout_lock.sql                                          - Blackout Lock - for IOD/DBPERF Jobs
-* cs_blackout_unlock.sql                                        - Blackout Unlock - for IOD/DBPERF Jobs
-* cs_blackout_api_begin.sql                                     - Blackout API Begin - for IOD/DBPERF APIs
-* cs_blackout_api_end.sql                                       - Blackout API End - for IOD/DBPERF APIs
-* cs_enable_pdb_allocation.sql                                  - Enable PDB Allocation
-* cs_disable_pdb_allocation.sql                                 - Disable PDB Allocation
-* cs_dbc_snapshot_log_v.sql                                     - DBC Snapshot Log Report
-* iod_db_switchover_hist.sql                                    - History of CDB switchovers
-* iod_versions.sql                                              - Code Version of IOD PL/SQL Packages
-* iod_setup.sql                                                 - Complile IOD PL/SQL Packages (new versions of code)
-* iod_fleet_all.sql                                             - Execute iod_fleet_summary.sql, iod_fleet_inventory.sql and iod_fleet_busy.sql
-* iod_fleet_summary.sql                                         - IOD Fleet - CDBs Summary
-* iod_fleet_inventory.sql                                       - IOD Fleet - CDBs Inventory
-* iod_fleet_busy.sql                                            - IOD Fleet - Busy CDBs
-* iod_fleet_cpu_cores_by_customer.sql                           - IOD Fleet - CPU Cores by Customer
-* iod_fleet_disk_space_by_customer.sql                          - IOD Fleet - Disk Space by Customer
-* cdb_attributes_setup.sql                                      - Create cdb_attributes Table and merge_cdb_attributes Procedure for IOD Fleet Inventory
-* pdb_attributes_setup.sql                                      - Create pdb_attributes Table and merge_pdb_attributes Procedure for IOD PDBs Fleet Inventory
-* collect_ORA-13831_diagnostics.sql                             - Collects ORA-13831 diagnostics
-* collect_ORA-600-qksanGetTextStr_diag.sql                      - Collects ORA-00600 diagnostics
-
 Miscellaneous Utilities
 -----------------------
 * cs_fs.sql                                                     - Find application SQL statements matching some string
@@ -438,33 +385,6 @@ Miscellaneous Utilities
 * sysdate.sql                                                   - Display SYSDATE in Filename safe format and in YYYY-MM-DDTHH24:MI:SS UTC format
 * view.sql                                                      - Display Text of a given VIEW name
 * find_all_privs.sql                                            - Roles and Priviledges for a given User (Pete Finnigan)
-
-CLI - Command-line Interface
-----------------------------
-* cli_find_sql_v00_SQL_ID_OR_TEXT                               - Find SQL for given SQL_ID or SQL Text
-* cli_find_table_v00_TABLE_NAME                                 - Find Table for given Name
-* cli_sql_patch_one_sql_v00_SQL_TEXT                            - Create SQL Patch for given SQL Text
-* cli_sql_patch_several_sql_v00_REFERENCE.sql                   - Create SQL Patch for multiple SQL_IDs
-
-KIEV
-----
-* cs_kiev_cdb_gc_status.sql                                     - KIEV CDB Garbage Collection (GC) status
-* cs_kiev_pdb_gc_status.sql                                     - KIEV PDB Garbage Collection (GC) status
-* cs_kiev_bucket_hist.sql                                       - KIEV Bucket History Report (for GC analysis)
-* cs_kiev_bucket_gc_chart.sql                                   - GC (rows deleted) for given Bucket (time series chart)
-* cs_kiev_bucket_growth_report.sql                              - KIEV Bucket Growth (inserts and deletes) Report
-* cs_kiev_transactions_aggregate_chart.sql                      - KIEV Transactions Aggregate (Latency|TPS|Count) Chart
-* cs_kiev_transactions_aggregate_report.sql                     - KIEV Transactions Aggregate (Latency|TPS|Count) Report
-* cs_kiev_transactions_list_report.sql                          - KIEV Transactions List
-* cs_kiev_transaction_keys_report.sql                           - KIEV Transaction Keys Report
-* cs_kiev_kill.sql                                              - Script to mark Kiev sessions to be killed by IOD Session Killer job process
-* cs_kiev_indexes_metadata.sql                                  - Extracts and stores metadata for all KIEV Indexes from all PDBs on a CDB
-* cs_kiev_indexes_report.sql                                    - KIEV Indexes Inventory Report (show discrepancies between KIEV and DB metadata)
-* cs_kiev_indexes_fix.sql                                       - KIEV Indexes Inventory Fix Script (stand-alone)
-* cs_vcn_events.sql                                             - Detect EVENTS_RGN stuck on a KIEV VCN PDB
-* cs_vcn_events_v2.sql                                          - Detect EVENTS_V2_RGN stuck on a KIEV VCN PDB
-* cs_entity_change_events_rgn.sql                               - Detect ENTITY_CHANGE_EVENTS_rgn stuck on a KIEV VCN PDB
-* cs_wf_instances.sql                                           - WF Instance and Step Instances counts on a KIEV WF PDB
 
 Notes
 -----
