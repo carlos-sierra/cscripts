@@ -388,6 +388,5 @@ Miscellaneous Utilities
 
 Notes
 -----
-* These CS scripts are distributed in ORATK under directory $ORATK_HOME/sql/cscripts.
 * To use them, connect to database server as oracle, then navigate to scripts directory above, and connect into SQL*Plus as SYS.
 * Execute h.sql or help.sql for full list above. Execute ls.sql for a full alphabetical list. Type q to exit. 
