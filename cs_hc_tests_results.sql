@@ -2,11 +2,11 @@
 --
 -- File name:   cs_hc_tests_results.sql
 --
--- Purpose:     Health Check (HC) Tests Results
+-- Purpose:     Health Check (HC) Tests Results (for one or all PDBs)
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/20
+-- Version:     2021/11/18
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -40,7 +40,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_info_pass."
 --
 PRO INFO and PASS: &&cs_info_pass.
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL test FOR A70 WRA WOR;
 COL pdbs FOR A80 WRA WOR;
@@ -50,23 +50,17 @@ COL narrative FOR A60 WRA WOR;
 BREAK ON status SKIP PAGE DUPL ON test SKIP 1 DUPL;
 --
 PRO
-PRO HC Test Results (&cs_tools_schema..hc_result)
-PRO ~~~~~~~~~~~~~~~
-WITH
-results AS (
-SELECT r.*, ROW_NUMBER() OVER (PARTITION BY r.pdb_name, r.test_name ORDER BY r.test_begin DESC NULLS LAST) AS rn
-  FROM &&cs_tools_schema..hc_result r
- WHERE '&&cs_con_name.' IN ('CDB$ROOT', r.pdb_name)
-   AND r.test_begin > SYSDATE - 7 -- only care for last 7 days
-)
+PRO HC Tests Results (&cs_tools_schema..hc_result_v)
+PRO ~~~~~~~~~~~~~~~~
 SELECT r.status,
        r.test_name||': '||r.test_description AS test,
-       LISTAGG(r.pdb_name, ', ') WITHIN GROUP (ORDER BY r.pdb_name) AS pdbs,
+       LISTAGG(r.pdb_name, ', ' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY r.pdb_name) AS pdbs,
        MIN(r.value)||CASE WHEN MIN(r.value) <> MAX(r.value) THEN ' - '|| MAX(r.value) END AS value,
        r.test_value_uom AS uom,
        r.test_narrative AS narrative
-  FROM results r
- WHERE r.rn = 1
+  FROM &&cs_tools_schema..hc_result_v r
+ WHERE '&&cs_con_name.' IN ('CDB$ROOT', r.pdb_name)
+   AND r.test_begin > SYSDATE - 7 -- only care for last 7 days
    AND CASE WHEN '&&cs_info_pass.' = 'Y' THEN 1 WHEN r.status IN ('WIP', 'FAIL', 'WARNING', 'ERROR') THEN 1 ELSE 0 END = 1
  GROUP BY
        r.status,
@@ -86,7 +80,7 @@ SELECT r.status,
 --
 CLEAR BREAK;
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_info_pass."

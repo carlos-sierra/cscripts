@@ -15,7 +15,8 @@
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @cs_redef_table_with_purge.sql
 --
--- Notes:       Developed and tested on 12.1.0.2.
+-- Notes:       This operation requires a blackout.
+--              Developed and tested on 12.1.0.2.
 --
 ---------------------------------------------------------------------------------------
 --
@@ -32,7 +33,7 @@ COL username FOR A30;
 SELECT username
   FROM dba_users
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
  ORDER BY
        username
 /
@@ -44,7 +45,7 @@ COL p_owner NEW_V p_owner FOR A30 NOPRI;
 SELECT username AS p_owner 
   FROM dba_users 
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
    AND username = UPPER(TRIM('&&table_owner.')) 
    AND ROWNUM = 1
 /
@@ -190,7 +191,7 @@ DEF table_MB_b = "&&table_MB.";
 DEF indexes_MB_b = "&&indexes_MB.";
 DEF lobs_MB_b = "&&lobs_MB.";
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
 PRO TABLE REDEFINITION
@@ -213,7 +214,7 @@ END;
 /
 SET SERVEROUT OFF;
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO AFTER

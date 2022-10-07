@@ -58,18 +58,12 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-DEF cs_plan_id = '';
 DEF cs_plan_name = '';
 @@cs_internal/cs_spbl_internal_stgtab.sql
 @@cs_internal/cs_spbl_internal_stgtab_delete.sql
 @@cs_internal/cs_spbl_internal_pack.sql
 --
 @@cs_internal/cs_temp_dir_create.sql
---
--- enabled: BITAND(status, 1) <> 0
--- accepted: BITAND(status, 2) <> 0
--- fixed: BITAND(status, 4) <> 0
--- AND plan_id = COALESCE\(TO_NUMBER\(\'&&cs_plan_id.\'\)\, plan_id\)
 --
 HOS expdp \"sys/&&sys_password.@&&cs_easy_connect_string. AS SYSDBA\" DIRECTORY=CS_TEMP_DIR DUMPFILE=&&cs_dp_file_name..dmp LOGFILE=&&cs_dp_file_name..expdb.log TABLES=&&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_baseline QUERY=\"WHERE signature = &&cs_signature. AND BITAND\(status\, 1\) \<\> 0 AND BITAND\(status\, 2\) \<\> 0\" EXCLUDE=STATISTICS
 UNDEF sys_password

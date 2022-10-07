@@ -22,8 +22,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        object_status,
        is_obsolete,
        is_shareable,
-       is_bind_aware,
        is_bind_sensitive,
+       is_bind_aware,
        parsing_schema_name,
        c.name AS pdb_name
   FROM v$sql s, v$containers c
@@ -43,6 +43,7 @@ SELECT CASE WHEN p.plan_table_output LIKE 'SQL_ID  %'
          CASE WHEN r.is_obsolete <> 'N' THEN ', Is_Obsolete' END||
          CASE WHEN r.is_shareable <> 'Y' THEN ', Is_Not_Shareable' END||
          CASE WHEN r.is_bind_aware = 'Y' THEN ', Is_Bind_Aware' END||
+         CASE WHEN r.is_bind_sensitive = 'Y' THEN ', Is_Bind_Sensitive' END||
          ', Con_ID:'||TRIM(TO_CHAR(r.con_id))||
          ', PDB_Name:'||r.pdb_name||
          ', Parsing_Schema:'||parsing_schema_name

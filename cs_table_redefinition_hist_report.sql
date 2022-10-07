@@ -30,7 +30,7 @@ DEF cs_hours_range_default = '48';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT DISTINCT owner table_owner
   FROM &&cs_tools_schema..table_redefinition_hist
@@ -141,7 +141,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

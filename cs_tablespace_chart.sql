@@ -26,7 +26,7 @@
 DEF cs_script_name = 'cs_tablespace_chart';
 DEF cs_hours_range_default = '4320';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL cs_hours_range_default NEW_V cs_hours_range_default NOPRI;
 SELECT TRIM(TO_CHAR(LEAST(TRUNC((SYSDATE - MIN(snap_time)) * 24), TO_NUMBER('&&cs_hours_range_default.')))) AS cs_hours_range_default FROM &&cs_tools_schema..dbc_tablespaces
@@ -158,7 +158,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

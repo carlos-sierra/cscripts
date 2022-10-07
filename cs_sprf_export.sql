@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/06
+-- Version:     2022/08/16
 --
 -- Usage:       Connecting into PDB.
 --
@@ -30,27 +30,54 @@
 --
 DEF cs_script_name = 'cs_sprf_export';
 --
+COL parsing_schema_name FOR A30;
+WITH 
+u AS 
+(SELECT /*+ MATERIALIZE NO_MERGE */ user_id, username FROM dba_users WHERE oracle_maintained = 'N' AND common = 'NO' AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */)
+SELECT  s.parsing_schema_name, COUNT(*) AS sql_statements
+  FROM  v$sql s, u
+WHERE   s.plan_hash_value > 0 -- e.g.: PL/SQL has 0 on PHV
+AND     s.exact_matching_signature > 0 -- INSERT from values has 0 on signature
+AND     s.executions > 0
+AND     s.cpu_time > 0
+AND     s.buffer_gets > 0
+AND     s.object_status = 'VALID'
+AND     s.is_obsolete = 'N'
+AND     s.is_shareable = 'Y'
+AND     s.is_resolved_adaptive_plan IS NULL -- to ignore adaptive plans which cause trouble when combined with SPM
+AND     s.last_active_time > SYSDATE - 1
+AND     s.parsing_user_id > 0 -- ddl and stats gathering have parsing_user_id = 0
+AND     u.username = s.parsing_schema_name
+GROUP BY
+        s.parsing_schema_name
+ORDER BY
+        s.parsing_schema_name
+/
 PRO
-PRO 1. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName): (opt)
-DEF cs_sql_text_piece = '&1.';
+PRO 1. Parsing Schema Name: (opt)
+DEF cs_parsing_schema_name = '&1.';
 UNDEF 1;
 --
 PRO
-PRO 2. SQL_ID: (opt)
-DEF cs_sql_id = '&2.';
+PRO 2. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName): (opt)
+DEF cs2_sql_text_piece = '&2.';
 UNDEF 2;
+--
+PRO
+PRO 3. SQL_ID: (opt)
+DEF cs_sql_id = '&3.';
+UNDEF 3;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' AS cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_text_piece." "&&cs_sql_id."  
+PRO SQL> @&&cs_script_name..sql "&&cs_parsing_schema_name." "&&cs2_sql_text_piece." "&&cs_sql_id."  
 @@cs_internal/cs_spool_id.sql
 --
-PRO SQL_TEXT     : "&&cs_sql_text_piece."
+PRO SCHEMA_NAME  : "&&cs_parsing_schema_name."
+PRO SQL_TEXT     : "&&cs2_sql_text_piece."
 PRO SQL_ID       : "&&cs_sql_id."
 --
-COL double_ampersand NEW_V double_ampersand NOPRI;
-SELECT CHR(38)||CHR(38) AS double_ampersand FROM DUAL;
 COL export_version NEW_V export_version NOPRI;
 SELECT TO_CHAR(SYSDATE, 'YYMMDDHH24MISS') AS export_version FROM DUAL;
 VAR v_exported NUMBER;
@@ -76,7 +103,7 @@ BEGIN
     o('--');
     o('-- Author:      Carlos Sierra');
     o('--');
-    o('-- Version:     2021/05/12');
+    o('-- Version:     2022/02/22');
     o('--');
     o('-- Usage:       Connecting into PDB.');
     o('--');
@@ -116,10 +143,12 @@ BEGIN
     -- main cursor
     FOR i IN (WITH 
               u AS 
-              (SELECT /*+ MATERIALIZE NO_MERGE */ user_id, username FROM dba_users WHERE oracle_maintained = 'N' AND username NOT LIKE 'C##%' AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */),
+              (SELECT /*+ MATERIALIZE NO_MERGE */ user_id, username FROM dba_users WHERE oracle_maintained = 'N' AND common = 'NO' AND ROWNUM >= 1 /* MATERIALIZE NO_MERGE */),
               s AS
               (
-              SELECT  s.exact_matching_signature AS signature, s.sql_id, s.plan_hash_value, x.plan_hash_value_2, s.sql_text, REPLACE(s.sql_fulltext, s.parsing_schema_name||'.', '#kievbuckets_owner#.') AS sql_fulltext, s.parsing_schema_name, x.other_xml,
+              SELECT  s.exact_matching_signature AS signature, s.sql_id, s.plan_hash_value, x.plan_hash_value_2, s.sql_text, 
+                      CASE WHEN '&&cs_kiev_owner.' IS NOT NULL THEN REPLACE(s.sql_fulltext, s.parsing_schema_name||'.', '#kievbuckets_owner#.') ELSE s.sql_fulltext END AS sql_fulltext, 
+                      s.parsing_schema_name, x.other_xml,
                       ROW_NUMBER() OVER (PARTITION BY s.exact_matching_signature, s.sql_id ORDER BY s.last_active_time DESC) AS rn,
                       -- bucket_name and bucket_id are KIEV specific, and needed to support statement caching on KIEV, which requires to embed the bucket_id into sql decoration (e.g. /* performScanQuery(NOTIFICATION_BOARD,EVENT_BY_SCHEDULED_TIME) [1002] */)
                       CASE 
@@ -154,15 +183,17 @@ BEGIN
               AND     s.object_status = 'VALID'
               AND     s.is_obsolete = 'N'
               AND     s.is_shareable = 'Y'
-              AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
+            --   AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
               AND     s.is_resolved_adaptive_plan IS NULL -- to ignore adaptive plans which cause trouble when combined with SPM
               --AND     s.is_reoptimizable = 'N' -- to ignore cursors which require adjustments as per cardinality feedback  
-              AND     s.last_active_time > SYSDATE - 1
+              AND     s.parsing_user_id > 0 -- ddl and stats gathering have parsing_user_id = 0
+              AND     s.last_active_time > SYSDATE - 1 -- select only sql that has been executed recently
+              AND     s.parsing_schema_name = NVL(TRIM('&&cs_parsing_schema_name.'), s.parsing_schema_name)
               AND     s.sql_id = NVL(TRIM('&&cs_sql_id.'), s.sql_id)
-              AND     UPPER(s.sql_text) LIKE '%'||UPPER('&&cs_sql_text_piece.')||'%'
+              AND     ('&&cs2_sql_text_piece.' IS NULL OR UPPER(s.sql_text) LIKE '%'||UPPER('&&cs2_sql_text_piece.')||'%')
               AND     u1.user_id = s.parsing_user_id
               AND     u2.user_id = s.parsing_schema_id
-              AND     x.plan_hash_value_2 > 0
+              AND     x.plan_hash_value_2 > 0 -- (Phv2) includes the hash value of the execution(PLAN_HASH_VALUE) and the hash value of its predicate part.
               AND     ROWNUM >= 1 /* MATERIALIZE NO_MERGE */
               )
               SELECT  signature, sql_id, plan_hash_value, plan_hash_value_2, SUBSTR(sql_text, 1, 100) AS sql_text_100, sql_text, sql_fulltext, parsing_schema_name, other_xml,
@@ -227,11 +258,21 @@ BEGIN
         -- o('ELSE');
         -- o('l_target_signature := '||i.signature||';');
         o('END IF;');
+        o('IF ''&&double_ampersand.kievbuckets_owner.'' IS NOT NULL THEN -- KIEV Bucket Owner');
         o('l_sql_text_clob := REPLACE(l_sql_text_clob, ''#kievbuckets_owner#'', ''&&double_ampersand.kievbuckets_owner.'');');
+        o('END IF;');
         o('l_target_signature := DBMS_SQLTUNE.sqltext_to_signature (sql_text => l_sql_text_clob);');
         o('o(''[''||l_target_signature||''][''||l_target_bucket_id||'']'');');
         o('l_plan_name := ''exp_'||i.sql_id||'_&&export_version.'';');
         o('l_description := ''[''||l_target_signature||'']['||i.plan_hash_value||']['||i.plan_hash_value_2||']['||i.signature||']['||i.sql_id||']['||i.bucket_name||']['||i.bucket_id||'][&&cs_rgn.][&&cs_db_name_u.][&&cs_con_name.][EXP]['||i.type||'][&&cs_reference.]'';');
+-- DBPERF-8216 begin
+        o('-- drop unexpected profile');
+        o('FOR i IN (SELECT p.name FROM dba_sql_profiles p WHERE p.name = l_plan_name AND p.signature <> l_target_signature)');
+        o('LOOP');
+        o('o(''SPRF drop: ''||i.name);');
+        o('DBMS_SQLTUNE.drop_sql_profile(name => i.name, ignore => TRUE);');
+        o('END LOOP;');
+-- DBPERF-8216 end
         o('-- disable prior sql_profile');
         o('FOR i IN (SELECT p.name FROM dba_sql_profiles p WHERE p.signature = l_target_signature AND p.category = ''DEFAULT'' AND p.status = ''ENABLED'' AND NVL(p.description, ''NULL'') NOT LIKE ''%][EXP][%'' AND NOT EXISTS (SELECT NULL FROM dba_sql_profiles e WHERE e.name = p.name AND e.category = ''BACKUP''))');
         o('LOOP');
@@ -312,7 +353,7 @@ BEGIN
     o('--');
     o('-- Author:      Carlos Sierra');
     o('--');
-    o('-- Version:     2021/05/12');
+    o('-- Version:     2022/02/14');
     o('--');
     o('-- Usage:       Connecting into PDB.');
     o('--');
@@ -417,7 +458,7 @@ BEGIN
     o('--');
     o('-- Author:      Carlos Sierra');
     o('--');
-    o('-- Version:     2021/05/12');
+    o('-- Version:     2022/02/14');
     o('--');
     o('-- Usage:       Connecting into PDB.');
     o('--');
@@ -469,7 +510,7 @@ PRO
 PRINT v_exported;
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_text_piece." "&&cs_sql_id."  
+PRO SQL> @&&cs_script_name..sql "&&cs_parsing_schema_name." "&&cs2_sql_text_piece." "&&cs_sql_id."  
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

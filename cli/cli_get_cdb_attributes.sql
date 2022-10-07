@@ -1,10 +1,6 @@
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 SET HEA OFF PAGES 0;
-ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'; 
-/*
-iodcli sql_exec -y -t PRIMARY file:/Users/csierra/git/bitbucket.oci.oraclecorp.com/dbeng/cscripts/cli/cli_get_cdb_attributes.sql hcg:HC_DATABASE > cdb_attributes.txt
-cut -b 79- cdb_attributes.txt | sort | uniq > cdb_attributes.sql
-*/    
+ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';   
 /* ------------------------------------------------------------------------------------ */
 --
 VAR u02_size NUMBER;
@@ -179,7 +175,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        :pdb_count AS pdbs,
        (SELECT COUNT(DISTINCT con_id) FROM cdb_tables WHERE table_name = 'KIEVDATASTOREMETADATA') AS kiev_pdbs,
        (SELECT COUNT(DISTINCT con_id) FROM cdb_tables WHERE table_name = 'STEPINSTANCES') AS wf_pdbs,
-       (SELECT SUM(CASE WHEN UPPER(c.name) LIKE '%CASPER%' OR UPPER(c.name) LIKE '%TENANT%' OR LOWER(i.host_name) LIKE '%casper%' THEN 1 ELSE 0 END) FROM v$containers c WHERE con_id > 2) AS casper_pdbs
+       (SELECT SUM(CASE WHEN UPPER(c.name) LIKE '%CASPER%' OR UPPER(c.name) LIKE '%TENANT%' OR LOWER(i.host_name) LIKE '%casper%' THEN 1 ELSE 0 END) FROM v$containers c) AS casper_pdbs
   FROM v$instance i, v$database d, v$parameter p1
  WHERE p1.name = 'db_domain'
 )

@@ -155,3 +155,5 @@ PRO
 HOST rm "/tmp/cs_pr_set_config.sql" "/tmp/cs_pr_last_executed.sql" "/tmp/cs_pr_inline_query.sql";
 SET TERM ON;
 --
+-- from cs_ash_sample_detail.sql and cs_blocked_sessions_report.sql
+UNDEF sid session sample_date_and_time

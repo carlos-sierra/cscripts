@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/17
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -80,6 +80,7 @@ COL spbl FOR 9999;
 COL sprf FOR 9999;
 COL spch FOR 9999;
 COL first_load_time FOR A19;
+COL last_load_time FOR A19;
 COL last_active_time FOR A19;
 COL sqlid FOR A5 HEA 'SQLHV';
 COL len FOR 99990 HEA 'LENGHT';
@@ -90,10 +91,10 @@ COL please_stop NEW_V please_stop NOPRI;
 DEF please_stop = '';
 --
 SELECT /* &&cs_script_name. */
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0') AS sqlid,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        --(SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        t.table_num_rows,
@@ -116,6 +117,7 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
        MIN(s.first_load_time) first_load_time,
+       MAX(s.last_load_time) last_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -127,9 +129,9 @@ SELECT /* &&cs_script_name. */
               AND     d.from_address = s.address
               AND     d.to_type = 2 -- table
               AND     d.to_owner <> 'SYS'
-              AND     d.to_owner NOT LIKE 'C##%'
               AND     u.username = d.to_owner
               AND     u.oracle_maintained = 'N'
+              AND     u.common = 'NO'
               AND     t.owner = d.to_owner
               AND     t.table_name = d.to_name
           ) t,
@@ -147,7 +149,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -161,14 +163,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0') AS sqlid,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        --(SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        t.table_num_rows,
@@ -191,6 +193,7 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
        MIN(s.first_load_time) first_load_time,
+       MAX(s.last_load_time) last_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -202,9 +205,9 @@ SELECT /* &&cs_script_name. */
               AND     d.from_address = s.address
               AND     d.to_type = 2 -- table
               AND     d.to_owner <> 'SYS'
-              AND     d.to_owner NOT LIKE 'C##%'
               AND     u.username = d.to_owner
               AND     u.oracle_maintained = 'N'
+              AND     u.common = 'NO'
               AND     t.owner = d.to_owner
               AND     t.table_name = d.to_name
           ) t,
@@ -222,7 +225,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -236,14 +239,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0') AS sqlid,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        --(SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND t.owner = s.parsing_schema_name AND t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        t.table_num_rows,
@@ -266,6 +269,7 @@ SELECT /* &&cs_script_name. */
        COUNT(DISTINCT s.sql_profile) sprf,
        COUNT(DISTINCT s.sql_patch) spch,
        MIN(s.first_load_time) first_load_time,
+       MAX(s.last_load_time) last_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -277,9 +281,9 @@ SELECT /* &&cs_script_name. */
               AND     d.from_address = s.address
               AND     d.to_type = 2 -- table
               AND     d.to_owner <> 'SYS'
-              AND     d.to_owner NOT LIKE 'C##%'
               AND     u.username = d.to_owner
               AND     u.oracle_maintained = 'N'
+              AND     u.common = 'NO'
               AND     t.owner = d.to_owner
               AND     t.table_name = d.to_name
           ) t,
@@ -296,7 +300,7 @@ SELECT /* &&cs_script_name. */
    AND s.last_active_time > SYSDATE - (&&last_active_hours. / 24)
  GROUP BY
        s.sql_id,
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0'),
+       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END,s.parsing_schema_name)),100000),5,'0'),
        DBMS_LOB.GETLENGTH(s.sql_fulltext),
        DBMS_LOB.instr(s.sql_fulltext, 'WHERE'),
        s.parsing_schema_name,
@@ -310,14 +314,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
        LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
@@ -328,14 +332,6 @@ SELECT /* &&cs_script_name. */
        ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
-       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
-       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
-       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
-       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
-       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
-       --COUNT(DISTINCT s.sql_profile) sprf,
-       --COUNT(DISTINCT s.sql_patch) spch,
-       --MIN(s.first_load_time) first_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -364,14 +360,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
        LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
@@ -382,14 +378,6 @@ SELECT /* &&cs_script_name. */
        ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
-       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
-       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
-       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
-       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
-       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
-       --COUNT(DISTINCT s.sql_profile) sprf,
-       --COUNT(DISTINCT s.sql_patch) spch,
-       --MIN(s.first_load_time) first_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -418,14 +406,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
        LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
-       s.sql_id,
        DBMS_LOB.getlength(s.sql_fulltext) len,
        DBMS_LOB.getlength(s.sql_fulltext) - DBMS_LOB.instr(s.sql_fulltext, 'WHERE') + 1 prd,
+       s.sql_id,
        SUBSTR(REPLACE(s.sql_text, CHR(10), CHR(32)), 1, 80) sql_text_80,
        (SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ t.num_rows FROM cdb_tables t WHERE t.con_id = s.con_id AND /*t.owner = s.parsing_schema_name AND*/ t.table_name = UPPER(SUBSTR(s.sql_text, INSTR(s.sql_text, '(') + 1, INSTR(s.sql_text, ',') - INSTR(s.sql_text, '(') - 1)) AND ROWNUM = 1) AS num_rows,
        SUM(s.elapsed_time)/1e6 db_time_secs,
@@ -436,14 +424,6 @@ SELECT /* &&cs_script_name. */
        ROUND(SUM(s.buffer_gets)/NULLIF(SUM(s.rows_processed),0)) AS bg_per_row,
        s.plan_hash_value,
        COUNT(*) curs,
-       --SUM(CASE WHEN s.object_status LIKE 'VALID%' THEN 1 ELSE 0 END) val,
-       --SUM(CASE WHEN s.object_status LIKE 'INVALID%' THEN 1 ELSE 0 END) invl,
-       --SUM(CASE WHEN s.is_obsolete = 'Y' THEN 1 ELSE 0 END) obsl,
-       --SUM(CASE WHEN s.is_shareable = 'Y' THEN 1 ELSE 0 END) shar,
-       --COUNT(DISTINCT s.sql_plan_baseline) spbl,
-       --COUNT(DISTINCT s.sql_profile) sprf,
-       --COUNT(DISTINCT s.sql_patch) spch,
-       --MIN(s.first_load_time) first_load_time,
        MAX(s.last_active_time) last_active_time,
        c.name||'('||s.con_id||')' pdb_name,
        'Y' please_stop
@@ -471,14 +451,14 @@ HAVING NVL(SUM(s.executions), 0) BETWEEN &&executions_min. AND &&executions_max.
    AND NVL(SUM(s.elapsed_time)/NULLIF(SUM(s.executions),0)/1e3, 0) BETWEEN &&ms_per_exec_min. AND &&ms_per_exec_max.
    AND NVL(SUM(s.rows_processed)/NULLIF(SUM(s.executions),0), 0) BETWEEN &&rows_per_exec_min. AND &&rows_per_exec_max.
  ORDER BY
-       1
+       sqlid, len, prd, sql_id, db_time_secs DESC
 /
 --
 SELECT /* &&cs_script_name. */
        LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid,
-       h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
+       h.sql_id,
        REPLACE(DBMS_LOB.substr(h.sql_text, 80), CHR(10), CHR(32)) sql_text_80,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
@@ -502,14 +482,14 @@ SELECT /* &&cs_script_name. */
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND h.sql_id = '&&search_string.'
  ORDER BY
-       1
+       sqlid, len, prd, sql_id
 /
 --
 SELECT /* &&cs_script_name. */
        LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN h.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(h.sql_text, '\[([[:digit:]]{4})\] ') ELSE h.sql_text END),100000),5,'0') AS sqlid,
-       h.sql_id,
        DBMS_LOB.getlength(h.sql_text) len,
        DBMS_LOB.getlength(h.sql_text) - DBMS_LOB.instr(h.sql_text, 'WHERE') + 1 prd,
+       h.sql_id,
        REPLACE(DBMS_LOB.substr(h.sql_text, 80), CHR(10), CHR(32)) sql_text_80,
        c.name||'('||h.con_id||')' pdb_name,
        'Y' please_stop
@@ -532,7 +512,7 @@ SELECT /* &&cs_script_name. */
    AND TRIM(TRANSLATE('&&search_string.', ' 0123456789', ' ')) IS NOT NULL -- some alpha
    AND UPPER(DBMS_LOB.substr(h.sql_text, 1000)) LIKE UPPER('%&&search_string.%') -- case insensitive
  ORDER BY
-       1
+       sqlid, len, prd, sql_id
 /
 --
 PRO

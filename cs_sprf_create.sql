@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/03/03
+-- Version:     2022/10/06
 --
 -- Usage:       Connecting into PDB.
 --
@@ -36,8 +36,10 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
+@@cs_internal/&&cs_zapper_sprf_export.
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_sprf_internal_list.sql
 --
 PRO
@@ -63,7 +65,6 @@ SET HEA ON;
 --
 SET SERVEROUT ON;
 DECLARE
-  l_sql_fulltext CLOB;
   l_other_xml CLOB;
   l_hint VARCHAR2(32767);
   l_index INTEGER := 1;
@@ -71,15 +72,12 @@ DECLARE
   l_count INTEGER;
   l_profile_attr SYS.SQLPROF_ATTR := SYS.SQLPROF_ATTR('BEGIN_OUTLINE_DATA');
 BEGIN
-  SELECT sql_fulltext INTO l_sql_fulltext FROM v$sql WHERE sql_id = '&&cs_sql_id.' AND ROWNUM = 1;
-  DBMS_OUTPUT.put_line('got sql text from v$sql');
-  --
   BEGIN
     SELECT other_xml INTO l_other_xml FROM v$sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL ORDER BY id FETCH FIRST 1 ROW ONLY;
     DBMS_OUTPUT.put_line('got other_xml from v$sql_plan');
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-      SELECT other_xml INTO l_other_xml FROM dba_hist_sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND other_xml IS NOT NULL ORDER BY id FETCH FIRST 1 ROW ONLY;
+      SELECT other_xml INTO l_other_xml FROM dba_hist_sql_plan WHERE sql_id = '&&cs_sql_id.' AND plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.') AND dbid = TO_NUMBER('&&cs_dbid.') AND other_xml IS NOT NULL ORDER BY id FETCH FIRST 1 ROW ONLY;
       DBMS_OUTPUT.put_line('got other_xml from dba_hist_sql_plan');
   END;
   --
@@ -117,7 +115,7 @@ BEGIN
   SELECT COUNT(*) INTO l_count FROM dba_sql_profiles WHERE signature = TO_NUMBER('&&cs_signature.') AND name = 'sprf_&&cs_sql_id._&&cs_plan_hash_value.';
   IF l_count = 0 THEN
     DBMS_SQLTUNE.import_sql_profile(
-        sql_text    => l_sql_fulltext,
+        sql_text    => :cs_sql_text,
         profile     => l_profile_attr,
         name        => 'sprf_&&cs_sql_id._&&cs_plan_hash_value.',
         description => 'cs_sprf_create.sql &&cs_sql_id. &&cs_plan_hash_value. &&cs_reference_sanitized.',

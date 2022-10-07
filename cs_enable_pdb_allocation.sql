@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/01/21
+-- Version:     2022/02/04
 --
 -- Usage:       Execute connected to CDB
 --
@@ -14,6 +14,8 @@
 --              SQL> @cs_enable_pdb_allocation.sql
 --
 ---------------------------------------------------------------------------------------
+--
+DEF cs_tools_schema = 'C##IOD';
 --
 WHENEVER SQLERROR EXIT SUCCESS;
 DECLARE
@@ -34,7 +36,7 @@ COL reference NEW_V reference FOR A30 NOPRI;
 SELECT UPPER(TRIM('&&reference.')) AS reference FROM DUAL
 /
 SET SERVEROUT ON;
-EXEC C##IOD.iod_rsrc_mgr.enable_pdb_allocation(p_reference => '&&reference.');
+EXEC &&cs_tools_schema..iod_rsrc_mgr.enable_pdb_allocation(p_reference => '&&reference.');
 SPO OFF;
 CLEAR COLUMNS;
 SET SERVEROUT OFF;

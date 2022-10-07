@@ -16,6 +16,7 @@ COL sample_size FOR 999,999,999,990 HEA 'Sample Size';
 COL last_analyzed FOR A19 HEA 'Last Analyzed';
 COL compression FOR A12 HEA 'Compression';
 COL tablespace_name FOR A30 HEA 'Tablespace';
+COL rn FOR 999;
 --
 PRO
 PRO TABLES (dba_tables)
@@ -112,7 +113,7 @@ COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 --
 PRO
-PRO TABLE OBJECTS (dba_objects) up to 100 
+PRO TABLE OBJECTS (dba_objects) up to 1000
 PRO ~~~~~~~~~~~~~
 WITH /* OBJECTS */
 v_sqlarea_m AS (
@@ -171,7 +172,7 @@ SELECT o.object_type,
        o.object_type,
        o.owner,
        o.object_name
-FETCH FIRST 100 ROWS ONLY       
+FETCH FIRST 1000 ROWS ONLY       
 /
 --
 COL object_type HEA 'Object Type';
@@ -181,13 +182,16 @@ COL object_name FOR A30 HEA 'Object Name' TRUNC;
 COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 COL analyzetime FOR A19 HEA 'Analyze Time';
+COL savtime FOR A23 HEA 'Saved Time';
 COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
 COL blkcnt FOR 999,999,990 HEA 'Block Count';
 COL avgrln FOR 999,999,990 HEA 'Avg Row Len';
 COL samplesize FOR 999,999,999,990 HEA 'Sample Size';
 --
+BREAK ON object_id SKIP 1 ON owner ON object_name ON created ON last_ddl_time;
+--
 PRO
-PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) up to 100 
+PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) up to 100 per Table
 PRO ~~~~~~~~~~~~~~~~~~~~~~
 WITH /* OBJECTS */
 v_sqlarea_m AS (
@@ -230,18 +234,21 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
 --    AND t.table_name = c.object_name 
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
-)
-SELECT o.object_type,
+),
+dba_tables_o AS (
+SELECT --o.object_type,
        o.owner,
        o.object_name,
        o.object_id,
-       TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
-       TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time,
-       TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       o.created,
+       o.last_ddl_time,
+       h.analyzetime,
+       h.savtime,
        h.rowcnt,
        h.blkcnt,
        h.avgrln,
-       h.samplesize
+       h.samplesize,
+       ROW_NUMBER() OVER (PARTITION BY o.object_id ORDER BY h.analyzetime DESC NULLS LAST, h.savtime DESC NULLS LAST) AS rn
   FROM dba_tables_m t,
        dba_objects o,
        wri$_optstat_tab_history h
@@ -249,12 +256,34 @@ SELECT o.object_type,
    AND o.object_name = t.table_name
    AND o.object_type = 'TABLE'
    AND h.obj# = o.object_id
-   AND h.analyzetime IS NOT NULL
- ORDER BY
-       o.object_type,
+)
+SELECT DISTINCT
+       --o.object_type,
        o.owner,
        o.object_name,
-       h.analyzetime
-FETCH FIRST 100 ROWS ONLY       
+       o.object_id,
+       TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
+       TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time,
+       TO_CHAR(o.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       TO_CHAR(o.savtime, '&&cs_timestamp_full_format.') AS savtime,
+       o.rowcnt,
+       o.blkcnt,
+       o.avgrln,
+       o.samplesize
+     --   o.rn
+  FROM dba_tables_o o
+ WHERE o.rn <= 100
+--    AND h.analyzetime IS NOT NULL
+ ORDER BY 1, 2, 3, 4, 5, 6 NULLS FIRST, 7 NULLS FIRST
+       --o.object_type,
+     --   o.owner,
+     --   o.object_name,
+     --   o.object_id,
+     --   o.created,
+     --   o.last_ddl_time,
+     --   o.analyzetime NULLS FIRST,
+     --   o.savtime NULLS FIRST
+-- FETCH FIRST 1000 ROWS ONLY       
 /
 --
+CLEAR BREAK;

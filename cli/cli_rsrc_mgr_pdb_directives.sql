@@ -1,4 +1,4 @@
-SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 SERVEROUT OFF;
+SET TERM ON HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 --
 COL comments FOR A100;
 COL pluggable_database FOR A30;
@@ -16,8 +16,9 @@ SELECT utilization_limit,
  WHERE plan = 'IOD_CDB_PLAN'
    AND mandatory = 'NO'
    AND directive_type = 'PDB'
-   AND utilization_limit > 32
-   AND NVL(comments, '-666') NOT LIKE '%NEW%'
+   AND utilization_limit > 8
+   AND (pluggable_database LIKE '%DEV%' OR pluggable_database LIKE '%TEST%')
+  --  AND NVL(comments, '-666') NOT LIKE '%NEW%'
  ORDER BY 
        pluggable_database
 /

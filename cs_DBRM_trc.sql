@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2022/09/08
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -23,6 +23,11 @@
 COL trace_dir NEW_V trace_dir FOR A100 NOPRI;
 COL dbrm_trc NEW_V dbrm_trc FOR A30 NOPRI;
 SELECT d.value AS trace_dir, LOWER('&&cs_db_name._')||LOWER(p.pname)||'_'||p.spid||'.trc' AS dbrm_trc FROM v$diag_info d, v$process p WHERE d.name = 'Diag Trace' AND p.pname = 'DBRM';
+--
+HOS cat &&trace_dir./&&dbrm_trc.
+PRO 
+PRO &&trace_dir./&&dbrm_trc.
+PRO
 HOS cp &&trace_dir./&&dbrm_trc. /tmp/
 HOS chmod 644 /tmp/&&dbrm_trc.
 PRO

@@ -28,7 +28,7 @@ DEF view_name_prefix = 'v$sysmetric';
 DEF common_predicate = "SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT'";
 DEF cs_script_name = 'cs_some_sysmetric_for_cdb_mem_chart';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL metric_name FOR A45 TRUN;
 COL metric_unit FOR A41 TRUN;
@@ -276,7 +276,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

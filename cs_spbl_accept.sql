@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -37,22 +37,14 @@ SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO
 PRO 2. PLAN_NAME (opt):
 DEF cs_plan_name = '&2.';
 UNDEF 2;
---
-DEF cs_plan_id = '';
-COL cs_plan_id NEW_V cs_plan_id NOPRI;
-SELECT TO_CHAR(plan_id) cs_plan_id
-  FROM sys.sqlobj$
- WHERE obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
-   AND signature = TO_NUMBER('&&cs_signature.')
-   AND name = '&&cs_plan_name.'
-/
 PRO
 --
 @@cs_internal/cs_spool_head.sql
@@ -65,13 +57,13 @@ PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.
 PRO PLAN_NAME    : "&&cs_plan_name."
-PRO PLAN_ID      : "&&cs_plan_id."
 --
 SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO

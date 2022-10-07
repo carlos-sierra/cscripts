@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2022/07/20
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -19,22 +19,22 @@
 --
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
-
+--
 SELECT SUM(blocks) AS blocks,
        COUNT(DISTINCT session_addr) AS sessions,
-       sql_id, segtype, tablespace
+       sql_id, sql_id_tempseg, segtype, tablespace
   FROM v$tempseg_usage
  GROUP BY
-       sql_id, segtype, tablespace
+       sql_id, sql_id_tempseg, segtype, tablespace
  ORDER BY
        1 DESC
 /
-
+--
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
 
-COL age_secs FOR 999,990;
-COL last_call_secs FOR 999,990;
+COL age_secs FOR 999,999,990;
+COL last_call_secs FOR 999,999,990;
 COL sid_serial FOR A13;
 COL mbs FOR 999,990 HEA 'MBs';
 --
@@ -47,6 +47,9 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
        s.last_call_et AS last_call_secs,
        s.status,
        s.sid||','||s.serial# AS sid_serial,
+       s.type,
+       s.sql_id,
+       s.prev_sql_id,
        SUM(t.blocks * block_size)/1e6 AS mbs
   FROM v$tempseg_usage t,
        v$session s,
@@ -57,8 +60,8 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
    AND c.con_id = t.con_id
    AND c.tablespace_name = t.tablespace
  GROUP BY
-       s.machine, s.logon_time, s.last_call_et, s.status, s.sid, s.serial#
+       s.machine, s.logon_time, s.last_call_et, s.status, s.sid, s.serial#, s.type, s.sql_id, s.prev_sql_id
  ORDER BY
-       s.machine, s.logon_time, s.last_call_et, s.status, s.sid, s.serial#
+       s.machine, s.logon_time, s.last_call_et, s.status, s.sid, s.serial#, s.type, s.sql_id, s.prev_sql_id
 /
 

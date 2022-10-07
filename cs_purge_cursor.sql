@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -48,7 +48,8 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 --
 -- DEF plan_name_backup = '';
 -- COL plan_name_backup NEW_V plan_name_backup NOPRI;
@@ -95,7 +96,8 @@ SET SERVEROUT ON;
 @@cs_internal/cs_internal_purge_cursor "&&cs_sql_id."
 SET SERVEROUT OFF;
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." 

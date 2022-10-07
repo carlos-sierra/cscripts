@@ -27,7 +27,7 @@ SET PAGES 1000;
 @@cs_internal/cs_kiev_meta_warn.sql
 @@cs_internal/cs_file_prefix.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT DISTINCT
        table_name
@@ -39,14 +39,14 @@ SELECT DISTINCT
        table_name
 /
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO 1. Table Name: (opt)
 DEF table_name = '&1.';
 UNDEF 1;
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT DISTINCT
        index_name
@@ -61,7 +61,7 @@ SELECT DISTINCT
        index_name
 /
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO 2. Index Name: (opt)
@@ -129,7 +129,7 @@ SELECT CASE WHEN '&&table_name.' IS NOT NULL THEN '_&&table_name.' END||CASE WHE
 --
 DEF cs_script_name = 'cs_kiev_indexes_report';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.&&cs_file_suffix.' cs_file_name FROM DUAL;
 --
@@ -388,7 +388,7 @@ BEGIN
                   MAX(visibility) AS visibility,
                   MAX(leaf_blocks) AS leaf_blocks,
                   MAX(tablespace_name) AS tablespace_name, 
-                  LISTAGG(UPPER(column_name), ', ') WITHIN GROUP (ORDER BY k_column_position) AS columns_list
+                  LISTAGG(UPPER(column_name), ', ' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY k_column_position) AS columns_list
               FROM &&cs_tools_schema..kiev_ind_columns_v
             WHERE &&cs_con_id. IN (1, con_id)
               AND '&&cs_con_name.' IN ('CDB$ROOT', pdb_name)
@@ -534,7 +534,7 @@ BEGIN
   DBMS_OUTPUT.put_line('SPO OFF;');
   --
   IF '&&cs_con_name.' = 'CDB$ROOT' THEN
-    DBMS_OUTPUT.put_line('ALTER SESSION SET CONTAINER = CDB$ROOT;');
+    DBMS_OUTPUT.put_line('@@cs_internal/&&cs_set_container_to_cdb_root.');
   END IF;
   --
   DBMS_OUTPUT.put_line('PRO');
@@ -565,7 +565,7 @@ PRO
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

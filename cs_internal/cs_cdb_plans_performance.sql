@@ -1,3 +1,4 @@
+-- cs_cdb_plans_performance.sql: called by multiple cs_sprf*, cs_spch*, cs_spbl*, and by: cs_planx.sql, cs_sqlperf.sql and cs_purge_cursor.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL avg_et_ms_awr FOR 99,999,990.000 HEA 'Avg Elapsed|Time AWR (ms)';
@@ -13,9 +14,9 @@ COL executions_awr FOR 999,999,999,999 HEA 'Executions|AWR';
 COL executions_mem FOR 999,999,999,999 HEA 'Executions|MEM';
 COL min_cost FOR 9,999,999,999 HEA 'MIN Cost';
 COL max_cost FOR 9,999,999,999 HEA 'MAX Cost';
-COL nl FOR 99;
-COL hj FOR 99;
-COL mj FOR 99;
+COL nl FOR 999;
+COL hj FOR 999;
+COL mj FOR 999;
 COL p100_et_ms FOR 99,999,990.000 HEA 'ET 100th|Pctl (ms)';
 COL p99_et_ms FOR 99,999,990.000 HEA 'ET 99th|Pctl (ms)';
 COL p97_et_ms FOR 99,999,990.000 HEA 'ET 97th|Pctl (ms)';

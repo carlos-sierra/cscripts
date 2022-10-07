@@ -3,7 +3,7 @@ COL name FOR A30;
 COL category FOR A30;
 COL status FOR 99999999;
 COL last_modified FOR A19;
-COL description FOR A125;
+COL description FOR A100 HEA 'Description' WOR;
 --
 PRO
 PRO SQL PROFILES ON STAGING TABLE (&&cs_stgtab_owner..&&cs_stgtab_prefix._stgtab_sqlprof)

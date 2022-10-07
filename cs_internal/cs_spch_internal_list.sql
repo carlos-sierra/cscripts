@@ -8,7 +8,7 @@ COL name FOR A30;
 COL category FOR A30;
 COL status FOR A8;
 COL last_modified FOR A19;
-COL description FOR A125;
+COL description FOR A100 HEA 'Description' WOR;
 COL outline_hint FOR A125;
 --
 PRO
@@ -30,14 +30,5 @@ SELECT TO_CHAR(s.created, '&&cs_datetime_full_format.') AS created,
        s.created, s.con_id, s.name
 /
 --
--- PRO
--- PRO CBO_HINTS
--- PRO ~~~~~~~~~
--- BREAK ON category SKIP PAGE DUPL; 
--- SELECT d.category, x.outline_hint
---   FROM sys.sqlobj$data d,
---        XMLTABLE('/outline_data/hint' PASSING XMLTYPE(d.comp_data) COLUMNS outline_hint VARCHAR2(500) PATH '.') x
---  WHERE d.obj_type = 3 /* 1:profile, 2:baseline, 3:patch */ 
---    AND d.signature = :cs_signature
--- /
--- CLEAR BREAK;
+DEF cs_obj_type = '3';
+@@&&cs_list_cbo_hints.

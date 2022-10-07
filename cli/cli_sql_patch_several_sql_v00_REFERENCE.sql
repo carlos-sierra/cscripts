@@ -8,7 +8,7 @@ iodcli sql_exec -y -t PRIMARY -r SEA -p "KAAS_2022_TDE_19C%" file:/Users/csierra
 */
 DECLARE
   l_cs_reference VARCHAR2(30) := 'KIEV19c';
-  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]';
+  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1)]';
   l_update CHAR(1) := 'Y'; -- N|Y
 --
   l_count NUMBER;

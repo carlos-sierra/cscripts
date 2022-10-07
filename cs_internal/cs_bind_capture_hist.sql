@@ -1,7 +1,7 @@
 --
 /****************************************************************************************/
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@&&cs_set_container_to_cdb_root.
 --
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
@@ -50,7 +50,7 @@ SELECT  DISTINCT -- view contains duplicates!
 --
 CL BRE;
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@&&cs_set_container_to_curr_pdb.
 --
 /****************************************************************************************/
 --

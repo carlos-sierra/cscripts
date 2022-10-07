@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/03/11
+-- Version:     2022/05/27
 --
 -- Usage:       Connecting into PDB
 --
@@ -80,7 +80,7 @@ AND     s.buffer_gets > s.executions
 AND     s.object_status = 'VALID'
 AND     s.is_obsolete = 'N'
 AND     s.is_shareable = 'Y'
-AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
+-- AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
 AND     s.is_resolved_adaptive_plan IS NULL -- to ignore adaptive plans which cause trouble when combined with SPM
 AND     s.is_reoptimizable = 'N' -- to ignore cursors which require adjustments as per cardinality feedback  
 AND     s.last_active_time > SYSDATE - (1/24)
@@ -126,7 +126,7 @@ AND     s.buffer_gets > s.executions
 AND     s.object_status = 'VALID'
 AND     s.is_obsolete = 'N'
 AND     s.is_shareable = 'Y'
-AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
+-- AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
 AND     s.is_resolved_adaptive_plan IS NULL -- to ignore adaptive plans which cause trouble when combined with SPM
 AND     s.is_reoptimizable = 'N' -- to ignore cursors which require adjustments as per cardinality feedback  
 AND     s.last_active_time > SYSDATE - (1/24)

@@ -36,10 +36,14 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.session_state,
        h.wait_class,
        h.event,
-       COALESCE(h.sql_id, '"null"') AS sql_id,
+       COALESCE(h.sql_id, h.top_level_sql_id, '"null"') AS sql_id,
        COUNT(*) AS active_sessions
   FROM dba_hist_active_sess_history h
- WHERE '&&include_hist.' = 'Y'
+ WHERE 1 = 1
+   AND '&&include_hist.' = 'Y'
+   AND h.dbid = &&cs_dbid. AND h.instance_number = &&cs_instance_number. AND h.snap_id BETWEEN &&cs_snap_id_from. AND &&cs_snap_id_to. 
+  --  AND TO_NUMBER('&&cs_con_id.') IN (1, h.con_id)
+   AND (TO_NUMBER('&&cs_con_id.') IN (0, 1, h.con_id) OR h.con_id IN (0, 1)) -- now we include CDB$ROOT samples when executed from a PDB
    AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ROWNUM >= 1 /* MATERIALIZE */
@@ -49,7 +53,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.session_state,
        h.wait_class,
        h.event,
-       COALESCE(h.sql_id, '"null"')
+       COALESCE(h.sql_id, h.top_level_sql_id, '"null"')
 UNION
 SELECT /*+ MATERIALIZE NO_MERGE */
        h.sample_time,
@@ -57,10 +61,13 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.session_state,
        h.wait_class,
        h.event,
-       COALESCE(h.sql_id, '"null"') AS sql_id,
+       COALESCE(h.sql_id, h.top_level_sql_id, '"null"') AS sql_id,
        COUNT(*) AS active_sessions
   FROM v$active_session_history h
- WHERE '&&include_mem.' = 'Y'
+ WHERE 1 = 1
+   AND '&&include_mem.' = 'Y'
+  --  AND TO_NUMBER('&&cs_con_id.') IN (1, h.con_id)
+   AND (TO_NUMBER('&&cs_con_id.') IN (0, 1, h.con_id) OR h.con_id IN (0, 1)) -- now we include CDB$ROOT samples when executed from a PDB
    AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ROWNUM >= 1 /* MATERIALIZE */
@@ -70,7 +77,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.session_state,
        h.wait_class,
        h.event,
-       COALESCE(h.sql_id, '"null"')
+       COALESCE(h.sql_id, h.top_level_sql_id, '"null"')
 ),
 time_dim AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -171,7 +178,7 @@ SELECT t.sample_time,
        t.e,
        s.active_sessions AS s_active_sessions,
        s.sql_id,
-       (SELECT /*+ NO_MERGE */ v.sql_text FROM v$sql v WHERE s.sql_id <> '"null"' AND v.sql_id = s.sql_id AND ROWNUM = 1 /* MATERIALIZE */) AS sql_text,
+       (SELECT /*+ NO_MERGE */ REPLACE(v.sql_text, CHR(39)) FROM v$sql v WHERE s.sql_id <> '"null"' AND v.sql_id = s.sql_id AND ROWNUM = 1 /* MATERIALIZE */) AS sql_text,
        e.active_sessions AS e_active_sessions,
        e.session_state,
        e.wait_class,
@@ -248,7 +255,7 @@ END IF;
 COMMIT;
 END;
 /
-SET HEA ON PAGES 100 SERVEROUT OFF;
+SET HEA ON PAGES 5000 SERVEROUT OFF;
 PRO NOTE: Sum of Active Sessions per AWR sampled time, when greater than &&times_cpu_cores.x NUM_CPU_CORES(&&cs_num_cpu_cores.). Report includes for each sampled time Top #1: SQL, Timed Event and PDB; with corresponding Sum of Active Sessions for each of these 3 dimensions.
 
 /*

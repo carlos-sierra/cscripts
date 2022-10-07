@@ -1,7 +1,8 @@
+ALTER SESSION SET CONTAINER = CDB$ROOT;
 SET SERVEROUT ON HEA OFF PAGES 0 LIN 300;
 SPO /tmp/drop_sql_plan_baselines_driver.sql;
 DECLARE
-  l_plans NUMBER;
+  l_plans NUMBER; 
 BEGIN
   FOR i IN (WITH
             b AS (SELECT /*+ MATERIALIZE NO_MERGE OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ DISTINCT con_id, signature, sql_handle FROM cdb_sql_plan_baselines WHERE enabled = 'YES' AND accepted = 'YES' AND created < SYSDATE - 1 AND con_id > 2 AND ROWNUM >= 1),

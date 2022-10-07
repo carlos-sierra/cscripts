@@ -57,22 +57,22 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
    AND t.table_name = o.to_name 
    AND t.num_rows < 25e6
 )
---SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
+--SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
 --       'SELECT COUNT(*), '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
---       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' FROM '||i.table_owner||'.'||i.table_name||' GROUP BY '||
---       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
-SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
+--       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM '||i.table_owner||'.'||i.table_name||' GROUP BY '||
+--       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
+SELECT 'PRO'||CHR(10)||'PRO FROM TABLE AND INDEX '||i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~~~~~~~~~~~'||CHR(10)||
        CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN
        'WITH bucket AS (SELECT '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T)'       
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T)'       
        ELSE
        'WITH bucket AS (SELECT CAST(K.BEGINTIME AS DATE) AS begin_date, (CAST(K.BEGINTIME AS DATE) - LAG(CAST(K.BEGINTIME AS DATE)) OVER (PARTITION BY '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY T.KIEVTXNID)) * 24 * 3600 AS lag_secs,T.kievlive,'||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T, '||i.table_owner||'.KIEVTRANSACTIONS K WHERE K.COMMITTRANSACTIONID(+) = T.KIEVTXNID)'
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY T.KIEVTXNID)) * 24 * 3600 AS lag_secs,T.kievlive,'||CHR(10)||
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T, '||i.table_owner||'.KIEVTRANSACTIONS K WHERE K.COMMITTRANSACTIONID(+) = T.KIEVTXNID)'
        END||CHR(10)||
        'SELECT COUNT(*) AS row_count, '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'ROUND(AVG(lag_secs),3) AS avg_version_age_seconds, PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY lag_secs) AS p50_version_age_seconds, MIN(lag_secs) AS min_version_age_seconds, MAX(lag_secs) AS max_version_age_seconds, MIN(begin_date) AS min_date, MAX(begin_date) AS max_date, SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
-       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' FROM bucket GROUP BY '||
-       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
+       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM bucket GROUP BY '||
+       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
        AS dynamic_sql
   FROM dba_tables_m t,
        dba_indexes i,
@@ -87,6 +87,11 @@ SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTA
    AND c.column_name <> 'KIEVTXNID'
    AND c.column_name <> 'KIEVLIVE'
  GROUP BY
+       i.table_owner,
+       i.table_name,
+       i.owner,
+       i.index_name
+ ORDER BY
        i.table_owner,
        i.table_name,
        i.owner,

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/04/07
+-- Version:     2022/01/12
 --
 -- Usage:       Execute connected to PDB
 --
@@ -47,10 +47,16 @@ UNDEF 3;
 SELECT UPPER(NVL('&&kiev_owner.', '&&username.')) kiev_owner FROM DUAL
 /
 --
+@@cs_internal/cs_kiev_transactions_top_names.sql
 PRO
-PRO 4. Granularity: [{5MI}|SS|MI|15MI|HH|DD]
-DEF cs2_granularity = '&4.';
+PRO 4. Transaction Name - Prefix (opt):
+DEF cs2_transactionname_prefix = '&4.';
 UNDEF 4;
+--
+PRO
+PRO 5. Granularity: [{5MI}|SS|MI|15MI|HH|DD]
+DEF cs2_granularity = '&5.';
+UNDEF 5;
 COL cs2_granularity NEW_V cs2_granularity NOPRI;
 SELECT NVL(UPPER(TRIM('&&cs2_granularity.')), '5MI') cs2_granularity FROM DUAL;
 SELECT CASE WHEN '&&cs2_granularity.' IN ('SS', 'MI', '5MI', '15MI', 'HH', 'DD') THEN '&&cs2_granularity.' ELSE '5MI' END cs2_granularity FROM DUAL;
@@ -69,9 +75,9 @@ SELECT CASE '&&cs2_granularity.'
 /
 --
 PRO
-PRO 5. Metric: [{latency}|tps|count]
-DEF cs2_metric = '&5.';
-UNDEF 5;
+PRO 6. Metric: [{latency}|tps|count]
+DEF cs2_metric = '&6.';
+UNDEF 6;
 COL cs2_metric NEW_V cs2_metric NOPRI;
 SELECT NVL(LOWER(TRIM('&&cs2_metric.')), 'latency') cs2_metric FROM DUAL;
 SELECT CASE WHEN '&&cs2_metric.' IN ('latency', 'tps', 'count') THEN '&&cs2_metric.' ELSE 'latency' END cs2_metric FROM DUAL;
@@ -89,9 +95,9 @@ SELECT '--' cs2_latency, '//' cs2_latency2, '--' cs2_tps, '//' cs2_tps2, NULL cs
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'KIEV Transactions ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (aggregated by &&cs2_granularity.)';
+DEF report_title = 'KIEV Transactions "&&cs2_transactionname_prefix.%" ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (aggregated by &&cs2_granularity.)';
 DEF chart_title = '&&report_title.';
-DEF xaxis_title = 'metric:"&&cs2_metric."';
+DEF xaxis_title = 'transaction:"&&cs2_transactionname_prefix.%" metric:"&&cs2_metric."';
 DEF vaxis_title = '&&cs2_unit.';
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
@@ -103,7 +109,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "<br>2) Granularity: &&cs2_granularity. [{5MI}|SS|MI|15MI|HH|DD]";
 DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_granularity." "&&cs2_metric."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_transactionname_prefix." "&&cs2_granularity." "&&cs2_metric."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -162,6 +168,7 @@ SELECT kt.transactionid,
    AND kt.endtime > kt.begintime
    AND kt.endtime > TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') - INTERVAL '1' HOUR
    AND kt.endtime < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.') + INTERVAL '1' HOUR
+   AND kt.transactionname LIKE '&&cs2_transactionname_prefix.%'
 ),
 ktg AS (
 SELECT LAG(ceil_timestamp(kt.endtime)) OVER (ORDER BY ceil_timestamp(kt.endtime)) AS endtime_from,

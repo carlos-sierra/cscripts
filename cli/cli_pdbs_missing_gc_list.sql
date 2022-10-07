@@ -30,7 +30,7 @@ SELECT /*+ MATERIALIZE NO_MERGE OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
        cdb_tables t,
        v$containers c
  WHERE u.oracle_maintained = 'N'
-   AND u.username NOT LIKE 'C##%'
+   AND u.common = 'NO'
    AND u.con_id > 2
    AND t.con_id = u.con_id
    AND t.owner = u.username

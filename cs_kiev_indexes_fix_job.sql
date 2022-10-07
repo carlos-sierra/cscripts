@@ -7,7 +7,7 @@ REM Dummy line to avoid "usage: r_sql_exec" when executed using iodcli
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/09/23
+-- Version:     2021/11/29
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -21,7 +21,7 @@ REM Dummy line to avoid "usage: r_sql_exec" when executed using iodcli
 ---------------------------------------------------------------------------------------
 --
 WHENEVER OSERROR CONTINUE;
-WHENEVER SQLERROR EXIT FAILURE;
+-- WHENEVER SQLERROR EXIT FAILURE;
 --
 -- exit graciously if executed on standby
 WHENEVER SQLERROR EXIT SUCCESS;
@@ -76,7 +76,7 @@ FUNCTION application_category (
   p_sql_text     IN VARCHAR2, 
   p_command_name IN VARCHAR2 DEFAULT NULL
 )
-RETURN VARCHAR2 DETERMINISTIC
+RETURN VARCHAR2
 IS
   k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
@@ -253,6 +253,13 @@ BEGIN
   END IF;
 END application_category;
 /****************************************************************************************/
+FUNCTION get_sql_hv (p_sqltext IN CLOB)
+RETURN VARCHAR2
+IS
+BEGIN
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+END get_sql_hv;
+/****************************************************************************************/
 ash AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(COUNT(*) / (&&cs_minutes. * 60), 3) AS aas,
@@ -322,7 +329,8 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.
        a.aas,
        a.sessions,
        a.sql_id,
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') AS sqlid,
+      --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') AS sqlid,
+       get_sql_hv(a.sql_fulltext) AS sqlid,
        a.sql_plan_hash_value,
        s.version_count,
        a.has_baseline,
@@ -624,7 +632,7 @@ FUNCTION application_category (
   p_sql_text     IN VARCHAR2, 
   p_command_name IN VARCHAR2 DEFAULT NULL
 )
-RETURN VARCHAR2 DETERMINISTIC
+RETURN VARCHAR2
 IS
   k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
@@ -801,6 +809,13 @@ BEGIN
   END IF;
 END application_category;
 /****************************************************************************************/
+FUNCTION get_sql_hv (p_sqltext IN CLOB)
+RETURN VARCHAR2
+IS
+BEGIN
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+END get_sql_hv;
+/****************************************************************************************/
 ash AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        ROUND(COUNT(*) / (&&cs_minutes. * 60), 3) AS aas,
@@ -870,7 +885,8 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.
        a.aas,
        a.sessions,
        a.sql_id,
-       LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') AS sqlid,
+      --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') AS sqlid,
+       get_sql_hv(a.sql_fulltext) AS sqlid,
        a.sql_plan_hash_value,
        s.version_count,
        a.has_baseline,

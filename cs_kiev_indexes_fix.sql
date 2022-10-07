@@ -55,7 +55,7 @@ DEF misaligned_colums = 'Y';
 -- DEF extra_colums = 'N';
 -- DEF misaligned_colums = 'N';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SET TERM ON HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 SET HEA OFF PAGES 0 SERVEROUT ON;
@@ -88,7 +88,7 @@ BEGIN
                   MAX(visibility) AS visibility,
                   MAX(leaf_blocks) AS leaf_blocks,
                   MAX(tablespace_name) AS tablespace_name, 
-                  LISTAGG(UPPER(column_name), ', ') WITHIN GROUP (ORDER BY k_column_position) AS columns_list
+                  LISTAGG(UPPER(column_name), ', ' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY k_column_position) AS columns_list
               FROM &&cs_tools_schema..kiev_ind_columns_v
             WHERE &&cs_con_id. IN (1, con_id)
               AND '&&cs_con_name.' IN ('CDB$ROOT', pdb_name)
@@ -233,7 +233,7 @@ BEGIN
   DBMS_OUTPUT.put_line('SPO OFF;');
   --
   IF '&&cs_con_name.' = 'CDB$ROOT' THEN
-    DBMS_OUTPUT.put_line('ALTER SESSION SET CONTAINER = CDB$ROOT;');
+    DBMS_OUTPUT.put_line('@@cs_internal/&&cs_set_container_to_cdb_root.');
   END IF;
   --
   DBMS_OUTPUT.put_line('PRO');
@@ -247,7 +247,7 @@ SET HEA ON PAGES 100 SERVEROUT OFF;
 PRO
 PRO Review and Execute: &&cs_file_name._IMPLEMENTATION.sql
 PRO 
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@&&auto_execute_script..sql
 --

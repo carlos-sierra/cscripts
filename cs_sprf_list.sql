@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -51,7 +51,8 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_sprf_internal_list.sql
 --
 PRO
@@ -61,5 +62,3 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --
-
-

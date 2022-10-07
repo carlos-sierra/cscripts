@@ -44,15 +44,6 @@ PRO
 PRO 2. PLAN_NAME (opt):
 DEF cs_plan_name = '&2.';
 UNDEF 2;
---
-DEF cs_plan_id = '';
-COL cs_plan_id NEW_V cs_plan_id NOPRI;
-SELECT TO_CHAR(plan_id) cs_plan_id
-  FROM sys.sqlobj$
- WHERE obj_type = 2 /* 1:profile, 2:baseline, 3:patch */
-   AND signature = TO_NUMBER('&&cs_signature.')
-   AND name = '&&cs_plan_name.'
-/
 PRO
 --
 @@cs_internal/cs_spool_head.sql
@@ -63,7 +54,6 @@ PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO PLAN_NAME    : "&&cs_plan_name."
-PRO PLAN_ID      : "&&cs_plan_id."
 --
 SET HEA OFF;
 PRINT :cs_sql_text

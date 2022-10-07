@@ -72,6 +72,7 @@ SELECT plan_hash_value
 SELECT plan_hash_value
   FROM dba_hist_sql_plan
  WHERE sql_id = TRIM('&&sql_id.')
+   AND dbid = (SELECT dbid FROM v$database) 
    AND other_xml IS NOT NULL ),
 m AS (
 SELECT plan_hash_value,
@@ -241,6 +242,7 @@ BEGIN
                 FROM dba_hist_sql_plan
                WHERE sql_id = TRIM('&&sql_id.')
                  AND plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
+                 AND dbid = (SELECT dbid FROM v$database) 
                  AND other_xml IS NOT NULL
                ORDER BY
                      id)
@@ -285,6 +287,7 @@ BEGIN
                 FROM dba_hist_sql_plan
                WHERE plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
                --WHERE full_plan_hash_value = TO_NUMBER(TRIM('&&plan_hash_value.'))
+                 AND dbid = (SELECT dbid FROM v$database) 
                  AND other_xml IS NOT NULL
                ORDER BY
                      id)

@@ -42,7 +42,7 @@
 --
 DEF cs_script_name = 'cs_extents_map';
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT tablespace_name 
   FROM dba_tablespaces
@@ -254,7 +254,7 @@ ROLLBACK;
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

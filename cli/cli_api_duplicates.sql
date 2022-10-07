@@ -1,0 +1,1 @@
+SELECT API, COUNT(*) FROM c##iod.blackout_api GROUP BY api HAVING COUNT(*) > 1;

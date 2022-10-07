@@ -49,7 +49,7 @@ BEGIN
     AND     s.object_status = 'VALID'
     AND     s.is_obsolete = 'N'
     AND     s.is_shareable = 'Y'
-    AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
+    -- AND     s.is_bind_aware = 'N' -- to ignore cursors using adaptive cursor sharing ACS as per CHANGE-190522
     AND     s.is_resolved_adaptive_plan IS NULL -- to ignore adaptive plans which cause trouble when combined with SPM
     AND     s.last_active_time > SYSDATE - 1
     AND     s.con_id > 2

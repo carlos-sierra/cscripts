@@ -2,11 +2,11 @@
 --
 -- File name:   ma.sql | cs_max_ash_analytics.sql
 --
--- Purpose:     Poor-man's version of ASH Analytics for all Timed Events (Maximum Active Sessions MAS)
+-- Purpose:     Poor-man's version of ASH Analytics for all Timed Events (Maximum Active Sessions)
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/14
+-- Version:     2022/06/15
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -32,8 +32,21 @@ DEF cs_hours_range_default = '3';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
+PRO
+PRO 3. Function: [{max}|p50|p90|p95|p99|p100]
+DEF cs2_function = '&3.';
+UNDEF 3;
+COL cs2_function NEW_V cs2_function NOPRI;
+SELECT CASE WHEN LOWER(TRIM('&&cs2_function.')) IN ('max', 'p50', 'p90', 'p95', 'p99', 'p100') THEN LOWER(TRIM('&&cs2_function.')) ELSE 'max' END AS cs2_function FROM DUAL
+/
+COL cs2_expression NEW_V cs2_expression NOPRI;
+COL cs2_func_title NEW_V cs2_func_title NOPRI; 
+SELECT CASE '&&cs2_function.' WHEN 'max' THEN 'MAX(active_sessions)' ELSE 'PERCENTILE_DISC('||TRIM(TO_CHAR(TO_NUMBER(SUBSTR('&&cs2_function.', 2))/100, '0.00'))||') WITHIN GROUP (ORDER BY active_sessions)' END AS cs2_expression,
+       CASE '&&cs2_function.' WHEN 'max' THEN 'Maximum' ELSE '&&cs2_function. PCTL' END AS cs2_func_title
+  FROM DUAL
+/
 COL cs_ash_cut_off_date NEW_V cs_ash_cut_off_date NOPRI;
 SELECT TO_CHAR(CAST(PERCENTILE_DISC(0.05) WITHIN GROUP (ORDER BY sample_time) AS DATE) + (1/24), 'YYYY-MM-DD"T"HH24:MI') AS cs_ash_cut_off_date FROM v$active_session_history;
 --SELECT TO_CHAR(TRUNC(TRUNC(SYSDATE, 'HH') + FLOOR(TO_NUMBER(TO_CHAR(SYSDATE, 'MI')) / 15) * 15 / (24*60), 'MI'), 'YYYY-MM-DD"T"HH24:MI') AS cs_ash_cut_off_date FROM DUAL;
@@ -69,9 +82,9 @@ SELECT CASE
   FROM DUAL
 /
 PRO
-PRO 3. Granularity: &&cs2_granularity_list.
-DEF cs2_granularity = '&3.';
-UNDEF 3;
+PRO 4. Granularity: &&cs2_granularity_list.
+DEF cs2_granularity = '&4.';
+UNDEF 4;
 COL cs2_granularity NEW_V cs2_granularity NOPRI;
 SELECT NVL(LOWER(TRIM('&&cs2_granularity.')), '&&cs2_default_granularity.') cs2_granularity FROM DUAL;
 SELECT CASE 
@@ -121,7 +134,18 @@ COL cs2_samples NEW_V cs2_samples NOPRI;
 SELECT TO_CHAR(CEIL((TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.') - TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.')) / &&cs2_plus_days.)) AS cs2_samples FROM DUAL
 /
 --
-COL mas FOR 999,990 HEA 'Maximum Active|Sessions (MAS)';
+PRO
+PRO 5. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|top_level_sql_id|sid|blocking_session|current_obj#|module|pdb_name|p1|p2|p3]
+DEF cs2_dimension = '&5.';
+UNDEF 5;
+COL cs2_dimension NEW_V cs2_dimension NOPRI;
+-- SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
+SELECT CASE WHEN LOWER(TRIM('&&cs2_dimension.')) IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'sid', 'blocking_session', 'current_obj#', 'module', 'pdb_name', 'p1', 'p2', 'p3') THEN LOWER(TRIM('&&cs2_dimension.')) ELSE 'event' END cs2_dimension FROM DUAL;
+--
+COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
+SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
+--
+COL active_sessions FOR 999,990 HEA 'Active|Sessions';
 COL session_state FOR A13 HEA 'Session|State';
 --
 WITH
@@ -155,11 +179,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.session_state
 ), 
 ash_all AS (
-SELECT session_state, MAX(active_sessions) AS mas FROM ash_awr GROUP BY session_state
+SELECT session_state, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY session_state
  UNION ALL
-SELECT session_state, MAX(active_sessions) AS mas FROM ash_mem GROUP BY session_state
+SELECT session_state, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY session_state
 )
-SELECT MAX(mas) AS mas,
+SELECT MAX(active_sessions) AS active_sessions,
        session_state
   FROM ash_all
  GROUP BY
@@ -169,9 +193,9 @@ SELECT MAX(mas) AS mas,
 /
 --
 PRO
-PRO 4. Session State (opt):
-DEF cs2_session_state = '&4.';
-UNDEF 4;
+PRO 6. Session State (opt):
+DEF cs2_session_state = '&6.';
+UNDEF 6;
 DEF cs2_instruct_to_skip = '(opt)';
 COL cs2_instruct_to_skip NEW_V cs2_instruct_to_skip NOPRI;
 SELECT '(hit "Return" to skip this patameter since Session State is "ON CPU")' AS cs2_instruct_to_skip FROM DUAL WHERE '&&cs2_session_state.' = 'ON CPU'
@@ -218,11 +242,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.wait_class
 ), 
 ash_all AS (
-SELECT session_state, wait_class, MAX(active_sessions) AS mas FROM ash_awr GROUP BY session_state, wait_class
+SELECT session_state, wait_class, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY session_state, wait_class
  UNION ALL
-SELECT session_state, wait_class, MAX(active_sessions) AS mas FROM ash_mem GROUP BY session_state, wait_class
+SELECT session_state, wait_class, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY session_state, wait_class
 )
-SELECT MAX(mas) AS mas,
+SELECT MAX(active_sessions) AS active_sessions,
        wait_class,
        session_state
   FROM ash_all
@@ -234,9 +258,31 @@ SELECT MAX(mas) AS mas,
 /
 --
 PRO
-PRO 5. Wait Class &&cs2_instruct_to_skip.:
-DEF cs2_wait_class = '&5.';
-UNDEF 5;
+PRO 7. Wait Class &&cs2_instruct_to_skip.:
+DEF cs2_wait_class = '&7.';
+UNDEF 7;
+--
+COL cs2_group NEW_V cs2_group NOPRI;
+SELECT CASE '&&cs2_dimension.'
+         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
+         WHEN 'event' THEN CASE WHEN '&&cs2_wait_class.' IS NULL THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]' ELSE q'[h.event]' END
+         WHEN 'machine' THEN q'[h.machine]' 
+         WHEN 'sql_id' THEN q'[h.sql_id]' 
+         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
+         WHEN 'top_level_sql_id' THEN q'[h.top_level_sql_id]' 
+         WHEN 'sid' THEN q'[TO_CHAR(h.session_id)]' 
+        --  WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'  -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'blocking_session' THEN q'[TO_CHAR(h.blocking_session)]' 
+        --  WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]' -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'current_obj#' THEN q'[TO_CHAR(h.current_obj#)]'
+         WHEN 'module' THEN q'[h.module]' 
+         WHEN 'pdb_name' THEN q'[TO_CHAR(h.con_id)]'
+         WHEN 'p1' THEN q'[h.p1text||':'||h.p1]'
+         WHEN 'p2' THEN q'[h.p2text||':'||h.p2]'
+         WHEN 'p3' THEN q'[h.p3text||':'||h.p3]'
+       END AS cs2_group
+  FROM DUAL
+/
 --
 COL event HEA 'Event';
 --
@@ -285,11 +331,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.event
 ), 
 ash_all AS (
-SELECT session_state, wait_class, event, MAX(active_sessions) AS mas FROM ash_awr GROUP BY session_state, wait_class, event
+SELECT session_state, wait_class, event, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY session_state, wait_class, event
  UNION ALL
-SELECT session_state, wait_class, event, MAX(active_sessions) AS mas FROM ash_mem GROUP BY session_state, wait_class, event
+SELECT session_state, wait_class, event, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY session_state, wait_class, event
 )
-SELECT MAX(mas) AS mas,
+SELECT MAX(active_sessions) AS active_sessions,
        event,
        wait_class,
        session_state
@@ -304,9 +350,9 @@ SELECT MAX(mas) AS mas,
 /
 --
 PRO
-PRO 6. Event &&cs2_instruct_to_skip.:
-DEF cs2_event = '&6.';
-UNDEF 6;
+PRO 8. Event &&cs2_instruct_to_skip.:
+DEF cs2_event = '&8.';
+UNDEF 8;
 --
 COL machine HEA 'Machine';
 --
@@ -349,11 +395,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.machine
 ), 
 ash_all AS (
-SELECT machine, MAX(active_sessions) AS mas FROM ash_awr GROUP BY machine
+SELECT machine, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY machine
  UNION ALL
-SELECT machine, MAX(active_sessions) AS mas FROM ash_mem GROUP BY machine
+SELECT machine, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY machine
 )
-SELECT MAX(mas) AS mas,
+SELECT MAX(active_sessions) AS active_sessions,
        machine
   FROM ash_all
  GROUP BY
@@ -364,14 +410,14 @@ SELECT MAX(mas) AS mas,
 /
 --
 PRO
-PRO 7. Machine (opt):
-DEF cs2_machine = '&7.';
-UNDEF 7;
+PRO 9. Machine (opt):
+DEF cs2_machine = '&9.';
+UNDEF 9;
 --
 PRO
-PRO 8. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
-DEF cs2_sql_text_piece = '&8.';
-UNDEF 8;
+PRO 10. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
+DEF cs2_sql_text_piece = '&10.';
+UNDEF 10;
 --
 COL sql_text FOR A60 TRUNC;
 --
@@ -436,11 +482,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_id
 ), 
 ash_all AS (
-SELECT sql_id, MAX(active_sessions) AS mas FROM ash_awr GROUP BY sql_id
+SELECT sql_id, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY sql_id
  UNION ALL
-SELECT sql_id, MAX(active_sessions) AS mas FROM ash_mem GROUP BY sql_id
+SELECT sql_id, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY sql_id
 )
-SELECT MAX(mas) AS mas,
+SELECT MAX(active_sessions) AS active_sessions,
        sql_id,
        (SELECT s.sql_text FROM sql_txt s WHERE s.sql_id = a.sql_id AND ROWNUM = 1) AS sql_text
   FROM ash_all a
@@ -452,41 +498,9 @@ SELECT MAX(mas) AS mas,
 /
 --
 PRO
-PRO 9. SQL_ID (opt):
-DEF cs2_sql_id = '&9.';
-UNDEF 9;
---
-PRO
-PRO 10. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|top_level_sql_id|blocking_session|current_obj#|module|pdb_name|p1|p2|p3]
-DEF cs2_dimension = '&10.';
-UNDEF 10;
-COL cs2_dimension NEW_V cs2_dimension NOPRI;
-SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
-SELECT CASE WHEN '&&cs2_dimension.' IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'blocking_session', 'current_obj#', 'module', 'pdb_name', 'p1', 'p2', 'p3') THEN '&&cs2_dimension.' ELSE 'event' END cs2_dimension FROM DUAL;
---
-COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
-SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
---
-COL cs2_group NEW_V cs2_group NOPRI;
-SELECT CASE '&&cs2_dimension.'
-         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
-         WHEN 'event' THEN CASE WHEN '&&cs2_wait_class.' IS NULL THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]' ELSE q'[h.event]' END
-         WHEN 'machine' THEN q'[h.machine]' 
-         WHEN 'sql_id' THEN q'[h.sql_id]' 
-         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
-         WHEN 'top_level_sql_id' THEN q'[h.top_level_sql_id]' 
-        --  WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'  -- 19c: ORA-00979: not a GROUP BY expression
-         WHEN 'blocking_session' THEN q'[TO_CHAR(h.blocking_session)]' 
-        --  WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]' -- 19c: ORA-00979: not a GROUP BY expression
-         WHEN 'current_obj#' THEN q'[TO_CHAR(h.current_obj#)]'
-         WHEN 'module' THEN q'[h.module]' 
-         WHEN 'pdb_name' THEN q'[TO_CHAR(h.con_id)]'
-         WHEN 'p1' THEN q'[h.p1text||':'||h.p1]'
-         WHEN 'p2' THEN q'[h.p2text||':'||h.p2]'
-         WHEN 'p3' THEN q'[h.p3text||':'||h.p3]'
-       END AS cs2_group
-  FROM DUAL
-/
+PRO 11. SQL_ID (opt):
+DEF cs2_sql_id = '&11.';
+UNDEF 11;
 --
 DEF spool_id_chart_footer_script = 'cs_max_ash_analytics_footer.sql';
 COL rn FOR 999;
@@ -517,32 +531,32 @@ COL series_10 NEW_V series_10 FOR A64 TRUNC NOPRI;
 COL series_11 NEW_V series_11 FOR A64 TRUNC NOPRI;
 COL series_12 NEW_V series_12 FOR A64 TRUNC NOPRI;
 COL series_13 NEW_V series_13 FOR A64 TRUNC NOPRI;
-DEF mas_01 = '       ';
-DEF mas_02 = '       ';
-DEF mas_03 = '       ';
-DEF mas_04 = '       ';
-DEF mas_05 = '       ';
-DEF mas_06 = '       ';
-DEF mas_07 = '       ';
-DEF mas_08 = '       ';
-DEF mas_09 = '       ';
-DEF mas_10 = '       ';
-DEF mas_11 = '       ';
-DEF mas_12 = '       ';
-DEF mas_13 = '       ';
-COL mas_01 NEW_V mas_01 FOR A7 TRUNC NOPRI;
-COL mas_02 NEW_V mas_02 FOR A7 TRUNC NOPRI;
-COL mas_03 NEW_V mas_03 FOR A7 TRUNC NOPRI;
-COL mas_04 NEW_V mas_04 FOR A7 TRUNC NOPRI;
-COL mas_05 NEW_V mas_05 FOR A7 TRUNC NOPRI;
-COL mas_06 NEW_V mas_06 FOR A7 TRUNC NOPRI;
-COL mas_07 NEW_V mas_07 FOR A7 TRUNC NOPRI;
-COL mas_08 NEW_V mas_08 FOR A7 TRUNC NOPRI;
-COL mas_09 NEW_V mas_09 FOR A7 TRUNC NOPRI;
-COL mas_10 NEW_V mas_10 FOR A7 TRUNC NOPRI;
-COL mas_11 NEW_V mas_11 FOR A7 TRUNC NOPRI;
-COL mas_12 NEW_V mas_12 FOR A7 TRUNC NOPRI;
-COL mas_13 NEW_V mas_13 FOR A7 TRUNC NOPRI;
+DEF active_sessions_01 = '       ';
+DEF active_sessions_02 = '       ';
+DEF active_sessions_03 = '       ';
+DEF active_sessions_04 = '       ';
+DEF active_sessions_05 = '       ';
+DEF active_sessions_06 = '       ';
+DEF active_sessions_07 = '       ';
+DEF active_sessions_08 = '       ';
+DEF active_sessions_09 = '       ';
+DEF active_sessions_10 = '       ';
+DEF active_sessions_11 = '       ';
+DEF active_sessions_12 = '       ';
+DEF active_sessions_13 = '       ';
+COL active_sessions_01 NEW_V active_sessions_01 FOR A7 TRUNC NOPRI;
+COL active_sessions_02 NEW_V active_sessions_02 FOR A7 TRUNC NOPRI;
+COL active_sessions_03 NEW_V active_sessions_03 FOR A7 TRUNC NOPRI;
+COL active_sessions_04 NEW_V active_sessions_04 FOR A7 TRUNC NOPRI;
+COL active_sessions_05 NEW_V active_sessions_05 FOR A7 TRUNC NOPRI;
+COL active_sessions_06 NEW_V active_sessions_06 FOR A7 TRUNC NOPRI;
+COL active_sessions_07 NEW_V active_sessions_07 FOR A7 TRUNC NOPRI;
+COL active_sessions_08 NEW_V active_sessions_08 FOR A7 TRUNC NOPRI;
+COL active_sessions_09 NEW_V active_sessions_09 FOR A7 TRUNC NOPRI;
+COL active_sessions_10 NEW_V active_sessions_10 FOR A7 TRUNC NOPRI;
+COL active_sessions_11 NEW_V active_sessions_11 FOR A7 TRUNC NOPRI;
+COL active_sessions_12 NEW_V active_sessions_12 FOR A7 TRUNC NOPRI;
+COL active_sessions_13 NEW_V active_sessions_13 FOR A7 TRUNC NOPRI;
 --
 WITH
 FUNCTION get_sql_text (p_sql_id IN VARCHAR2)
@@ -658,15 +672,15 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        &&cs2_group.
 ), 
 ash_all AS (
-SELECT dimension_group, MAX(active_sessions) AS mas FROM ash_awr GROUP BY dimension_group
+SELECT dimension_group, &&cs2_expression. AS active_sessions FROM ash_awr GROUP BY dimension_group
  UNION ALL
-SELECT dimension_group, MAX(active_sessions) AS mas FROM ash_mem GROUP BY dimension_group
+SELECT dimension_group, &&cs2_expression. AS active_sessions FROM ash_mem GROUP BY dimension_group
 ),
 ash_by_dim AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       MAX(mas) AS mas,
+       MAX(active_sessions) AS active_sessions,
        dimension_group,
-       ROW_NUMBER() OVER(ORDER BY MAX(mas) DESC) AS rn
+       ROW_NUMBER() OVER(ORDER BY MAX(active_sessions) DESC) AS rn
   FROM ash_all a
  GROUP BY
        dimension_group
@@ -674,7 +688,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 top AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        rn, -- up to 12
-       mas,
+       active_sessions,
        SUBSTR(CASE
          WHEN TRIM(dimension_group) IS NULL /*OR TRIM(dimension_group) = ','*/ THEN '"null"'
          WHEN '&&cs2_dimension.' IN ('sql_id', 'top_level_sql_id') THEN dimension_group||' '||get_sql_text(dimension_group)
@@ -690,7 +704,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */ MAX(rn) AS max_rn FROM top
 bottom AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        (1 + max_top.max_rn) AS bottom_rn, -- up to 13
-       MAX(a.mas) AS mas,
+       MAX(a.active_sessions) AS active_sessions,
        '"all others"' AS dimension_group
   FROM ash_by_dim a, max_top
  WHERE a.rn >= max_top.max_rn
@@ -700,7 +714,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 wait_classes2 AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        w.rn,
-       NVL(t.mas, 0) AS mas,
+       NVL(t.active_sessions, 0) AS active_sessions,
        w.dimension_group
   FROM wait_classes w,
        top t
@@ -708,24 +722,24 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND t.dimension_group(+) = w.dimension_group
 ),
 top_and_bottom AS (
-SELECT rn, mas, dimension_group
+SELECT rn, active_sessions, dimension_group
   FROM top
  WHERE '&&cs2_dimension.' <> 'wait_class'
  UNION ALL
-SELECT rn, mas, dimension_group
+SELECT rn, active_sessions, dimension_group
   FROM wait_classes2
  WHERE '&&cs2_dimension.' = 'wait_class'
  UNION ALL
-SELECT bottom_rn AS rn, mas, dimension_group
+SELECT bottom_rn AS rn, active_sessions, dimension_group
   FROM bottom
  WHERE '&&cs2_dimension.' <> 'wait_class'
 ),
 list AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       rn, LPAD(TRIM(TO_CHAR(mas, '999,990')), 7) AS mas, dimension_group
+       rn, LPAD(TRIM(TO_CHAR(active_sessions, '999,990')), 7) AS active_sessions, dimension_group
   FROM top_and_bottom
 )
-SELECT rn, mas, dimension_group,
+SELECT rn, active_sessions, dimension_group,
        COALESCE((SELECT dimension_group FROM list WHERE rn =  1), ' ') AS series_01,
        COALESCE((SELECT dimension_group FROM list WHERE rn =  2), ' ') AS series_02,
        COALESCE((SELECT dimension_group FROM list WHERE rn =  3), ' ') AS series_03,
@@ -739,19 +753,19 @@ SELECT rn, mas, dimension_group,
        COALESCE((SELECT dimension_group FROM list WHERE rn = 11), ' ') AS series_11,
        COALESCE((SELECT dimension_group FROM list WHERE rn = 12), ' ') AS series_12,
        COALESCE((SELECT dimension_group FROM list WHERE rn = 13), ' ') AS series_13,
-       (SELECT mas FROM list WHERE rn =  1) AS mas_01,
-       (SELECT mas FROM list WHERE rn =  2) AS mas_02,
-       (SELECT mas FROM list WHERE rn =  3) AS mas_03,
-       (SELECT mas FROM list WHERE rn =  4) AS mas_04,
-       (SELECT mas FROM list WHERE rn =  5) AS mas_05,
-       (SELECT mas FROM list WHERE rn =  6) AS mas_06,
-       (SELECT mas FROM list WHERE rn =  7) AS mas_07,
-       (SELECT mas FROM list WHERE rn =  8) AS mas_08,
-       (SELECT mas FROM list WHERE rn =  9) AS mas_09,
-       (SELECT mas FROM list WHERE rn = 10) AS mas_10,
-       (SELECT mas FROM list WHERE rn = 11) AS mas_11,
-       (SELECT mas FROM list WHERE rn = 12) AS mas_12,
-       (SELECT mas FROM list WHERE rn = 13) AS mas_13
+       (SELECT active_sessions FROM list WHERE rn =  1) AS active_sessions_01,
+       (SELECT active_sessions FROM list WHERE rn =  2) AS active_sessions_02,
+       (SELECT active_sessions FROM list WHERE rn =  3) AS active_sessions_03,
+       (SELECT active_sessions FROM list WHERE rn =  4) AS active_sessions_04,
+       (SELECT active_sessions FROM list WHERE rn =  5) AS active_sessions_05,
+       (SELECT active_sessions FROM list WHERE rn =  6) AS active_sessions_06,
+       (SELECT active_sessions FROM list WHERE rn =  7) AS active_sessions_07,
+       (SELECT active_sessions FROM list WHERE rn =  8) AS active_sessions_08,
+       (SELECT active_sessions FROM list WHERE rn =  9) AS active_sessions_09,
+       (SELECT active_sessions FROM list WHERE rn = 10) AS active_sessions_10,
+       (SELECT active_sessions FROM list WHERE rn = 11) AS active_sessions_11,
+       (SELECT active_sessions FROM list WHERE rn = 12) AS active_sessions_12,
+       (SELECT active_sessions FROM list WHERE rn = 13) AS active_sessions_13
   FROM list
  ORDER BY
        rn
@@ -759,9 +773,9 @@ SELECT rn, mas, dimension_group,
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'Maximum Active Sessions by &&cs2_dimension. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
+DEF report_title = '&&cs2_func_title. Active Sessions by &&cs2_dimension. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
-DEF vaxis_title = 'Maximum Active Sessions (MAS)';
+DEF vaxis_title = '&&cs2_func_title. Active Sessions';
 DEF xaxis_title = '';
 --
 COL xaxis_title NEW_V xaxis_title NOPRI;
@@ -783,7 +797,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = '<br>2) &&xaxis_title.';
 DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_session_state." "&&cs2_wait_class." "&&cs2_event." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id." "&&cs2_dimension."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_function." "&&cs2_granularity." "&&cs2_dimension." "&&cs2_session_state." "&&cs2_wait_class." "&&cs2_event." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -930,7 +944,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'sid', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'
@@ -981,7 +995,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'sid', 'blocking_session', 'current_obj#', 'module', 'p1', 'p2', 'p3') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'
@@ -1020,7 +1034,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'sid', 'blocking_session', 'current_obj#', 'module') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'
@@ -1068,7 +1082,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
              WHEN &&cs2_group. = SUBSTR(q'[&&series_12.]', 1, INSTR(q'[&&series_12.]', ' ') - 1) THEN q'[&&series_12.]'
              WHEN &&cs2_group. = SUBSTR(q'[&&series_13.]', 1, INSTR(q'[&&series_13.]', ' ') - 1) THEN q'[&&series_13.]'
            ELSE '"all others"' END
-         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'blocking_session', 'current_obj#', 'module') THEN
+         WHEN '&&cs2_dimension.' IN ('wait_class', 'event', 'machine', 'plan_hash_value', 'sid', 'blocking_session', 'current_obj#', 'module') THEN
            CASE
              WHEN &&cs2_group. = q'[&&series_01.]' THEN q'[&&series_01.]'
              WHEN &&cs2_group. = q'[&&series_02.]' THEN q'[&&series_02.]'
@@ -1086,69 +1100,87 @@ SELECT /*+ MATERIALIZE NO_MERGE */
            ELSE '"all others"' END
        ELSE '"all others"' END
 ), 
-ash_awr_denorm AS (
+ash_awr_grp AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        ceil_timestamp(h.sample_time) AS time,
-       --ROUND(24 * 3600 * (MAX(CAST(h.sample_time AS DATE)) - MIN(CAST(h.sample_time AS DATE))) + 10) AS interval_secs,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_01.]' THEN active_sessions ELSE 0 END) AS mas_01,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_02.]' THEN active_sessions ELSE 0 END) AS mas_02,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_03.]' THEN active_sessions ELSE 0 END) AS mas_03,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_04.]' THEN active_sessions ELSE 0 END) AS mas_04,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_05.]' THEN active_sessions ELSE 0 END) AS mas_05,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_06.]' THEN active_sessions ELSE 0 END) AS mas_06,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_07.]' THEN active_sessions ELSE 0 END) AS mas_07,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_08.]' THEN active_sessions ELSE 0 END) AS mas_08,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_09.]' THEN active_sessions ELSE 0 END) AS mas_09,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_10.]' THEN active_sessions ELSE 0 END) AS mas_10,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_11.]' THEN active_sessions ELSE 0 END) AS mas_11,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_12.]' THEN active_sessions ELSE 0 END) AS mas_12,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_13.]' THEN active_sessions ELSE 0 END) AS mas_13
+       h.dimension_group,
+       &&cs2_expression. AS active_sessions
   FROM ash_awr h
  GROUP BY
-       ceil_timestamp(h.sample_time)
+       ceil_timestamp(h.sample_time),
+       h.dimension_group
+),
+ash_awr_denorm AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       time,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_01.]' THEN active_sessions ELSE 0 END) AS active_sessions_01,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_02.]' THEN active_sessions ELSE 0 END) AS active_sessions_02,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_03.]' THEN active_sessions ELSE 0 END) AS active_sessions_03,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_04.]' THEN active_sessions ELSE 0 END) AS active_sessions_04,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_05.]' THEN active_sessions ELSE 0 END) AS active_sessions_05,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_06.]' THEN active_sessions ELSE 0 END) AS active_sessions_06,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_07.]' THEN active_sessions ELSE 0 END) AS active_sessions_07,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_08.]' THEN active_sessions ELSE 0 END) AS active_sessions_08,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_09.]' THEN active_sessions ELSE 0 END) AS active_sessions_09,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_10.]' THEN active_sessions ELSE 0 END) AS active_sessions_10,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_11.]' THEN active_sessions ELSE 0 END) AS active_sessions_11,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_12.]' THEN active_sessions ELSE 0 END) AS active_sessions_12,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_13.]' THEN active_sessions ELSE 0 END) AS active_sessions_13
+  FROM ash_awr_grp h
+ GROUP BY
+       time
+), 
+ash_mem_grp AS (
+SELECT /*+ MATERIALIZE NO_MERGE */
+       ceil_timestamp(h.sample_time) AS time,
+       h.dimension_group,
+       &&cs2_expression. AS active_sessions
+  FROM ash_mem h
+ GROUP BY
+       ceil_timestamp(h.sample_time),
+       h.dimension_group
 ),
 ash_mem_denorm AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       ceil_timestamp(h.sample_time) AS time,
-       --ROUND(24 * 3600 * (MAX(CAST(h.sample_time AS DATE)) - MIN(CAST(h.sample_time AS DATE))) + 1) AS interval_secs,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_01.]' THEN active_sessions ELSE 0 END) AS mas_01,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_02.]' THEN active_sessions ELSE 0 END) AS mas_02,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_03.]' THEN active_sessions ELSE 0 END) AS mas_03,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_04.]' THEN active_sessions ELSE 0 END) AS mas_04,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_05.]' THEN active_sessions ELSE 0 END) AS mas_05,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_06.]' THEN active_sessions ELSE 0 END) AS mas_06,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_07.]' THEN active_sessions ELSE 0 END) AS mas_07,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_08.]' THEN active_sessions ELSE 0 END) AS mas_08,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_09.]' THEN active_sessions ELSE 0 END) AS mas_09,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_10.]' THEN active_sessions ELSE 0 END) AS mas_10,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_11.]' THEN active_sessions ELSE 0 END) AS mas_11,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_12.]' THEN active_sessions ELSE 0 END) AS mas_12,
-       MAX(CASE WHEN h.dimension_group = q'[&&series_13.]' THEN active_sessions ELSE 0 END) AS mas_13
-  FROM ash_mem h
+       time,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_01.]' THEN active_sessions ELSE 0 END) AS active_sessions_01,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_02.]' THEN active_sessions ELSE 0 END) AS active_sessions_02,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_03.]' THEN active_sessions ELSE 0 END) AS active_sessions_03,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_04.]' THEN active_sessions ELSE 0 END) AS active_sessions_04,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_05.]' THEN active_sessions ELSE 0 END) AS active_sessions_05,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_06.]' THEN active_sessions ELSE 0 END) AS active_sessions_06,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_07.]' THEN active_sessions ELSE 0 END) AS active_sessions_07,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_08.]' THEN active_sessions ELSE 0 END) AS active_sessions_08,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_09.]' THEN active_sessions ELSE 0 END) AS active_sessions_09,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_10.]' THEN active_sessions ELSE 0 END) AS active_sessions_10,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_11.]' THEN active_sessions ELSE 0 END) AS active_sessions_11,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_12.]' THEN active_sessions ELSE 0 END) AS active_sessions_12,
+       SUM(CASE WHEN h.dimension_group = q'[&&series_13.]' THEN active_sessions ELSE 0 END) AS active_sessions_13
+  FROM ash_mem_grp h
  GROUP BY
-       ceil_timestamp(h.sample_time)
+       time
 ), 
 ash_denorm AS (
-SELECT time, (time - LAG(time, 1, time) OVER (ORDER BY time)) * 24 * 3600 AS interval_secs, mas_01, mas_02, mas_03, mas_04, mas_05, mas_06, mas_07, mas_08, mas_09, mas_10, mas_11, mas_12, mas_13 FROM ash_awr_denorm
+SELECT time, (time - LAG(time, 1, time) OVER (ORDER BY time)) * 24 * 3600 AS interval_secs, active_sessions_01, active_sessions_02, active_sessions_03, active_sessions_04, active_sessions_05, active_sessions_06, active_sessions_07, active_sessions_08, active_sessions_09, active_sessions_10, active_sessions_11, active_sessions_12, active_sessions_13 FROM ash_awr_denorm
  UNION ALL
-SELECT time, (time - LAG(time, 1, time) OVER (ORDER BY time)) * 24 * 3600 AS interval_secs, mas_01, mas_02, mas_03, mas_04, mas_05, mas_06, mas_07, mas_08, mas_09, mas_10, mas_11, mas_12, mas_13 FROM ash_mem_denorm
+SELECT time, (time - LAG(time, 1, time) OVER (ORDER BY time)) * 24 * 3600 AS interval_secs, active_sessions_01, active_sessions_02, active_sessions_03, active_sessions_04, active_sessions_05, active_sessions_06, active_sessions_07, active_sessions_08, active_sessions_09, active_sessions_10, active_sessions_11, active_sessions_12, active_sessions_13 FROM ash_mem_denorm
 ),
 /****************************************************************************************/
 my_query AS (
 SELECT s.time, 
-       MAX(a.mas_01) AS mas_01, 
-       MAX(a.mas_02) AS mas_02, 
-       MAX(a.mas_03) AS mas_03, 
-       MAX(a.mas_04) AS mas_04, 
-       MAX(a.mas_05) AS mas_05, 
-       MAX(a.mas_06) AS mas_06, 
-       MAX(a.mas_07) AS mas_07, 
-       MAX(a.mas_08) AS mas_08, 
-       MAX(a.mas_09) AS mas_09, 
-       MAX(a.mas_10) AS mas_10, 
-       MAX(a.mas_11) AS mas_11, 
-       MAX(a.mas_12) AS mas_12, 
-       MAX(a.mas_13) AS mas_13,
+       MAX(a.active_sessions_01) AS active_sessions_01, 
+       MAX(a.active_sessions_02) AS active_sessions_02, 
+       MAX(a.active_sessions_03) AS active_sessions_03, 
+       MAX(a.active_sessions_04) AS active_sessions_04, 
+       MAX(a.active_sessions_05) AS active_sessions_05, 
+       MAX(a.active_sessions_06) AS active_sessions_06, 
+       MAX(a.active_sessions_07) AS active_sessions_07, 
+       MAX(a.active_sessions_08) AS active_sessions_08, 
+       MAX(a.active_sessions_09) AS active_sessions_09, 
+       MAX(a.active_sessions_10) AS active_sessions_10, 
+       MAX(a.active_sessions_11) AS active_sessions_11, 
+       MAX(a.active_sessions_12) AS active_sessions_12, 
+       MAX(a.active_sessions_13) AS active_sessions_13,
        ROW_NUMBER() OVER (ORDER BY s.time ASC  NULLS LAST) AS rn_asc,
        ROW_NUMBER() OVER (ORDER BY s.time DESC NULLS LAST) AS rn_desc
   FROM ash_denorm a,
@@ -1166,24 +1198,24 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.time, 'MI')|| /* minute */
        ','||TO_CHAR(q.time, 'SS')|| /* second */
        ')'||
-       ','||num_format(q.mas_01)|| 
-       ','||num_format(q.mas_02)|| 
-       ','||num_format(q.mas_03)|| 
-       ','||num_format(q.mas_04)|| 
-       ','||num_format(q.mas_05)|| 
-       ','||num_format(q.mas_06)|| 
-       ','||num_format(q.mas_07)|| 
-       ','||num_format(q.mas_08)|| 
-       ','||num_format(q.mas_09)|| 
-       ','||num_format(q.mas_10)|| 
-       ','||num_format(q.mas_11)|| 
-       ','||num_format(q.mas_12)|| 
-       ','||num_format(q.mas_13)|| 
+       ','||num_format(q.active_sessions_01)|| 
+       ','||num_format(q.active_sessions_02)|| 
+       ','||num_format(q.active_sessions_03)|| 
+       ','||num_format(q.active_sessions_04)|| 
+       ','||num_format(q.active_sessions_05)|| 
+       ','||num_format(q.active_sessions_06)|| 
+       ','||num_format(q.active_sessions_07)|| 
+       ','||num_format(q.active_sessions_08)|| 
+       ','||num_format(q.active_sessions_09)|| 
+       ','||num_format(q.active_sessions_10)|| 
+       ','||num_format(q.active_sessions_11)|| 
+       ','||num_format(q.active_sessions_12)|| 
+       ','||num_format(q.active_sessions_13)|| 
        ']'
   FROM my_query q
  WHERE 1 = 1
    --AND q.rn_asc > 1 AND q.rn_desc > 1
-   AND q.mas_01 + q.mas_02 + q.mas_03 + q.mas_04 + q.mas_05 + q.mas_06 + q.mas_07 + q.mas_08 + q.mas_09 + q.mas_10 + q.mas_11 + q.mas_12 + q.mas_13 > 0
+   AND q.active_sessions_01 + q.active_sessions_02 + q.active_sessions_03 + q.active_sessions_04 + q.active_sessions_05 + q.active_sessions_06 + q.active_sessions_07 + q.active_sessions_08 + q.active_sessions_09 + q.active_sessions_10 + q.active_sessions_11 + q.active_sessions_12 + q.active_sessions_13 > 0
  ORDER BY
        q.time
 /
@@ -1207,7 +1239,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

@@ -37,7 +37,7 @@ COL root_blocker_state NEW_V root_blocker_state NOPRI;
 SELECT CASE WHEN UPPER(TRIM('&&root_blocker_state.')) IN ('ANY', 'ACTIVE', 'INACTIVE', 'ACTIVE ON CPU', 'ACTIVE WAITING', 'UNKNOWN') THEN UPPER(TRIM('&&root_blocker_state.')) ELSE 'ANY' END AS root_blocker_state FROM DUAL
 /
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL sid_serial_01 NEW_V sid_serial_01 NOPRI;
 COL sid_serial_02 NEW_V sid_serial_02 NOPRI;
@@ -197,7 +197,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

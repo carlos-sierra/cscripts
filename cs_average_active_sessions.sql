@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/22
+-- Version:     2021/11/25
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -90,6 +90,17 @@ SELECT CASE '&&cs2_granularity.'
   FROM DUAL
 /
 --
+PRO
+PRO 4. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|module|pdb_name|host_name]
+DEF cs2_dimension = '&4.';
+UNDEF 4;
+COL cs2_dimension NEW_V cs2_dimension NOPRI;
+-- SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
+SELECT CASE WHEN LOWER(TRIM('&&cs2_dimension.')) IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'module', 'pdb_name', 'host_name') THEN LOWER(TRIM('&&cs2_dimension.')) ELSE 'event' END cs2_dimension FROM DUAL;
+--
+COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
+SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
+--
 COL cs2_samples NEW_V cs2_samples NOPRI;
 SELECT TO_CHAR(CEIL((TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.') - TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.')) / &&cs2_plus_days.)) AS cs2_samples FROM DUAL
 /
@@ -100,7 +111,7 @@ COL session_state FOR A13 HEA 'Session|State';
 BREAK ON REPORT;
 COMPUTE SUM OF aas db_seconds ON REPORT;
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 ash_dbc AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -124,12 +135,12 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
  ORDER BY
        1 DESC
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO 4. Session State (opt):
-DEF cs2_session_state = '&4.';
-UNDEF 4;
+PRO 5. Session State (opt):
+DEF cs2_session_state = '&5.';
+UNDEF 5;
 DEF cs2_instruct_to_skip = '(opt)';
 COL cs2_instruct_to_skip NEW_V cs2_instruct_to_skip NOPRI;
 SELECT '(hit "Return" to skip this patameter since Session State is "ON CPU")' AS cs2_instruct_to_skip FROM DUAL WHERE '&&cs2_session_state.' = 'ON CPU'
@@ -137,7 +148,7 @@ SELECT '(hit "Return" to skip this patameter since Session State is "ON CPU")' A
 --
 COL wait_class HEA 'Wait Class';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 ash_dbc AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -167,16 +178,30 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
  ORDER BY
        1 DESC
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO 5. Wait Class &&cs2_instruct_to_skip.:
-DEF cs2_wait_class = '&5.';
-UNDEF 5;
+PRO 6. Wait Class &&cs2_instruct_to_skip.:
+DEF cs2_wait_class = '&6.';
+UNDEF 6;
+--
+COL cs2_group NEW_V cs2_group NOPRI;
+SELECT CASE '&&cs2_dimension.'
+         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
+         WHEN 'event' THEN CASE WHEN '&&cs2_wait_class.' IS NULL THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]' ELSE q'[h.event]' END
+         WHEN 'machine' THEN q'[h.machine]' 
+         WHEN 'sql_id' THEN q'[h.sql_id]' 
+         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
+         WHEN 'module' THEN q'[h.module]' 
+         WHEN 'pdb_name' THEN q'[h.pdb_name]'
+         WHEN 'host_name' THEN q'[h.host_name]'
+       END AS cs2_group
+  FROM DUAL
+/
 --
 COL event HEA 'Event';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 ash_dbc AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -212,16 +237,16 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
        1 DESC
  FETCH FIRST 30 ROWS ONLY
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO 6. Event &&cs2_instruct_to_skip.:
-DEF cs2_event = '&6.';
-UNDEF 6;
+PRO 7. Event &&cs2_instruct_to_skip.:
+DEF cs2_event = '&7.';
+UNDEF 7;
 --
 COL machine HEA 'Machine';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 ash_dbc AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -249,21 +274,21 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
        1 DESC
  FETCH FIRST 30 ROWS ONLY
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO 7. Machine (opt):
-DEF cs2_machine = '&7.';
-UNDEF 7;
---
-PRO
-PRO 8. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
-DEF cs2_sql_text_piece = '&8.';
+PRO 8. Machine (opt):
+DEF cs2_machine = '&8.';
 UNDEF 8;
+--
+PRO
+PRO 9. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
+DEF cs2_sql_text_piece = '&9.';
+UNDEF 9;
 --
 COL sql_text FOR A60 TRUNC;
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 sql_txt AS (
   SELECT /*+ MATERIALIZE NO_MERGE */ sql_id, MAX(sql_text) AS sql_text
@@ -312,37 +337,12 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
        1 DESC
  FETCH FIRST 30 ROWS ONLY
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO 9. SQL_ID (opt):
-DEF cs2_sql_id = '&9.';
-UNDEF 9;
---
-PRO
-PRO 10. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|module|pdb_name|host_name]
-DEF cs2_dimension = '&10.';
+PRO 10. SQL_ID (opt):
+DEF cs2_sql_id = '&10.';
 UNDEF 10;
-COL cs2_dimension NEW_V cs2_dimension NOPRI;
-SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
-SELECT CASE WHEN '&&cs2_dimension.' IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'module', 'pdb_name', 'host_name') THEN '&&cs2_dimension.' ELSE 'event' END cs2_dimension FROM DUAL;
---
-COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
-SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
---
-COL cs2_group NEW_V cs2_group NOPRI;
-SELECT CASE '&&cs2_dimension.'
-         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
-         WHEN 'event' THEN CASE WHEN '&&cs2_wait_class.' IS NULL THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]' ELSE q'[h.event]' END
-         WHEN 'machine' THEN q'[h.machine]' 
-         WHEN 'sql_id' THEN q'[h.sql_id]' 
-         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
-         WHEN 'module' THEN q'[h.module]' 
-         WHEN 'pdb_name' THEN q'[h.pdb_name]'
-         WHEN 'host_name' THEN q'[h.host_name]'
-       END AS cs2_group
-  FROM DUAL
-/
 --
 DEF spool_id_chart_footer_script = 'cs_ash_analytics_footer.sql';
 COL rn FOR 999;
@@ -400,7 +400,7 @@ COL aas_11 NEW_V aas_11 FOR A9 TRUNC NOPRI;
 COL aas_12 NEW_V aas_12 FOR A9 TRUNC NOPRI;
 COL aas_13 NEW_V aas_13 FOR A9 TRUNC NOPRI;
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 FUNCTION get_sql_text (p_sql_id IN VARCHAR2)
 RETURN VARCHAR2
@@ -576,11 +576,11 @@ SELECT rn, aas, db_seconds, dimension_group,
  ORDER BY
        rn
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'Average Active Sessions by &&cs2_dimension. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
+DEF report_title = 'Average Active Sessions by "&&cs2_dimension." between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
 DEF vaxis_title = 'Average Active Sessions (AAS)';
 DEF xaxis_title = '';
@@ -604,7 +604,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = '<br>2) &&xaxis_title.';
 DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_session_state." "&&cs2_wait_class." "&&cs2_event." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id." "&&cs2_dimension."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_dimension." "&&cs2_session_state." "&&cs2_wait_class." "&&cs2_event." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -624,7 +624,7 @@ PRO ,{label:'&&series_13.', id:'13', type:'number'}
 PRO ]
 SET HEA OFF PAGES 0;
 /****************************************************************************************/
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 WITH
 FUNCTION num_format (p_number IN NUMBER, p_round IN NUMBER DEFAULT 0) 
 RETURN VARCHAR2 IS
@@ -845,7 +845,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

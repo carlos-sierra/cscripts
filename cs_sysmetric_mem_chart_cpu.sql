@@ -1,2 +1,0 @@
--- cs_sysmetric_mem_chart_cpu.sql - CPU System Metrics Summary for last one hour (time series chart)
-@@cs_sysmetric_mem_chart.sql "CPU" "Host CPU Usage Per Sec" "CPU Usage Per Sec" "Background CPU Usage Per Sec" "" "" "" "Line"

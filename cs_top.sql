@@ -2,11 +2,11 @@
 --
 -- File name:   ta.sql | t.sql | cs_top.sql
 --
--- Purpose:     Top N Active SQL as per recent (AAS) Average Active Sessions (text report)
+-- Purpose:     Top Active SQL as per Active Sessions History ASH - last 1m
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2021/08/17
 --
 -- Usage:       Execute connected to PDB or CDB
 --
@@ -38,6 +38,7 @@ PRO SQL> @&&cs_script_name..sql
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_top_activity_internal.sql
+@@cs_internal/cs_top_internal_foot.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql 

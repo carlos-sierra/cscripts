@@ -2,11 +2,11 @@
 --
 -- File name:   zi.sql | cs_spbl_zap_ignore.sql
 --
--- Purpose:     Add SQL_ID to Zapper white list (Zapper to ignore such SQL_ID)
+-- Purpose:     Add SQL_ID to Zapper exclusion list (Zapper to ignore such SQL_ID)
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2021/11/18
 --
 -- Usage:       Connecting into PDB or CDB.
 --
@@ -51,10 +51,10 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 MERGE INTO &&cs_tools_schema..zapper_ignore_sql o
-  USING (SELECT '&&cs_sql_id.' AS sql_id, '&&cs_reference.' AS reference FROM DUAL WHERE LENGTH('&&cs_sql_id.') = 13) i
+  USING (SELECT TRIM('&&cs_sql_id.') AS sql_id, '&&cs_reference.' AS reference FROM DUAL WHERE LENGTH(TRIM('&&cs_sql_id.')) = 13) i
   ON (o.sql_id = i.sql_id)
 WHEN MATCHED THEN
   UPDATE SET o.reference = i.reference
@@ -62,15 +62,16 @@ WHEN NOT MATCHED THEN
   INSERT (sql_id, reference)
   VALUES (i.sql_id, i.reference)
 /
-COMMIT;
+COMMIT
+/
 --
 PRO
-PRO WHITE LISTED SQL &&cs_tools_schema..zapper_ignore_sql
-PRO ~~~~~~~~~~~~~~~~
+PRO EXCLUDED SQL &&cs_tools_schema..zapper_ignore_sql
+PRO ~~~~~~~~~~~~
 SELECT * FROM &&cs_tools_schema..zapper_ignore_sql ORDER BY sql_id
 /
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."

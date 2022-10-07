@@ -8,6 +8,7 @@ p AS (
 SELECT plan_hash_value
   FROM dba_hist_sql_plan
  WHERE sql_id = TRIM('&&sql_id.')
+   AND dbid = (SELECT dbid FROM v$database) 
    AND other_xml IS NOT NULL ),
 a AS (
 SELECT plan_hash_value,

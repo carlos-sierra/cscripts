@@ -28,7 +28,7 @@
 DEF cs_script_name = 'cs_table_stats_report';
 DEF cs_hours_range_default = '8760';
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL cs_hours_range_default NEW_V cs_hours_range_default NOPRI;
 SELECT TRIM(TO_CHAR(LEAST(TRUNC((SYSDATE - MIN(last_analyzed)) * 24), TO_NUMBER('&&cs_hours_range_default.')))) AS cs_hours_range_default FROM &&cs_tools_schema..dbc_tables
@@ -149,7 +149,7 @@ COL inserts_per_sec FOR 999,990.000 HEA 'INSERTS|PER SEC';
 COL updates_per_sec FOR 999,990.000 HEA 'UPDATES|PER SEC';
 COL deletes_per_sec FOR 999,990.000 HEA 'DELETES|PER SEC';
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS last_analyzed,
        t.num_rows,
@@ -208,7 +208,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

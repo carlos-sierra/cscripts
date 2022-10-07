@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/02/03
+-- Version:     2022/02/14
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -30,11 +30,11 @@ DEF cs_hours_range_default = '168';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL machine HEA 'Machine';
 SELECT machine, COUNT(*), MIN(snap_time) AS min_snap_time, MAX(snap_time) AS max_snap_time
-  FROM &&cs_tools_schema..iod_session_v
+  FROM &&cs_tools_schema..iod_session
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND &&cs_con_id IN (1, con_id)
  GROUP BY
@@ -91,7 +91,7 @@ SELECT snap_time AS time,
        SUM(CASE WHEN type = 'USER' AND status <> 'ACTIVE' THEN 1 ELSE 0 END) AS user_inactive,
        SUM(CASE WHEN type = 'RECURSIVE' THEN 1 ELSE 0 END) AS recursive,
        SUM(CASE WHEN type = 'BACKGROUND' THEN 1 ELSE 0 END) AS background
-  FROM &&cs_tools_schema..iod_session_v
+  FROM &&cs_tools_schema..iod_session
  WHERE snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ('&&cs2_machine.' IS NULL OR machine LIKE CHR(37)||'&&cs2_machine.'||CHR(37))
    AND &&cs_con_id IN (1, con_id)
@@ -135,7 +135,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

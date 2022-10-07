@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/25
+-- Version:     2022/01/19
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -30,7 +30,7 @@ DEF cs_hours_range_default = '168';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -78,6 +78,29 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
    AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
+ GROUP BY
+       h.machine,
+       h.con_id,
+       h.sample_id
+UNION
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.machine,
+       h.con_id,
+       h.sample_id,
+       COUNT(*) cnt,
+       MIN(h.sample_time) min_sample_time,
+       MAX(h.sample_time) max_sample_time,
+       ROW_NUMBER() OVER (PARTITION BY h.machine, h.con_id ORDER BY COUNT(*) DESC, MIN(h.sample_time)) AS rn
+  FROM v$active_session_history h
+ WHERE &&cs_con_id. = 1
+   AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND h.dbid = TO_NUMBER('&&cs_dbid.')
+--    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+--    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
+   AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
  GROUP BY
        h.machine,
        h.con_id,
@@ -129,6 +152,29 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
    AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
+ GROUP BY
+       h.machine,
+       h.con_id,
+       h.sample_id
+UNION
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.machine,
+       h.con_id,
+       h.sample_id,
+       COUNT(*) cnt,
+       MIN(h.sample_time) min_sample_time,
+       MAX(h.sample_time) max_sample_time,
+       ROW_NUMBER() OVER (PARTITION BY h.machine, h.con_id ORDER BY COUNT(*) DESC, MIN(h.sample_time)) AS rn
+  FROM v$active_session_history h
+ WHERE &&cs_con_id. = 1
+   AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND h.dbid = TO_NUMBER('&&cs_dbid.')
+--    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+--    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
+   AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
  GROUP BY
        h.machine,
        h.con_id,
@@ -179,6 +225,27 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
    AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
+ GROUP BY
+       h.con_id,
+       h.sample_id
+UNION
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.con_id,
+       h.sample_id,
+       COUNT(*) cnt,
+       MIN(h.sample_time) min_sample_time,
+       MAX(h.sample_time) max_sample_time,
+       ROW_NUMBER() OVER (PARTITION BY h.con_id ORDER BY COUNT(*) DESC, MIN(h.sample_time)) AS rn
+  FROM v$active_session_history h
+ WHERE &&cs_con_id. = 1
+   AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND h.dbid = TO_NUMBER('&&cs_dbid.')
+--    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+--    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
+   AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
  GROUP BY
        h.con_id,
        h.sample_id
@@ -224,6 +291,26 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
    AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
+ GROUP BY
+       h.machine,
+       h.sample_id
+UNION
+SELECT /*+ MATERIALIZE NO_MERGE */
+       h.machine,
+       h.sample_id,
+       COUNT(*) cnt,
+       MIN(h.sample_time) min_sample_time,
+       MAX(h.sample_time) max_sample_time,
+       ROW_NUMBER() OVER (PARTITION BY h.machine ORDER BY COUNT(*) DESC, MIN(h.sample_time)) AS rn
+  FROM v$active_session_history h
+ WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+   AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+--    AND h.dbid = TO_NUMBER('&&cs_dbid.')
+--    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
+--    AND h.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.')
+   AND h.machine IS NOT NULL
+   AND ROWNUM >= 1
  GROUP BY
        h.machine,
        h.sample_id
@@ -253,7 +340,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

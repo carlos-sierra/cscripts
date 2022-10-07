@@ -1,3 +1,4 @@
+-- cs_latency_hist_internal_1: used by cs_latency_hist.sql and lah.sql
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 SET PAGES 300 LONGC 120;
 --
@@ -9,13 +10,7 @@ SELECT TRIM(TO_CHAR(d.dbid)) AS cs_dbid, TRIM(TO_CHAR(i.instance_number)) AS cs_
   FROM v$database d, v$instance i
 /
 --
-COL cs_last_snap_mins NEW_V cs_last_snap_mins NOPRI;
-SELECT TRIM(TO_CHAR(ROUND((SYSDATE - CAST(end_interval_time AS DATE)) * 24 * 60, 1), '99990.0')) cs_last_snap_mins
-  FROM dba_hist_snapshot
- ORDER BY
-       snap_id DESC
- FETCH FIRST 1 ROW ONLY
-/
+@@cs_internal/cs_last_snap.sql
 --
 COL t_1_snap_id NEW_V t_1_snap_id NOPRI;
 COL t_1_snap_begin NEW_V t_1_snap_begin NOPRI;

@@ -26,8 +26,8 @@ DEF script_name = 'cs_load_sysmetric_per_pdb_hist';
 COL cs_date NEW_V cs_date NOPRI;
 COL cs_host NEW_V cs_host NOPRI;
 COL cs_db NEW_V cs_db NOPRI;
-COL cs_con NEW_V cs_con NOPRI;
-SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS') AS cs_date, SYS_CONTEXT('USERENV','HOST') AS cs_host, UPPER(name) AS cs_db, SYS_CONTEXT('USERENV', 'CON_NAME') AS cs_con FROM v$database;
+COL cs_con_name NEW_V cs_con_name NOPRI;
+SELECT TO_CHAR(SYSDATE, 'YYYY-MM-DD"T"HH24:MI:SS') AS cs_date, SYS_CONTEXT('USERENV','HOST') AS cs_host, UPPER(name) AS cs_db, SYS_CONTEXT('USERENV', 'CON_NAME') AS cs_con_name FROM v$database;
 --
 SET TERM ON HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
@@ -115,6 +115,7 @@ COL open_cursors_count &&cs_format. HEA 'Open Cursors|Count|&&cs_hea.';
 BREAK ON REPORT;
 COMPUTE SUM OF db_cpu redo_size logical_reads block_changes physical_reads physical_writes total_read_io total_write_io appl_read_io appl_write_io network_traffic user_calls parses hard_parses failed_parses executes logons open_cursors transactions commits rollbacks logons_count session_count aas ass aps bs open_cursors_count ON REPORT;
 --
+-- @@cs_internal/&&cs_set_container_to_cdb_root.
 ALTER SESSION SET container = CDB$ROOT;
 --
 SPO /tmp/&&script_name._&&report_date_time..txt
@@ -123,7 +124,7 @@ PRO
 PRO Date     : &&cs_date.
 PRO Host     : &&cs_host.
 PRO Database : &&cs_db.
-PRO Container: &&cs_con.
+PRO Container: &&cs_con_name.
 PRO Metric   : &&cs_hea. : &&cs_begin_time. - &&cs_end_time.
 PRO
 PRO Load Profile (dba_hist_con_sysmetric_summ)
@@ -184,7 +185,8 @@ PRO
 PRO SQL> @&&script_name..sql "&&num_days." "&&begin_snap_id." "&&end_snap_id." "&&cs_metric_group."
 SPO OFF;
 --
-ALTER SESSION SET CONTAINER = &&cs_con.;
+-- @@cs_internal/&&cs_set_container_to_curr_pdb.
+ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 PRO
 PRO /tmp/&&script_name._&&report_date_time..txt

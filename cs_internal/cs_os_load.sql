@@ -1,3 +1,4 @@
+-- cs_os_load.sql: called by cs_planx.sql and cs_sqlperf.sql (deprecated)
 COL stat_name FOR A13 HEA 'Stat Name';
 COL stat_value FOR 990.0 HEA 'Value';
 --

@@ -1,3 +1,4 @@
+-- cs_dba_hist_sqlstat_delta.sql: called by cs_planx.sql and cs_sqlperf.sql (deprecated)
 COL snap_id FOR 999999 HEA 'Snap|ID';
 COL begin_time FOR A19 HEA 'Begin Interval Time';
 COL end_time FOR A19 HEA 'End Interval Time';
@@ -90,6 +91,7 @@ SELECT h.snap_id,
    AND h.sql_id = '&&cs_sql_id.'
    AND s.end_interval_time > SYSDATE - &&cs_sqlstat_days.
    AND (h.elapsed_time_delta > 0 OR h.buffer_gets_delta > 0 OR h.executions_delta > 0)
+   AND h.optimizer_cost > 0 -- if 0 or null then whole row is suspected bogus
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number

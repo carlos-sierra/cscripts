@@ -4,7 +4,7 @@ DECLARE
   l_signature NUMBER := 18428452374179711003; -- 8hsfgrf1n66vu /* performScanQuery(JOB,HashRangeIndex) */ NETWORK_CONTROL_PLANE
   l_cs_reference VARCHAR2(30) := 'IOD-31530';
   --l_cbo_hints VARCHAR2(500) := q'[GATHER_PLAN_STATISTICS FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]';
-  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]';
+  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1)]';
   l_plans INTEGER := -1;
   l_name VARCHAR2(64);
 BEGIN

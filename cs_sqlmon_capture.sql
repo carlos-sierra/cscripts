@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/02/04
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -36,9 +36,9 @@ DEF cs_sql_id = '&1.';
 UNDEF 1;
 --
 PRO
-PRO 2. Additional CBO_HINTS (opt) e.g.: FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF') 
+PRO 2. Additional CBO_HINTS (opt) e.g.: &&hints_text. 
 PRO
-PRO Other less common CBO Hints: OPT_PARAM('_fix_control' '21971099:OFF') OPT_PARAM('_fix_control' '13321547:OFF') CARDINALITY(T 1) BIND_AWARE
+PRO Other less common CBO Hints: CARDINALITY(T 1) BIND_AWARE
 PRO
 DEF cs_additional_cbo_hints = "&2.";
 UNDEF 2;

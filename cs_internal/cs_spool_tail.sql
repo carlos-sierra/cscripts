@@ -1,3 +1,6 @@
+@@cs_spool_time.sql
+-- PRO
+PRO &&cs_elapsed_time. &&cs_total_time.
 PRO
 PRO &&cs_file_name..txt
 PRO /* ---------------------------------------------------------------------------------------------- */

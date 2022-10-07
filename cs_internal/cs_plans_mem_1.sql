@@ -32,8 +32,8 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        object_status,
        is_obsolete,
        is_shareable,
-       is_bind_aware,
        is_bind_sensitive,
+       is_bind_aware,
        parsing_schema_name
   FROM v$sql 
  WHERE sql_id = '&&cs_sql_id.'
@@ -46,8 +46,8 @@ SELECT TO_CHAR(r.last_active_time, '&&cs_datetime_full_format.') AS last_active_
        r.object_status, 
        r.is_obsolete,
        r.is_shareable,
-       r.is_bind_aware,
        r.is_bind_sensitive,
+       r.is_bind_aware,
        r.parsing_schema_name,
        r.plan_hash_value
   FROM ranked_child_cursors r,

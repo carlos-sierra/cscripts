@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/15
 --
 -- Usage:       Connecting into PDB.
 --
@@ -29,19 +29,27 @@
 --
 DEF cs_script_name = 'cs_spch_first_rows';
 --
+DEF cs_sql_id_col = 'NOPRI';
+DEF cs_uncommon_col = 'NOPRI';
+DEF cs_delta_col = 'NOPRI';
+-- DEF cs_sqlstat_days = '0.25';
+-- @@cs_internal/cs_sample_time_boundaries.sql
+-- @@cs_internal/cs_snap_id_from_and_to.sql
+--
 PRO 1. SQL_ID: 
 DEF cs_sql_id = "&1.";
 UNDEF 1;
+DEF cs_filter_1 = 'sql_id = ''&&cs_sql_id.''';
+DEF cs2_sql_text_piece = '';
+--
+@@cs_internal/cs_last_snap.sql
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
-@@cs_internal/cs_spch_internal_list.sql
---
 COL hints_text NEW_V hints_text NOPRI;
-SELECT q'[FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]'||CASE WHEN '&&cs_kiev_table_name.' IS NOT NULL THEN ' LEADING(@SEL$1 &&cs_kiev_table_name.)' END AS hints_text FROM DUAL;
+SELECT q'[&&hints_text.]'||CASE WHEN '&&cs_kiev_table_name.' IS NOT NULL THEN ' LEADING(@SEL$1 &&cs_kiev_table_name.)' END AS hints_text FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&hints_text." 
@@ -83,23 +91,9 @@ BEGIN
 END;
 /
 --
--- @@cs_internal/cs_plans_summary.sql
--- @@cs_internal/cs_plans_stability.sql
-@@cs_internal/cs_sqlstats.sql
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
-@@cs_internal/cs_cursors_performance.sql
--- @@cs_internal/cs_cursors_not_shared.sql
---@@cs_internal/cs_binds_xml.sql
---@@cs_internal/cs_bind_capture_hist.sql
--- @@cs_internal/cs_bind_capture_mem.sql
--- @@cs_internal/cs_acs_internal.sql
--- @@cs_internal/cs_os_load.sql
-DEF cs_sqlstat_days = '0.25';
-@@cs_internal/cs_&&dba_or_cdb._hist_sqlstat_delta.sql
--- @@cs_internal/cs_recent_sessions.sql
-@@cs_internal/cs_active_sessions.sql
-@@cs_internal/cs_plans_stability.sql
-@@cs_internal/cs_plans_summary.sql
+DEF cs_scope_1 = '';
+@@cs_internal/cs_gv_sql_global.sql 
+@@cs_internal/cs_gv_sql_stability.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&hints_text." 

@@ -30,7 +30,7 @@ DEF cs_hours_range_default = '168';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL perc FOR 990.0;
 COL waited_seconds FOR 999,999,999,990;
@@ -168,6 +168,9 @@ PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&timed_event." "&&gb_column_name." 
 --
 @@cs_internal/cs_spool_tail.sql
+--
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
+--
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --

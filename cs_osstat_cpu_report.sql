@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2022/10/03
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -25,12 +25,12 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_osstat_cpu_report';
-DEF cs_hours_range_default = '336';
+DEF cs_hours_range_default = '168';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -43,19 +43,18 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 COL time FOR A19 HEA 'END_TIME';
 COL cores FOR 990;
 COL cpus FOR 990;
-COL load FOR 9,990.0;
-COL dbrm FOR 9,990.0 HEA 'DBRM|CPUs';
-COL cpu_demand FOR 9,990.0 HEA 'CPU TOT|DEMAND';
-COL usr FOR 9,990.0 HEA 'USR|CPUs';
-COL sys FOR 9,990.0 HEA 'SYS|CPUs';
-COL io FOR 9,990.0 HEA 'IO|CPUs';
-COL nice FOR 9,990.0 HEA 'NICE|CPUs';
-COL unacct FOR 9,990.0 HEA 'UNACCT|CPUs';
-COL busy FOR 9,990.0 HEA 'BUSY|CPUs';
-COL idle FOR 9,990.0 HEA 'IDLE|CPUs';
+COL load FOR 9,990;
+COL dbrm FOR 990.0 HEA 'DBRM|CPUs';
+COL usr FOR 990.0 HEA 'USR|CPUs';
+COL sys FOR 990.0 HEA 'SYS|CPUs';
+COL io FOR 990.0 HEA 'IO|CPUs';
+COL nice FOR 990.0 HEA 'NICE|CPUs';
+COL busy FOR 990.0 HEA 'BUSY|CPUs';
+COL idle FOR 990.0 HEA 'IDLE|CPUs';
+COL cpu_util_perc FOR 990.0 HEA 'CPU UTL|PERC %';
 --
 BREAK ON REPORT;
-COMPUTE MAX LABEL 'MAX' OF cores cpus load dbrm cpu_demand  usr sys io nice unacct busy  idle ON REPORT;
+COMPUTE MAX LABEL 'MAX' OF cores cpus load dbrm usr sys io nice busy idle cpu_util_perc ON REPORT;
 --
 PRO
 PRO OS Stats from AWR
@@ -68,7 +67,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        (CAST(s.end_interval_time AS DATE) - CAST(s.begin_interval_time AS DATE)) * 24 * 3600 seconds,
        h.stat_name,
        CASE 
-         WHEN h.stat_name IN ('NUM_CPUS','LOAD','NUM_CPU_CORES') THEN value
+         WHEN h.stat_name IN ('NUM_CPUS','LOAD','NUM_CPU_CORES') THEN h.value
          WHEN h.stat_name LIKE '%TIME' THEN h.value - LAG(h.value) OVER (PARTITION BY h.stat_name ORDER BY h.snap_id) 
          ELSE 0
        END value,
@@ -107,14 +106,13 @@ SELECT q.time,
        q.cpus,
        q.load,
        q.dbrm,
-       q.load + q.dbrm cpu_demand,
        q.usr,
        q.sys,
        q.io,
        q.nice,
-       --q.busy - q.usr - q.sys - q.io - q.nice unacct,
-       q.busy
-       --q.idle
+       q.busy,
+       q.idle,
+       100 * q.busy / (q.busy + q.idle) AS cpu_util_perc
   FROM my_query q
  ORDER BY
        q.time
@@ -127,7 +125,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

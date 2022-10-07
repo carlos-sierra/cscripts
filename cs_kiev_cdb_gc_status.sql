@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/06/13
+-- Version:     2022/02/04
 --
 -- Usage:       Execute connected to CDB
 --
@@ -23,7 +23,7 @@
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 DEF cs_script_name = 'cs_kiev_cdb_gc_status';
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
@@ -51,7 +51,7 @@ FROM cdb_tables t, v$containers c, cdb_pdb_history h, cdb_tablespace_usage_metri
 WHERE t.table_name LIKE 'KIEVGCEVENTS_PART%'
 AND c.con_id = t.con_id
 AND h.con_id = c.con_id
-AND h.operation LIKE '%CREATE%' -- had to use LIKE '%CREATE%' instead of = 'CREATE' due to IOD_META_AUX.do_dbc_pdbs ORA-00604: error occurred at recursive SQL level 1 ORA-00932: inconsistent datatypes: expected CHAR got C##IOD.SYS_PLSQL_25D5A17D_55_1
+AND h.operation LIKE '%CREATE%' -- had to use LIKE '%CREATE%' instead of = 'CREATE' due to IOD_META_AUX.do_dbc_pdbs ORA-00604: error occurred at recursive SQL level 1 ORA-00932: inconsistent datatypes: expected CHAR got xxx.SYS_PLSQL_25D5A17D_55_1
 AND m.con_id = c.con_id
 GROUP BY c.con_id, c.name, t.owner, t.table_name, h.op_timestamp, t.last_analyzed
 )
@@ -92,7 +92,7 @@ PRO SQL> @&&cs_script_name..sql
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

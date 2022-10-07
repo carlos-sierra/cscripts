@@ -1,2 +1,0 @@
--- cs_sysmetric_hist_chart_cpu.sql - CPU System Metrics Summary from AWR (time series chart)
-@@cs_sysmetric_hist_chart.sql "" "" "CPU" "Host CPU Usage Per Sec" "CPU Usage Per Sec" "Background CPU Usage Per Sec" "" "" "" "" "Line" ""

@@ -2,11 +2,11 @@
 --
 -- File name:   dbrmu.sql | cs_rsrc_mgr_update.sql
 --
--- Purpose:     Database Resource Manager (DBRM) Update
+-- Purpose:     Database Resource Manager (DBRM) Update Directives
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/11/08
+-- Version:     2022/02/02
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -26,19 +26,21 @@
 DEF cs_script_name = 'cs_rsrc_mgr_update';
 DEF cs_script_acronym = 'dbrmu.sql | ';
 --
-DEF cs_parallel_server_limit = '50';
 DEF default_utilization_limit = '8';
-DEF default_shares = '4';
-DEF default_days_to_expire = '7';
+DEF default_shares = '1';
+DEF default_parallel_server_limit = '50';
+DEF default_days_to_expire = '1';
 DEF min_utilization_limit = '4';
 DEF max_utilization_limit = '96';
 DEF min_shares = '1';
-DEF max_shares = '16';
+DEF max_shares = '100';
+DEF min_parallel_server_limit = '0';
+DEF max_parallel_server_limit = '100';
 DEF min_days_to_expire = '0';
 DEF max_days_to_expire = '3650';
 --
 COL pdb_name NEW_V pdb_name FOR A30;
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 @@cs_internal/cs_rsrc_mgr_internal_set.sql
 @@cs_internal/cs_rsrc_mgr_internal_configuration.sql
@@ -64,34 +66,34 @@ UNDEF 3;
 COL new_shares NEW_V new_shares NOPRI;
 SELECT TO_CHAR(LEAST(GREATEST(TO_NUMBER(COALESCE('&&new_shares.','&&default_shares.')), &&min_shares.), &&max_shares.)) AS new_shares FROM DUAL;
 PRO
-PRO 4. Enter Days to Expire: [{&&default_days_to_expire.}|&&min_days_to_expire.-&&max_days_to_expire.]
-DEF days_to_expire = '&4.';
+PRO 4. Enter Parallel Servel Limit: [{&&default_parallel_server_limit.}|&&min_parallel_server_limit.-&&max_parallel_server_limit.]
+DEF new_parallel_server_limit = '&4.';
 UNDEF 4;
+COL cs_parallel_server_limit NEW_V cs_parallel_server_limit NOPRI;
+SELECT TO_CHAR(LEAST(GREATEST(TO_NUMBER(COALESCE('&&new_parallel_server_limit.','&&default_parallel_server_limit.')), &&min_parallel_server_limit.), &&max_parallel_server_limit.)) AS cs_parallel_server_limit FROM DUAL;
+PRO
+PRO 5. Enter Days to Expire: [{&&default_days_to_expire.}|&&min_days_to_expire.-&&max_days_to_expire.]
+DEF days_to_expire = '&5.';
+UNDEF 5;
 COL days_to_expire NEW_V days_to_expire NOPRI;
 SELECT TO_CHAR(LEAST(GREATEST(TO_NUMBER(COALESCE('&&days_to_expire.','&&default_days_to_expire.')), &&min_days_to_expire.), &&max_days_to_expire.)) days_to_expire FROM DUAL;
 --
-EXEC c##iod.iod_rsrc_mgr.update_cdb_plan_directive(p_plan => '&&resource_manager_plan.', p_pluggable_database => '&&cs_pluggable_database.', p_shares => TO_NUMBER('&&new_shares.'), p_utilization_limit => TO_NUMBER('&&new_utilization_limit.'), p_parallel_server_limit => '&&cs_parallel_server_limit.', p_comment => '&&cs_reference.');
+EXEC DBMS_RESOURCE_MANAGER.clear_pending_area;
 --
-MERGE INTO c##iod.rsrc_mgr_pdb_config t
-USING (SELECT '&&resource_manager_plan.' plan, '&&cs_pluggable_database.' pdb_name, TO_NUMBER('&&new_shares.') shares, TO_NUMBER('&&new_utilization_limit.') utilization_limit, TO_NUMBER('&&cs_parallel_server_limit.') parallel_server_limit, SYSDATE + TO_NUMBER('&&days_to_expire.') end_date, '&&cs_reference.' reference FROM DUAL) s
-ON (t.plan = s.plan AND t.pdb_name = s.pdb_name)
-WHEN MATCHED THEN
-UPDATE SET t.shares = s.shares, t.utilization_limit = s.utilization_limit, t.parallel_server_limit = s.parallel_server_limit, t.end_date = s.end_date, t.reference = s.reference
-WHEN NOT MATCHED THEN
-INSERT (plan, pdb_name, shares, utilization_limit, parallel_server_limit, end_date, reference) 
-VALUES  (s.plan, s.pdb_name, s.shares, s.utilization_limit, s.parallel_server_limit, s.end_date, s.reference)
-/
-COMMIT;
+EXEC c##iod.iod_rsrc_mgr.update_cdb_plan_directive(p_plan => '&&resource_manager_plan.', p_pluggable_database => '&&cs_pluggable_database.', p_shares => TO_NUMBER('&&new_shares.'), p_utilization_limit => TO_NUMBER('&&new_utilization_limit.'), p_parallel_server_limit => '&&cs_parallel_server_limit.', p_comment => '&&cs_reference.', p_bundle_actions => 'N', p_rsrc_mgr_pdb_hist => 'Y');
+--
+EXEC c##iod.iod_rsrc_mgr.merge_rsrc_mgr_pdb_config(p_plan => '&&resource_manager_plan.', p_pluggable_database => '&&cs_pluggable_database.', p_shares => TO_NUMBER('&&new_shares.'), p_utilization_limit => TO_NUMBER('&&new_utilization_limit.'), p_parallel_server_limit => '&&cs_parallel_server_limit.', p_comment => '&&cs_reference.', p_days_to_expire => TO_NUMBER('&&days_to_expire.'));
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_pluggable_database." "&&new_utilization_limit." "&&new_shares." "&&days_to_expire."
+PRO SQL> @&&cs_script_name..sql "&&cs_pluggable_database." "&&new_utilization_limit." "&&new_shares." "&&cs_parallel_server_limit." "&&days_to_expire."
 @@cs_internal/cs_spool_id.sql
 --
 PRO PDB_NAME     : &&cs_pluggable_database.
 PRO UTILIZATION  : &&new_utilization_limit.
 PRO SHARES       : &&new_shares.
+PRO PARALLEL     : &&cs_parallel_server_limit.
 PRO EXPIRE_IN    : &&days_to_expire. day(s)
 --
 @@cs_internal/cs_rsrc_mgr_internal_set.sql
@@ -100,11 +102,11 @@ PRO EXPIRE_IN    : &&days_to_expire. day(s)
 @@cs_internal/cs_rsrc_mgr_internal_history.sql
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_pluggable_database." "&&new_utilization_limit." "&&new_shares." "&&days_to_expire."
+PRO SQL> @&&cs_script_name..sql "&&cs_pluggable_database." "&&new_utilization_limit." "&&new_shares." "&&cs_parallel_server_limit." "&&days_to_expire."
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

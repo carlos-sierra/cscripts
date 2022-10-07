@@ -51,7 +51,6 @@ UNDEF 2;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
-DEF cs_plan_id = '';
 --
 @@cs_internal/cs_spbl_internal_stgtab.sql
 @@cs_internal/cs_spbl_internal_stgtab_delete.sql

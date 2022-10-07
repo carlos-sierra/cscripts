@@ -28,7 +28,7 @@ DEF cs_hours_range_default = '168';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 COL metric_name FOR A40;
 COL metric_unit FOR A40;
 SELECT DISTINCT h.metric_name, h.metric_unit
@@ -39,7 +39,7 @@ SELECT DISTINCT h.metric_name, h.metric_unit
  ORDER BY
        h.metric_name, h.metric_unit
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO 3. Metric Name: 
@@ -47,7 +47,7 @@ DEF cs_metric_name = '&3.';
 UNDEF 3;
 COL cs_metric_name NEW_V cs_metric_name NOPRI;
 COL cs_metric_unit NEW_V cs_metric_unit NOPRI;
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 SELECT h.metric_name AS cs_metric_name, h.metric_unit AS cs_metric_unit
   FROM dba_hist_con_sysmetric_summ h
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
@@ -56,7 +56,7 @@ SELECT h.metric_name AS cs_metric_name, h.metric_unit AS cs_metric_unit
    AND h.metric_name = TRIM('&&cs_metric_name.')
    AND ROWNUM = 1
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO 4. Metric Value: [{average}|maxval]
@@ -70,7 +70,7 @@ COL cs_func NEW_V cs_func NOPRI;
 SELECT CASE '&&cs_metric_value.' WHEN 'average' THEN 'Average' WHEN 'maxval' THEN 'Maximum' ELSE 'Error' END AS cs_hea, CASE '&&cs_metric_value.' WHEN 'average' THEN 'AVG' WHEN 'maxval' THEN 'MAX' ELSE 'Error' END AS cs_func FROM DUAL
 /
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 DEF con_id_01 = ' ';
 DEF con_id_02 = ' ';
@@ -324,7 +324,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

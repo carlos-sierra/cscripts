@@ -17,6 +17,7 @@ SELECT c.name pdb_name,
        v$containers c,
        v$system_parameter s
  WHERE p.pdb_uid > 1
+   AND BITAND(NVL(p.spare2, 0), 1) = 0 -- or: and spare2=0 (as per wilko.edens@gmail.com)
    AND LOWER(p.name) = 'sessions'
    AND p.value$ <> '200'
    AND c.con_uid(+) = p.pdb_uid

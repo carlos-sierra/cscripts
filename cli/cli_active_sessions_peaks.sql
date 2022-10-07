@@ -12,14 +12,18 @@ BREAK ON day SKIP PAGE DUPL;
 --
 WITH
 cpu_cores AS (
-  SELECT /*+ MATERIALIZE NO_MERGE */value FROM v$osstat WHERE stat_name = 'NUM_CPU_CORES' AND ROWNUM >= 1 /* MATERIALIZE */
+  SELECT /*+ MATERIALIZE NO_MERGE */ value FROM v$osstat WHERE stat_name = 'NUM_CPU_CORES' AND ROWNUM >= 1 /* MATERIALIZE */
 ),
 active_sessions_time_series AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        sample_time,
        COUNT(*) AS active_sessions
   FROM dba_hist_active_sess_history
- WHERE ROWNUM >= 1 /* MATERIALIZE */
+ WHERE 1 = 1
+   AND wait_class = 'Concurrency'
+   AND event = 'latch: shared pool'
+   AND sample_time > TRUNC(SYSDATE) - 30
+   AND ROWNUM >= 1 /* MATERIALIZE */
  GROUP BY
        sample_time
 )
@@ -41,6 +45,6 @@ MATCH_RECOGNIZE (
     GOINGUP AS (GOINGUP.active_sessions > PREV(GOINGUP.active_sessions)),
     GOINGDOWN AS (GOINGDOWN.active_sessions < PREV(GOINGDOWN.active_sessions))
 ) 
-WHERE active_sessions > 10 * cpu_cores.value
+WHERE active_sessions > 5 * cpu_cores.value
 ORDER BY sample_time
 /

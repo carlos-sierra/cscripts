@@ -7,6 +7,7 @@ COL cs_parsing_schema_name NEW_V cs_parsing_schema_name FOR A128 NOPRI;
 --
 VAR cs_signature NUMBER;
 VAR cs_sql_text CLOB;
+VAR cs_sql_text_1000 VARCHAR2(1000);
 VAR cs_parsing_schema_name VARCHAR2(128);
 --
 -- some times sql in v$sqlstats show a signature with value of 0 (e.g. /* populateBucketGCWorkspace */ KPT-35), so we get signature and sql_text from v$sql
@@ -64,10 +65,16 @@ EXCEPTION
   WHEN NO_DATA_FOUND THEN
     :cs_signature := NULL;
     :cs_sql_text := NULL;
+    :cs_parsing_schema_name := NULL;
+END;
+/
+-- get first 1000 
+BEGIN
+  :cs_sql_text_1000 :=  SUBSTR(REGEXP_REPLACE(:cs_sql_text, '[^[:print:]]', ''), 1, 1000);
 END;
 /
 -- compute cs_normalized_signature
-SELECT DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN :cs_sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(:cs_sql_text, '\[([[:digit:]]{4})\] ') ELSE :cs_sql_text END) AS cs_normalized_signature FROM DUAL
+SELECT DBMS_SQLTUNE.sqltext_to_signature(REPLACE(CASE WHEN :cs_sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(:cs_sql_text, '\[([[:digit:]]{4})\] ') ELSE :cs_sql_text END,:cs_parsing_schema_name)) AS cs_normalized_signature FROM DUAL
 /
 SELECT LPAD(MOD(TO_NUMBER('&&cs_normalized_signature.'),100000),5,'0') AS cs_sqlid FROM DUAL
 / 
@@ -76,11 +83,15 @@ SELECT TO_CHAR(:cs_signature) AS cs_signature FROM DUAL;
 SELECT sql_handle AS cs_sql_handle FROM dba_sql_plan_baselines WHERE signature = :cs_signature AND ROWNUM = 1;
 SELECT :cs_parsing_schema_name AS cs_parsing_schema_name FROM DUAL;
 --
-DEF cs_application_category = '';
+DEF cs_application_category = 'UN';
 COL cs_application_category NEW_V cs_application_category NOPRI;
-ALTER SESSION SET container = CDB$ROOT;
-SELECT &&cs_tools_schema..IOD_SPM.application_category(p_sql_text => DBMS_LOB.substr(:cs_sql_text, 1000)) AS cs_application_category FROM DUAL;
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+COL dummy NOPRI;
+@@&&cs_set_container_to_cdb_root.
+SELECT dummy
+       &&cs_skip.,&&cs_tools_schema..IOD_SPM.application_category(p_sql_text => DBMS_LOB.substr(:cs_sql_text, 1000)) AS cs_application_category 
+  FROM DUAL
+/
+@@&&cs_set_container_to_curr_pdb.
 --
 DEF cs_kiev_table_name = '';
 COL cs_kiev_table_name NEW_V cs_kiev_table_name NOPRI;

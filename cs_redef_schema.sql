@@ -15,7 +15,8 @@
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @cs_redef_schema.sql
 --
--- Notes:       Developed and tested on 12.1.0.2.
+-- Notes:       This operation requires a blackout.
+--              Developed and tested on 12.1.0.2.
 --
 ---------------------------------------------------------------------------------------
 --
@@ -32,7 +33,7 @@ COL username FOR A30;
 SELECT username
   FROM dba_users
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
  ORDER BY
        username
 /
@@ -44,7 +45,7 @@ COL p_owner NEW_V p_owner FOR A30 NOPRI;
 SELECT username AS p_owner 
   FROM dba_users 
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
    AND username = UPPER(TRIM('&&table_owner.')) 
    AND ROWNUM = 1
 /
@@ -58,8 +59,19 @@ SELECT tablespace_name
        tablespace_name
 /
 PRO
-PRO 2. Target Tablespace: 
+PRO 2. Source Tablespace: 
 DEF tbsname = '&2.';
+UNDEF 2;
+COL p_sourcetbs NEW_V p_sourcetbs FOR A30 NOPRI;
+SELECT tablespace_name AS p_sourcetbs
+  FROM dba_tablespaces
+ WHERE contents = 'PERMANENT'
+   AND tablespace_name NOT IN ('SYSTEM', 'SYSAUX')
+   AND tablespace_name = UPPER(TRIM('&&tbsname.'))
+/
+PRO
+PRO 2. Target Tablespace: 
+DEF tbsname = '&3.';
 UNDEF 2;
 COL p_newtbs NEW_V p_newtbs FOR A30 NOPRI;
 SELECT tablespace_name AS p_newtbs
@@ -70,14 +82,14 @@ SELECT tablespace_name AS p_newtbs
 /
 PRO
 PRO 3. Table OLTP Compression: [{FALSE}|TRUE]
-DEF compression = '&3.';
+DEF compression = '&4.';
 UNDEF 3;
 COL p_compression NEW_V p_compression NOPRI;
 SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
 /
 PRO
 PRO 4. CLOB Compression and Deduplication: [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
-DEF redeflob = '&4.';
+DEF redeflob = '&5.';
 UNDEF 4;
 COL p_lobcomp NEW_V p_lobcomp NOPRI;
 COL p_lobdedup NEW_V p_lobdedup NOPRI; 
@@ -89,7 +101,7 @@ FROM DUAL
 /
 PRO
 PRO 5. Degree of Parallelism: [{1}|2|4|8]
-DEF pxdegree = '&5.';
+DEF pxdegree = '&6.';
 UNDEF 5;
 COL p_pxdegree NEW_V p_pxdegree NOPRI;
 SELECT CASE WHEN '&&pxdegree.' IN ('1','2','4','8') THEN '&&pxdegree.' ELSE '1' END AS p_pxdegree FROM DUAL
@@ -98,7 +110,7 @@ SELECT CASE WHEN '&&pxdegree.' IN ('1','2','4','8') THEN '&&pxdegree.' ELSE '1' 
 SELECT '&&cs_file_prefix._&&cs_script_name._&&p_owner.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
+PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_sourcetbs." "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
 @@cs_internal/cs_spool_id.sql
 --
 PRO TABLE_OWNER  : &&p_owner.
@@ -107,7 +119,7 @@ PRO OLTP_COMPRES : &&p_compression.
 PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
 PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
 PRO TABLE REDEFINITION
@@ -118,6 +130,7 @@ BEGIN
       p_pdb_name      => '&&cs_con_name.'
     , p_owner         => '&&p_owner.'
     , p_pxdegree      =>  &&p_pxdegree.
+    , p_sourcetbs     => '&&p_sourcetbs.'
     , p_newtbs        => '&&p_newtbs.'
     , p_compression   => &&p_compression.
     , p_lobcomp       => &&p_lobcomp.
@@ -127,10 +140,10 @@ END;
 /
 SET SERVEROUT OFF;
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
+PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_sourcetbs."  "&&p_newtbs." "&&p_compression." "&&p_redeflob." "&&p_pxdegree."
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

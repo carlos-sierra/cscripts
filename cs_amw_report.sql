@@ -86,7 +86,7 @@ COL task_target_type FOR A20;
 COL task_target_name FOR A20;
 COL task_priority FOR A20;
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
 PRO dba_autotask_client_job (from CDB$ROOT)
@@ -94,7 +94,7 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~
 -- SELECT client_name, job_name, job_scheduler_status, task_name, task_operation, task_target_type, task_target_name, task_priority FROM dba_autotask_client_job;
 @@cs_internal/cs_pr_internal "SELECT * FROM dba_autotask_client_job"
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 COL pdb_name FOR A30 TRUNC;
 COL client_name FOR A40;

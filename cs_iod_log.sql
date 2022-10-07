@@ -33,7 +33,7 @@ DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL log_entries FOR 999,999,990;
 COL log_name FOR A128;
@@ -46,7 +46,7 @@ SELECT COUNT(*) AS log_entries, MIN(log_time) AS min_log_time, MAX(log_time) AS 
  GROUP BY UPPER(log_name) 
  ORDER BY UPPER(log_name) 
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO 3. Log Name (opt): 
@@ -73,7 +73,7 @@ PRO LOG_NAME     : "&&cs2_log_name."
 PRO LIKE_PRED    : "&&cs2_filter."
 PRO NOT_LIKE_PRED: "&&cs2_anti_filter."
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL log_time FOR A23;
 COL gap_secs FOR 999,990;
@@ -96,7 +96,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

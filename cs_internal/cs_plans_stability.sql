@@ -1,3 +1,4 @@
+-- cs_plans_stability: called by cs_planx.sql, cs_sqlperf.sql and cs_purge_cursor.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL last_active_time FOR A19 HEA 'Last Active Time';
@@ -40,8 +41,8 @@ SELECT s.con_id,
        s.object_status,  
        s.is_obsolete,
        s.is_shareable,
-       s.is_bind_aware,
        s.is_bind_sensitive,
+       s.is_bind_aware,
        s.optimizer_cost, 
        s.optimizer_env_hash_value,
       --  p.baseline_repro_fail,

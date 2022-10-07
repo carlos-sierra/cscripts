@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2022/09/30
 --
 -- Usage:       Execute connected to VCN PDB.
 --
@@ -42,5 +42,5 @@ SELECT TO_CHAR(kt.begintime, 'YYYY-MM-DD"T"HH24:MI:SS') begintime,
    AND kt.committransactionid(+) = sq.kievtxnid
  ORDER BY
        1,2
-FETCH FIRST 100 ROWS ONLY
+FETCH FIRST 10 ROWS ONLY
 /

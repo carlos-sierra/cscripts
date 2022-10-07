@@ -30,7 +30,7 @@
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 DEF cs_script_name = 'cs_dbms_stats_gather_database_stats';
 --
@@ -80,6 +80,9 @@ PRO
 PRO SQL> @&&cs_script_name..sql
 --
 @@cs_internal/cs_spool_tail.sql
+--
+@@cs_internal/&&cs_set_container_to_curr_pdb.
+--
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --

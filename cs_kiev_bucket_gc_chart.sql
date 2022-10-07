@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/01/28
+-- Version:     2021/02/07
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -98,11 +98,11 @@ PRO
 PRO 4. Enter Table Name
 DEF table_name = '&4.';
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-DEF report_title = 'Rows deleted on &&table_name. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
+DEF report_title = 'Rows deleted from &&table_name. between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
 DEF xaxis_title = '';
 DEF vaxis_title = 'Rows Deleted';
@@ -120,8 +120,8 @@ DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
-PRO ,{label:'ROWS DELETED on &&table_name.', id:'1', type:'number'}      
-PRO ,{label:'ROWS DELETED on KievTransactionKeys', id:'2', type:'number'}      
+PRO ,{label:'ROWS DELETED from &&table_name.', id:'1', type:'number'}      
+-- PRO ,{label:'ROWS DELETED from KievTransactionKeys', id:'2', type:'number'}      
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -165,7 +165,7 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.time, 'SS')|| /* second */
        ')'||
        ','||num_format(q.bucket)|| 
-       ','||num_format(q.transaction_key)|| 
+      --  ','||num_format(q.transaction_key)|| 
        ']'
   FROM my_query q
  ORDER BY
@@ -191,7 +191,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

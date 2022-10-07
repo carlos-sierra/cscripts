@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/04/07
+-- Version:     2022/01/12
 --
 -- Usage:       Execute connected to PDB
 --
@@ -47,10 +47,16 @@ UNDEF 3;
 SELECT UPPER(NVL('&&kiev_owner.', '&&username.')) kiev_owner FROM DUAL
 /
 --
+@@cs_internal/cs_kiev_transactions_top_names.sql
 PRO
-PRO 4. Granularity: [{5MI}|SS|MI|15MI|HH|DD]
-DEF cs2_granularity = '&4.';
+PRO 4. Transaction Name - Prefix (opt):
+DEF cs2_transactionname_prefix = '&4.';
 UNDEF 4;
+--
+PRO
+PRO 5. Granularity: [{5MI}|SS|MI|15MI|HH|DD]
+DEF cs2_granularity = '&5.';
+UNDEF 5;
 COL cs2_granularity NEW_V cs2_granularity NOPRI;
 SELECT NVL(UPPER(TRIM('&&cs2_granularity.')), '5MI') cs2_granularity FROM DUAL;
 SELECT CASE WHEN '&&cs2_granularity.' IN ('SS', 'MI', '5MI', '15MI', 'HH', 'DD') THEN '&&cs2_granularity.' ELSE '5MI' END cs2_granularity FROM DUAL;
@@ -71,12 +77,13 @@ SELECT CASE '&&cs2_granularity.'
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_granularity." 
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_transactionname_prefix." "&&cs2_granularity." 
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
 --
 PRO OWNER        : &&kiev_owner.
+PRO TRANSACTION  : "&&cs2_transactionname_prefix.%"
 PRO GRANULARITY  : "&&cs2_granularity." [{5MI}|SS|MI|15MI|HH|DD]
 --
 COL endtime_from FOR A19 TRUNC HEA 'Transactions|End Time - From';
@@ -84,7 +91,7 @@ COL endtime_to FOR A19 TRUNC HEA 'Transactions|End Time - To';
 COL transactions FOR 999,999,990 HEA 'Transactions|Count';
 COL seconds FOR 999,990 HEA 'Seconds';
 COL tps FOR 999,990.000 HEA 'Transactions|Per Sec (TPS)';
-COL avg_latency_ms FOR 9,999,990.000 HEA 'AVG|Latency (ms)';
+COL avg_latency_ms FOR 9,999,990 HEA 'AVG|Latency (ms)';
 COL pctl_50_latency_ms FOR 9,999,990 HEA '50th PCTL|Latency (ms)';
 COL pctl_90_latency_ms FOR 9,999,990 HEA '90th PCTL|Latency (ms)';
 COL pctl_95_latency_ms FOR 9,999,990 HEA '95th PCTL|Latency (ms)';
@@ -93,7 +100,7 @@ COL pctl_999_latency_ms FOR 9,999,990 HEA '99.9th PCTL|Latency (ms)';
 COL max_latency_ms FOR 9,999,990 HEA 'MAX|Latency (ms)';
 --
 PRO 
-PRO KIEV Transactions ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (aggregated by &&cs2_granularity.)
+PRO KIEV Transactions "&&cs2_transactionname_prefix.%" ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (aggregated by &&cs2_granularity.)
 PRO ~~~~~~~~~~~~~~~~~
 --
 WITH
@@ -128,12 +135,13 @@ SELECT kt.transactionid,
    AND kt.endtime > kt.begintime
    AND kt.endtime > TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') - INTERVAL '1' HOUR
    AND kt.endtime < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.') + INTERVAL '1' HOUR
+   AND kt.transactionname LIKE '&&cs2_transactionname_prefix.%'
 ),
 ktg AS (
 SELECT LAG(ceil_timestamp(kt.endtime)) OVER (ORDER BY ceil_timestamp(kt.endtime)) AS endtime_from,
        ceil_timestamp(kt.endtime) AS endtime_to,
        COUNT(*) AS transactions,
-       ROUND(AVG(latency_ms), 3) AS avg_latency_ms,
+       ROUND(AVG(latency_ms)) AS avg_latency_ms,
        PERCENTILE_DISC(0.50) WITHIN GROUP (ORDER BY latency_ms) AS pctl_50_latency_ms,
        PERCENTILE_DISC(0.90) WITHIN GROUP (ORDER BY latency_ms) AS pctl_90_latency_ms,
        PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY latency_ms) AS pctl_95_latency_ms,
@@ -182,7 +190,7 @@ SELECT TO_CHAR(kte.endtime_from, '&&cs_datetime_full_format.') endtime_from,
 /
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_granularity." 
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_transactionname_prefix." "&&cs2_granularity." 
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

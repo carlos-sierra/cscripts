@@ -2,12 +2,6 @@ SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON
 SET HEA OFF PAGES 0;
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
 COL line FOR A2000;
-/*
-iodcli sql_exec -y -t PRIMARY file:/Users/csierra/git/bitbucket.oci.oraclecorp.com/dbeng/oratk/sql/cscripts/cli/cli_get_pdb_attributes.sql hcg:HC_DATABASE > pdb_attributes1.txt
-iodcli sql_exec -y -t PRIMARY file:/Users/csierra/git/bitbucket.oci.oraclecorp.com/dbeng/oratk/sql/cscripts/cli/cli_get_pdb_attributes.sql hcg:HC_DATABASE > pdb_attributes2.txt
-cat pdb_attributes1.txt  pdb_attributes2.txt >  pdb_attributes.txt
-cut -b 79- pdb_attributes.txt | sort | uniq > pdb_attributes.sql
-*/    
 --
 WITH
 pdbs1 AS (
@@ -16,7 +10,7 @@ FROM    C##IOD.dbc_pdbs p
 WHERE   p.timestamp > SYSDATE - 7
 ),
 pdbs2 AS (
-SELECT  pdb_name, MAX(total_size_bytes) AS total_size_bytes, MAX(sessions) AS sessions, AVG(avg_running_sessions) AS avg_running_sessions
+SELECT  pdb_name, MAX(total_size_bytes) AS total_size_bytes, MAX(sessions) AS sessions, ROUND(AVG(avg_running_sessions), 3) AS avg_running_sessions
   FROM  pdbs1
  WHERE  total_size_bytes >= 0
    AND  sessions >= 0

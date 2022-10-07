@@ -8,7 +8,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/06/30
+-- Version:     2021/11/29
 --
 -- Usage:       Execute connected into CDB 
 --
@@ -19,7 +19,7 @@
 --              kiev instance (a PDB can have zero, one or more kiev instances, defined
 --              by a PDB name and a SCHEMA owner.)
 --
---              former OEM IOD_IMMEDIATE_KIEV_INDEXES
+--              ## commented out @@cs_internal/cs_kiev_index_metadata_summary.sql
 --
 ---------------------------------------------------------------------------------------
 --
@@ -34,22 +34,22 @@ BEGIN
   IF l_is_primary = 'FALSE' THEN raise_application_error(-20000, 'Not PRIMARY'); END IF;
 END;
 /
--- exit graciously if executed on excluded host
-WHENEVER SQLERROR EXIT SUCCESS;
-DECLARE
-  l_host_name VARCHAR2(64);
-BEGIN
-  SELECT host_name INTO l_host_name FROM v$instance;
-  IF LOWER(l_host_name) LIKE CHR(37)||'control-plane'||CHR(37) OR
-     LOWER(l_host_name) LIKE CHR(37)||'omr'||CHR(37) OR
-     LOWER(l_host_name) LIKE CHR(37)||'oem'||CHR(37) OR
-     LOWER(l_host_name) LIKE CHR(37)||'casper'||CHR(37) OR
-     LOWER(l_host_name) LIKE CHR(37)||'telemetry'||CHR(37)
-  THEN
-    raise_application_error(-20000, '*** Excluded host: "'||l_host_name||'" ***');
-  END IF;
-END;
-/
+-- -- exit graciously if executed on excluded host
+-- WHENEVER SQLERROR EXIT SUCCESS;
+-- DECLARE
+--   l_host_name VARCHAR2(64);
+-- BEGIN
+--   SELECT host_name INTO l_host_name FROM v$instance;
+--   IF LOWER(l_host_name) LIKE CHR(37)||'control-plane'||CHR(37) OR
+--      LOWER(l_host_name) LIKE CHR(37)||'omr'||CHR(37) OR
+--      LOWER(l_host_name) LIKE CHR(37)||'oem'||CHR(37) OR
+--      LOWER(l_host_name) LIKE CHR(37)||'casper'||CHR(37) OR
+--      LOWER(l_host_name) LIKE CHR(37)||'telemetry'||CHR(37)
+--   THEN
+--     raise_application_error(-20000, '*** Excluded host: "'||l_host_name||'" ***');
+--   END IF;
+-- END;
+-- /
 -- exit graciously if executed on a PDB
 WHENEVER SQLERROR EXIT SUCCESS;
 BEGIN
@@ -58,17 +58,17 @@ BEGIN
   END IF;
 END;
 /
--- set parameter(s)
-WHENEVER SQLERROR EXIT FAILURE;
-DECLARE
-  l_count NUMBER;
-BEGIN
-  SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ COUNT(*) INTO l_count FROM cdb_tables WHERE table_name = 'KIEVDATASTOREMETADATA' AND ROWNUM = 1;
-  IF l_count = 0 THEN
-    raise_application_error(-20000, '*** There are no KIEV PDBs ***');
-  END IF;
-END;
-/
+-- -- set parameter(s)
+-- WHENEVER SQLERROR EXIT FAILURE;
+-- DECLARE
+--   l_count NUMBER;
+-- BEGIN
+--   SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ COUNT(*) INTO l_count FROM cdb_tables WHERE table_name = 'KIEVDATASTOREMETADATA' AND ROWNUM = 1;
+--   IF l_count = 0 THEN
+--     raise_application_error(-20000, '*** There are no KIEV PDBs ***');
+--   END IF;
+-- END;
+-- /
 -- setup
 SET TERM ON HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 DEF cs_tools_schema = 'C##IOD';
@@ -991,10 +991,13 @@ END;
 --
 DEF cs_con_id = 1;
 DEF cs_con_name = 'CDB$ROOT';
-@@cs_internal/cs_kiev_index_metadata_summary.sql
+--  @@cs_internal/cs_kiev_index_metadata_summary.sql
 HOS rm /tmp/IOD_IMMEDIATE_KIEV_INDEXES_inserts.sql
 HOS rm /tmp/IOD_IMMEDIATE_KIEV_INDEXES_extraction_script.sql
 HOS rm /tmp/IOD_IMMEDIATE_KIEV_INDEXES_driver.sql
+PRO
+PRO Execute cs_internal/cs_kiev_index_metadata_summary.sql manually if needed
+PRO
 --
 ---------------------------------------------------------------------------------------
 -- end

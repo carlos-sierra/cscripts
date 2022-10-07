@@ -1,14 +1,31 @@
 -- iod_setup.sql - Complile IOD PL/SQL Packages (new versions of code)
+
+SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+select * from dba_objects where owner = 'C##IOD' AND status != 'VALID';
+
+COL name FOR A15 TRUNC;
+COL type FOR A13 TRUNC;
+COL text FOR A100 TRUNC;
+SELECT name, type, text 
+  FROM dba_source 
+ WHERE owner = 'C##IOD' 
+   AND line <= 3 
+   AND type LIKE 'PACKAGE%' 
+   AND text LIKE '%Header%'
+ ORDER BY
+       name, type
+/
+
 @../iod/iod_admin/kill_iod_jobs.sql C##IOD
 @../iod/iod_log/setup.sql C##IOD
 @../iod/iod_admin/setup.sql C##IOD
+@../iod/iod_metadata/setup.sql C##IOD
+@../iod/iod_meta_aux/setup.sql C##IOD
 @../iod/iod_spm/setup.sql C##IOD
 @../iod/iod_amw/setup.sql C##IOD
 @../iod/iod_rsrc_mgr/setup.sql C##IOD
 @../iod/pdb_config/setup.sql C##IOD
 @../iod/iod_sess/setup.sql C##IOD
-@../iod/iod_metadata/setup.sql C##IOD
-@../iod/iod_meta_aux/setup.sql C##IOD
 @../iod/iod_space/setup.sql C##IOD
 @../iod/iod_sqlstats/setup.sql C##IOD
 @../iod/iod_sess_mgr/setup.sql C##IOD
@@ -56,9 +73,10 @@ BEGIN
 END;
 /
 
-select * from dba_objects where owner = 'C##IOD' AND status != 'VALID';
 
 SET HEA ON LIN 500 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF;
+select * from dba_objects where owner = 'C##IOD' AND status != 'VALID';
+
 COL name FOR A15 TRUNC;
 COL type FOR A13 TRUNC;
 COL text FOR A100 TRUNC;

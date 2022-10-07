@@ -25,7 +25,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        h.sql_id,
        h.top_level_sql_id
   FROM dba_hist_active_sess_history h
- WHERE h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
+ WHERE 1 = 1
+   AND TO_NUMBER('&&cs_con_id.') IN (1, h.con_id)
+   AND h.sample_time >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND h.sample_time < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND h.dbid = TO_NUMBER('&&cs_dbid.')
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')

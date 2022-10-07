@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/05
+-- Version:     2022/08/19
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -31,7 +31,7 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 PRO SQL> @&&cs_script_name..sql
 @@cs_internal/cs_spool_id.sql
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 BREAK ON hc_pdb_in_use_value SKIP PAGE DUPL;
 COMPUTE SUM OF avg_running_sessions_7d avg_running_sessions sessions avg_sessions_7d max_sessions_7d total_allocated_bytes ON hc_pdb_in_use_value;
@@ -56,14 +56,17 @@ COL appl_allocated_space FOR A12 HEA 'Appl|Alloc Space';
 COL total_allocated_space FOR A12 HEA 'Total|Alloc Space';
 COL total_allocated_bytes FOR 999,999,999,999,990 HEA 'Total|Alloc Bytes';
 COL kiev_or_wf FOR A5 HEA 'KIEV|or WF';
-COL delta_kt_space_7d FOR A12 HEA '7d Delta|KIEV Trans|Used Space';
-COL kt_space  FOR A12 HEA 'KIEV Trans|Used Space';
+-- COL delta_kt_space_7d FOR A12 HEA '7d Delta|KIEV Trans|Used Space';
+-- COL kt_space  FOR A12 HEA 'KIEV Trans|Used Space';
+COL delta_kt_num_rows_7d FOR 9,999,999,990 HEA '7d Delta|KIEV Trans|Rows';
+COL kt_num_rows FOR 9,999,999,990 HEA 'Current|KIEV Trans|Rows';
+COL kt_blocks FOR 999,999,990 HEA 'Current|KIEV Trans|Blocks';
 COL timestamp FOR A19 TRUNC;
 COL ez_connect_string FOR A120;
 --
 PRO
-PRO hc_pdb_manifest_v2 (from CDB$ROOT)
-PRO ~~~~~~~~~~~~~~~~~~
+PRO PDB Utilization (&cs_tools_schema..hc_pdb_manifest_v2)
+PRO ~~~~~~~~~~~~~~~
 SELECT v.hc_pdb_in_use_value,
        v.hc_pdb_in_use_status,
        v.con_id,
@@ -88,8 +91,11 @@ SELECT v.hc_pdb_in_use_value,
        v.total_allocated_bytes,
        '|' AS "|",
        v.kiev_or_wf,
-       LPAD(v.delta_kt_space_7d, 12) AS delta_kt_space_7d,
-       LPAD(v.kt_space, 12) AS kt_space,
+      --  LPAD(v.delta_kt_space_7d, 12) AS delta_kt_space_7d,
+      --  LPAD(v.kt_space, 12) AS kt_space,
+       v.delta_kt_num_rows_7d,
+       v.kt_num_rows,
+       v.kt_blocks,
        '|' AS "|",
        v.timestamp,
        v.ez_connect_string
@@ -104,7 +110,7 @@ SELECT v.hc_pdb_in_use_value,
 --
 CLEAR BREAK;
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO SQL> @&&cs_script_name..sql

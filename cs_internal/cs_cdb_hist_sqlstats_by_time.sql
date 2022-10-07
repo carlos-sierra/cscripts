@@ -1,5 +1,7 @@
+-- cs_cdb_hist_sqlstats_by_time.sql: called by cs_planx.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
+COL plan_hash_value FOR 9999999999 HEA 'Plan|Hash Value';
 COL begin_time FOR A7 HEA 'Month';
 COL aas_db FOR 999,990.000 HEA 'Avg Active|Sessions|On Database';
 COL aas_cpu FOR 999,990.000 HEA 'Avg Active|Sessions|On CPU';
@@ -26,6 +28,7 @@ PRO ~~~~~~~~~~~~~~~~~~
 SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'MM'), 'YYYY-MM') AS begin_time,
        h.con_id,
        c.name AS pdb_name,
+       h.plan_hash_value,
        '|' AS "|",
        SUM(h.elapsed_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_db,
        SUM(h.cpu_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_cpu,
@@ -62,10 +65,12 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'MM'), 'YYYY-MM') AS begin_time,
  GROUP BY
        TRUNC(s.begin_interval_time, 'MM'),
        h.con_id,
-       c.name
+       c.name,
+       h.plan_hash_value
  ORDER BY
        TRUNC(s.begin_interval_time, 'MM'),
-       h.con_id
+       h.con_id,
+       h.plan_hash_value
 /       
 PRO Note (H) = "*" means High. Expecting less than &&cs_aas_on_cpu_per_sql. AAS on CPU, &&cs_cpu_ms_per_row. CPU ms per row processed, less than &&cs_buffer_gets_per_row. Buffer Gets per row processed, and less than &&cs_disk_reads_per_row. Disk Reads per row processed.
 --
@@ -80,6 +85,7 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'D'), 'YYYY-MM-DD') AS begin_time,
        TO_CHAR(TRUNC(s.begin_interval_time, 'D') + 6, 'YYYY-MM-DD') AS end_time,
        h.con_id,
        c.name AS pdb_name,
+       h.plan_hash_value,
        '|' AS "|",
        SUM(h.elapsed_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_db,
        SUM(h.cpu_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_cpu,
@@ -116,10 +122,12 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'D'), 'YYYY-MM-DD') AS begin_time,
  GROUP BY
        TRUNC(s.begin_interval_time, 'D'),
        h.con_id,
-       c.name
+       c.name,
+       h.plan_hash_value
  ORDER BY
        TRUNC(s.begin_interval_time, 'D'),
-       h.con_id
+       h.con_id,
+       h.plan_hash_value
 /       
 PRO Note (H) = "*" means High. Expecting less than &&cs_aas_on_cpu_per_sql. AAS on CPU, &&cs_cpu_ms_per_row. CPU ms per row processed, less than &&cs_buffer_gets_per_row. Buffer Gets per row processed, and less than &&cs_disk_reads_per_row. Disk Reads per row processed.
 --
@@ -132,6 +140,7 @@ PRO ~~~~~~~~~~~~~~~~
 SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'DD'), 'YYYY-MM-DD') AS begin_time,
        h.con_id,
        c.name AS pdb_name,
+       h.plan_hash_value,
        '|' AS "|",
        SUM(h.elapsed_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_db,
        SUM(h.cpu_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_cpu,
@@ -168,10 +177,12 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'DD'), 'YYYY-MM-DD') AS begin_time,
  GROUP BY
        TRUNC(s.begin_interval_time, 'DD'),
        h.con_id,
-       c.name
+       c.name,
+       h.plan_hash_value
  ORDER BY
        TRUNC(s.begin_interval_time, 'DD'),
-       h.con_id
+       h.con_id,
+       h.plan_hash_value
 /       
 PRO Note (H) = "*" means High. Expecting less than &&cs_aas_on_cpu_per_sql. AAS on CPU, &&cs_cpu_ms_per_row. CPU ms per row processed, less than &&cs_buffer_gets_per_row. Buffer Gets per row processed, and less than &&cs_disk_reads_per_row. Disk Reads per row processed.
 --
@@ -186,6 +197,7 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'HH24'), 'YYYY-MM-DD"T"HH24') AS beg
        TO_CHAR(TRUNC(s.begin_interval_time, 'HH24') + (1/24), 'YYYY-MM-DD"T"HH24') AS end_time,
        h.con_id,
        c.name AS pdb_name,
+       h.plan_hash_value,
        '|' AS "|",
        SUM(h.elapsed_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_db,
        SUM(h.cpu_time_delta)/1e6/(24*3600*(CAST(MAX(s.end_interval_time) AS DATE) - CAST(MIN(s.begin_interval_time) AS DATE))) AS aas_cpu,
@@ -222,10 +234,12 @@ SELECT TO_CHAR(TRUNC(s.begin_interval_time, 'HH24'), 'YYYY-MM-DD"T"HH24') AS beg
  GROUP BY
        TRUNC(s.begin_interval_time, 'HH24'),
        h.con_id,
-       c.name
+       c.name,
+       h.plan_hash_value
  ORDER BY
        TRUNC(s.begin_interval_time, 'HH24'),
-       h.con_id
+       h.con_id,
+       h.plan_hash_value
 /       
 PRO Note (H) = "*" means High. Expecting less than &&cs_aas_on_cpu_per_sql. AAS on CPU, &&cs_cpu_ms_per_row. CPU ms per row processed, less than &&cs_buffer_gets_per_row. Buffer Gets per row processed, and less than &&cs_disk_reads_per_row. Disk Reads per row processed.
 --

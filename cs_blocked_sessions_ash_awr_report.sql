@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/01/17
+-- Version:     2022/02/04
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -32,7 +32,7 @@ DEF cs_min_perc = '0.1';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+-- @@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -41,6 +41,11 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
+--
+DEF times_cpu_cores = '1';
+DEF include_hist = 'Y';
+DEF include_mem = 'Y';
+@@cs_internal/cs_ash_block_chains.sql
 --
 COL time FOR A19 HEA 'SAMPLE TIME';
 COL blocked FOR 999,990 HEA 'BLOCKED|SESSIONS|COUNT';
@@ -446,7 +451,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to."
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+-- @@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

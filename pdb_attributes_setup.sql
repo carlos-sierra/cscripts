@@ -117,7 +117,7 @@ BEGIN
   r.open_time := p_open_time;
   r.timestamp := p_timestamp;
   --
-  DELETE c##iod.pdb_attributes WHERE version = r.version AND host_name = r.host_name AND db_domain = r.db_domain AND db_name = r.db_name AND pdb_name = r.pdb_name;
+  DELETE c##iod.pdb_attributes WHERE version = r.version /*AND host_name = r.host_name*/ AND db_domain = r.db_domain AND db_name = r.db_name AND pdb_name = r.pdb_name;
   INSERT INTO c##iod.pdb_attributes VALUES r;
   COMMIT;
 END merge_pdb_attributes;

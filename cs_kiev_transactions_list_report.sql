@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/04/07
+-- Version:     2022/01/12
 --
 -- Usage:       Execute connected to PDB
 --
@@ -47,10 +47,16 @@ UNDEF 3;
 SELECT UPPER(NVL('&&kiev_owner.', '&&username.')) kiev_owner FROM DUAL
 /
 --
+@@cs_internal/cs_kiev_transactions_top_names.sql
 PRO
-PRO 4. Report: [{top}|all]
-DEF cs2_report = '&4.';
+PRO 4. Transaction Name - Prefix (opt):
+DEF cs2_transactionname_prefix = '&4.';
 UNDEF 4;
+--
+PRO
+PRO 5. Report: [{top}|all]
+DEF cs2_report = '&5.';
+UNDEF 5;
 COL cs2_report NEW_V cs2_report NOPRI;
 SELECT NVL(LOWER(TRIM('&&cs2_report.')), 'top') cs2_report FROM DUAL;
 SELECT CASE WHEN '&&cs2_report.' IN ('top', 'all') THEN '&&cs2_report.' ELSE 'top' END AS cs2_report FROM DUAL;
@@ -59,19 +65,20 @@ COL cs2_order_by NEW_V cs2_order_by NOPRI;
 SELECT CASE '&&cs2_report.' WHEN 'top' THEN 'latency_ms DESC' ELSE 'endtime' END AS cs2_order_by FROM DUAL;
 VAR rows_count NUMBER;
 BEGIN
-  SELECT CASE '&&cs2_report.' WHEN 'top' THEN 30 ELSE 10000 END INTO :rows_count FROM DUAL;
+  SELECT CASE '&&cs2_report.' WHEN 'top' THEN 100 ELSE 10000 END INTO :rows_count FROM DUAL;
 END;
 /
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_report."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_transactionname_prefix." "&&cs2_report."
 @@cs_internal/cs_spool_id.sql
 --
 @@cs_internal/cs_spool_id_sample_time.sql
 --
 PRO OWNER        : &&kiev_owner.
+PRO TRANSACTION  : "&&cs2_transactionname_prefix.%"
 PRO REPORT       : &&cs2_report. [{top}|all]
 --
 COL begintime FOR A23 HEA 'Begin Time';
@@ -85,7 +92,7 @@ COL status HEA 'Status';
 COL gcpruned FOR A6 HEA 'GC|Pruned';
 --
 PRO 
-PRO KIEV Transactions ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (sorted by &&cs2_order_by.)
+PRO KIEV Transactions "&&cs2_transactionname_prefix.%" ending between &&cs_sample_time_from. and &&cs_sample_time_to. UTC (sorted by &&cs2_order_by.)
 PRO ~~~~~~~~~~~~~~~~~
 --
 WITH
@@ -105,6 +112,7 @@ SELECT kt.transactionid,
    AND kt.endtime > kt.begintime
    AND kt.endtime >= TO_TIMESTAMP('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND kt.endtime < TO_TIMESTAMP('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND kt.transactionname LIKE '&&cs2_transactionname_prefix.%'
 )
 SELECT TO_CHAR(kt.begintime, '&&cs_timestamp_full_format.') begintime,
        TO_CHAR(kt.endtime, '&&cs_timestamp_full_format.') endtime,
@@ -122,7 +130,7 @@ SELECT TO_CHAR(kt.begintime, '&&cs_timestamp_full_format.') begintime,
 /
 --
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_report."
+PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&kiev_owner." "&&cs2_transactionname_prefix." "&&cs2_report."
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

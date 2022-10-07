@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/04/07
+-- Version:     2022/01/31
 --
 -- Usage:       Execute connected to PDB
 --
@@ -108,27 +108,27 @@ PRO ~~~
 SELECT /*+ MATERIALIZE NO_MERGE */
        s.sql_id,
        CASE 
-         WHEN MAX(s.sql_text) LIKE '/* SPM:CP %Value(%' THEN 'INSERT' 
          WHEN MAX(s.sql_text) LIKE '/* WriteBucketValues(%' THEN 'INSERT' 
          WHEN MAX(s.sql_text) LIKE '/* deleteBucketGarbage */%' THEN 'DELETE'
-         WHEN MAX(s.sql_text) LIKE '/* SPM:CP addTransactionRow() */%' THEN 'KT_INS'
-         WHEN MAX(s.sql_text) LIKE '/* batch commit */%' THEN 'KT_INS'
-         WHEN MAX(s.sql_text) LIKE '/* Delete garbage for%transaction GC */%' THEN 'KT_DEL'
+        --  WHEN MAX(s.sql_text) LIKE '/* SPM:CP %Value(%' THEN 'INSERT' 
+        --  WHEN MAX(s.sql_text) LIKE '/* SPM:CP addTransactionRow() */%' THEN 'KT_INS'
+        --  WHEN MAX(s.sql_text) LIKE '/* batch commit */%' THEN 'KT_INS'
+        --  WHEN MAX(s.sql_text) LIKE '/* Delete garbage for%transaction GC */%' THEN 'KT_DEL'
          ELSE 'ERROR' 
        END AS opname,
        MAX(s.sql_text) sql_text
   FROM v$sql s,
        audit_actions a
- WHERE (    s.sql_text LIKE '/* SPM:CP %Value(%' 
-         OR s.sql_text LIKE '/* WriteBucketValues(%'
+ WHERE (    s.sql_text LIKE '/* WriteBucketValues(%'
          OR s.sql_text LIKE '/* deleteBucketGarbage */%'
-         OR s.sql_text LIKE '/* SPM:CP addTransactionRow() */%' 
-         OR s.sql_text LIKE '/* batch commit */%' 
-         OR s.sql_text LIKE '/* Delete garbage for%transaction GC */%'
+        --  OR s.sql_text LIKE '/* SPM:CP %Value(%' 
+        --  OR s.sql_text LIKE '/* SPM:CP addTransactionRow() */%' 
+        --  OR s.sql_text LIKE '/* batch commit */%' 
+        --  OR s.sql_text LIKE '/* Delete garbage for%transaction GC */%'
        )
    AND (    UPPER(s.sql_text) LIKE '/* %('||UPPER('&&table_name.')||')%' 
          OR UPPER(s.sql_text) LIKE '/* % '||UPPER('&&table_name.')||' %'
-         OR UPPER(s.sql_text) LIKE '/*%TRANSACTION%'
+        --  OR UPPER(s.sql_text) LIKE '/*%TRANSACTION%'
        )
    AND a.action = s.command_type
    AND a.name IN ('INSERT', 'DELETE')
@@ -142,8 +142,10 @@ COL inserted FOR 999,999,990;
 COL deleted FOR 999,999,990;
 COL growth FOR 999,999,990;
 COL kt_inserted FOR 999,999,990;
-COL kt_deleted FOR 999,999,990;
-COL kt_growth FOR 999,999,990;
+-- COL kt_deleted FOR 999,999,990;
+-- COL kt_growth FOR 999,999,990;
+COL growth_cumulative FOR 999,999,999,990;
+COL growth_pattern FOR A14;
 --
 BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF inserted deleted growth kt_inserted kt_deleted kt_growth ON REPORT;
@@ -153,23 +155,23 @@ insert_or_delete AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        s.sql_id,
        CASE 
-         WHEN MAX(s.sql_text) LIKE '/* SPM:CP %Value(%' THEN 'INSERT' 
          WHEN MAX(s.sql_text) LIKE '/* WriteBucketValues(%' THEN 'INSERT' 
          WHEN MAX(s.sql_text) LIKE '/* deleteBucketGarbage */%' THEN 'DELETE'
-         WHEN MAX(s.sql_text) LIKE '/* SPM:CP addTransactionRow() */%' THEN 'KT_INS'
-         WHEN MAX(s.sql_text) LIKE '/* batch commit */%' THEN 'KT_INS'
-         WHEN MAX(s.sql_text) LIKE '/* Delete garbage for%transaction GC */%' THEN 'KT_DEL'
+        --  WHEN MAX(s.sql_text) LIKE '/* SPM:CP %Value(%' THEN 'INSERT' 
+        --  WHEN MAX(s.sql_text) LIKE '/* SPM:CP addTransactionRow() */%' THEN 'KT_INS'
+        --  WHEN MAX(s.sql_text) LIKE '/* batch commit */%' THEN 'KT_INS'
+        --  WHEN MAX(s.sql_text) LIKE '/* Delete garbage for%transaction GC */%' THEN 'KT_DEL'
          ELSE 'ERROR' 
        END AS opname,
        MAX(s.sql_text) sql_text
   FROM v$sql s,
        audit_actions a
- WHERE (    s.sql_text LIKE '/* SPM:CP %Value(%' 
-         OR s.sql_text LIKE '/* WriteBucketValues(%'
+ WHERE (    s.sql_text LIKE '/* WriteBucketValues(%'
          OR s.sql_text LIKE '/* deleteBucketGarbage */%'
-         OR s.sql_text LIKE '/* SPM:CP addTransactionRow() */%' 
-         OR s.sql_text LIKE '/* batch commit */%' 
-         OR s.sql_text LIKE '/* Delete garbage for%transaction GC */%'
+        --  OR s.sql_text LIKE '/* SPM:CP %Value(%' 
+        --  OR s.sql_text LIKE '/* SPM:CP addTransactionRow() */%' 
+        --  OR s.sql_text LIKE '/* batch commit */%' 
+        --  OR s.sql_text LIKE '/* Delete garbage for%transaction GC */%'
        )
    AND (    UPPER(s.sql_text) LIKE '/* %('||UPPER('&&table_name.')||')%' 
          OR UPPER(s.sql_text) LIKE '/* % '||UPPER('&&table_name.')||' %'
@@ -191,7 +193,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND h.instance_number = &&cs_instance_number.
    AND h.sql_id = o.sql_id
    AND h.parsing_schema_name = UPPER('&&owner.')
-   AND o.opname IN ('INSERT', 'DELETE', 'KT_INS', 'KT_DEL')
+   AND o.opname IN ('INSERT', 'DELETE'/*, 'KT_INS', 'KT_DEL'*/)
  GROUP BY
        h.snap_id,
        o.opname
@@ -200,9 +202,9 @@ sqlstat_denorm AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        snap_id,
        SUM(CASE opname WHEN 'INSERT' THEN rows_processed_delta ELSE 0 END) AS inserted,
-       SUM(CASE opname WHEN 'DELETE' THEN rows_processed_delta ELSE 0 END) AS deleted,
-       SUM(CASE opname WHEN 'KT_INS' THEN rows_processed_delta ELSE 0 END) AS kt_inserted,
-       SUM(CASE opname WHEN 'KT_DEL' THEN rows_processed_delta ELSE 0 END) AS kt_deleted       
+       SUM(CASE opname WHEN 'DELETE' THEN rows_processed_delta ELSE 0 END) AS deleted
+      --  SUM(CASE opname WHEN 'KT_INS' THEN rows_processed_delta ELSE 0 END) AS kt_inserted,
+      --  SUM(CASE opname WHEN 'KT_DEL' THEN rows_processed_delta ELSE 0 END) AS kt_deleted       
   FROM sqlstat
  GROUP BY
        snap_id
@@ -213,9 +215,10 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        SUM(NVL(h.inserted, 0)) AS inserted,
        SUM(NVL(h.deleted, 0)) AS deleted,
        SUM(NVL(h.inserted, 0)) - SUM(NVL(h.deleted, 0)) AS growth,
-       SUM(NVL(h.kt_inserted, 0)) AS kt_inserted,
-       SUM(NVL(h.kt_deleted, 0)) AS kt_deleted,
-       SUM(NVL(h.kt_inserted, 0)) - SUM(NVL(h.kt_deleted, 0)) AS kt_growth
+       SUM(SUM(NVL(h.inserted, 0)) - SUM(NVL(h.deleted, 0))) OVER (ORDER BY TRUNC(s.end_interval_time, 'HH24') RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS growth_cumulative
+      --  SUM(NVL(h.kt_inserted, 0)) AS kt_inserted,
+      --  SUM(NVL(h.kt_deleted, 0)) AS kt_deleted,
+      --  SUM(NVL(h.kt_inserted, 0)) - SUM(NVL(h.kt_deleted, 0)) AS kt_growth
   FROM sqlstat_denorm h,
        dba_hist_snapshot s /* sys.wrm$_snapshot */
  WHERE s.dbid = &&cs_dbid.
@@ -228,9 +231,17 @@ SELECT end_time,
        inserted,
        deleted,
        growth,
-       kt_inserted,
-       kt_deleted,
-       kt_growth 
+       growth_cumulative,
+       CASE 
+         WHEN growth_cumulative > LAG(growth_cumulative) OVER (ORDER BY end_time) AND growth_cumulative > LEAD(growth_cumulative) OVER (ORDER BY end_time) THEN '^ PEAK'
+         WHEN growth_cumulative < LAG(growth_cumulative) OVER (ORDER BY end_time) AND growth_cumulative < LEAD(growth_cumulative) OVER (ORDER BY end_time) THEN 'v VALLEY'
+         WHEN growth_cumulative > LAG(growth_cumulative) OVER (ORDER BY end_time) THEN '/ UP'
+         WHEN growth_cumulative > LEAD(growth_cumulative) OVER (ORDER BY end_time) THEN '\ DOWN'
+         ELSE '? !!!'
+       END AS growth_pattern
+      --  kt_inserted,
+      --  kt_deleted,
+      --  kt_growth 
   FROM sqlstat_per_hour
  ORDER BY
        end_time

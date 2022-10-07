@@ -1,3 +1,4 @@
+-- cs_cdb_hist_sqlstat_delta.sql: called by cs_planx.sql and cs_sqlperf.sql (deprecated)
 COL snap_id FOR 999999 HEA 'Snap|ID';
 COL begin_time FOR A19 HEA 'Begin Interval Time';
 COL end_time FOR A19 HEA 'End Interval Time';

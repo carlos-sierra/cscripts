@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/22
+-- Version:     2022/04/01
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -32,7 +32,7 @@ DEF cs_hours_range_default = '3';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL cs_ash_cut_off_date NEW_V cs_ash_cut_off_date NOPRI;
 SELECT TO_CHAR(CAST(PERCENTILE_DISC(0.05) WITHIN GROUP (ORDER BY sample_time) AS DATE) + (1/24), 'YYYY-MM-DD"T"HH24:MI') AS cs_ash_cut_off_date FROM v$active_session_history;
@@ -121,6 +121,38 @@ COL cs2_samples NEW_V cs2_samples NOPRI;
 SELECT TO_CHAR(CEIL((TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.') - TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.')) / &&cs2_plus_days.)) AS cs2_samples FROM DUAL
 /
 --
+PRO
+PRO 4. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|top_level_sql_id|blocking_session|current_obj#|module|pdb_name|p1|p2|p3]
+DEF cs2_dimension = '&4.';
+UNDEF 4;
+COL cs2_dimension NEW_V cs2_dimension NOPRI;
+SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
+SELECT CASE WHEN '&&cs2_dimension.' IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'blocking_session', 'current_obj#', 'module', 'pdb_name', 'p1', 'p2', 'p3') THEN '&&cs2_dimension.' ELSE 'event' END cs2_dimension FROM DUAL;
+--
+COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
+SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
+--
+COL cs2_group NEW_V cs2_group NOPRI;
+SELECT CASE '&&cs2_dimension.'
+         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
+         WHEN 'event' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]'
+         WHEN 'machine' THEN q'[h.machine]' 
+         WHEN 'sql_id' THEN q'[h.sql_id]' 
+         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
+         WHEN 'top_level_sql_id' THEN q'[h.top_level_sql_id]' 
+        --  WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'  -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'blocking_session' THEN q'[TO_CHAR(h.blocking_session)]' 
+        --  WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]' -- 19c: ORA-00979: not a GROUP BY expression
+         WHEN 'current_obj#' THEN q'[TO_CHAR(h.current_obj#)]'
+         WHEN 'module' THEN q'[h.module]' 
+         WHEN 'pdb_name' THEN q'[TO_CHAR(h.con_id)]'
+         WHEN 'p1' THEN q'[h.p1text||':'||h.p1]'
+         WHEN 'p2' THEN q'[h.p2text||':'||h.p2]'
+         WHEN 'p3' THEN q'[h.p3text||':'||h.p3]'
+       END AS cs2_group
+  FROM DUAL
+/
+--
 COL aas FOR 999,990.000 HEA 'Average Active|Sessions (AAS)';
 COL db_seconds FOR 999,999,990 HEA 'DB Seconds';
 BREAK ON REPORT;
@@ -173,14 +205,14 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
 /
 --
 PRO
-PRO 4. Machine (opt):
-DEF cs2_machine = '&4.';
-UNDEF 4;
+PRO 5. Machine (opt):
+DEF cs2_machine = '&5.';
+UNDEF 5;
 --
 PRO
-PRO 5. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
-DEF cs2_sql_text_piece = '&5.';
-UNDEF 5;
+PRO 6. SQL Text piece (e.g.: ScanQuery, getValues, TableName, IndexName):
+DEF cs2_sql_text_piece = '&6.';
+UNDEF 6;
 --
 COL sql_text FOR A60 TRUNC;
 --
@@ -252,41 +284,9 @@ SELECT ROUND(SUM(db_seconds) / TO_NUMBER('&&cs_from_to_seconds.'), 3) AS aas,
 /
 --
 PRO
-PRO 6. SQL_ID (opt):
-DEF cs2_sql_id = '&6.';
-UNDEF 6;
---
-PRO
-PRO 7. Reporting Dimension: [{event}|wait_class|machine|sql_id|plan_hash_value|top_level_sql_id|blocking_session|current_obj#|module|pdb_name|p1|p2|p3]
-DEF cs2_dimension = '&7.';
+PRO 7. SQL_ID (opt):
+DEF cs2_sql_id = '&7.';
 UNDEF 7;
-COL cs2_dimension NEW_V cs2_dimension NOPRI;
-SELECT NVL(LOWER(TRIM('&&cs2_dimension.')), 'event') cs2_dimension FROM DUAL;
-SELECT CASE WHEN '&&cs2_dimension.' IN ('event', 'wait_class', 'machine', 'sql_id', 'plan_hash_value', 'top_level_sql_id', 'blocking_session', 'current_obj#', 'module', 'pdb_name', 'p1', 'p2', 'p3') THEN '&&cs2_dimension.' ELSE 'event' END cs2_dimension FROM DUAL;
---
-COL use_oem_colors_series NEW_V use_oem_colors_series NOPRI;
-SELECT CASE '&&cs2_dimension.' WHEN 'wait_class' THEN NULL ELSE '//' END AS use_oem_colors_series FROM DUAL;
---
-COL cs2_group NEW_V cs2_group NOPRI;
-SELECT CASE '&&cs2_dimension.'
-         WHEN 'wait_class' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class END]'
-         WHEN 'event' THEN q'[CASE h.session_state WHEN 'ON CPU' THEN h.session_state ELSE h.wait_class||' - '||h.event END]'
-         WHEN 'machine' THEN q'[h.machine]' 
-         WHEN 'sql_id' THEN q'[h.sql_id]' 
-         WHEN 'plan_hash_value' THEN q'[TO_CHAR(h.sql_plan_hash_value)]' 
-         WHEN 'top_level_sql_id' THEN q'[h.top_level_sql_id]' 
-        --  WHEN 'blocking_session' THEN q'[h.blocking_session||CASE WHEN h.blocking_session IS NOT NULL THEN ','||h.blocking_session_serial# END]'  -- 19c: ORA-00979: not a GROUP BY expression
-         WHEN 'blocking_session' THEN q'[TO_CHAR(h.blocking_session)]' 
-        --  WHEN 'current_obj#' THEN q'[h.current_obj#||CASE WHEN h.current_obj# IS NOT NULL THEN ' ('||h.con_id||')' END]' -- 19c: ORA-00979: not a GROUP BY expression
-         WHEN 'current_obj#' THEN q'[TO_CHAR(h.current_obj#)]'
-         WHEN 'module' THEN q'[h.module]' 
-         WHEN 'pdb_name' THEN q'[TO_CHAR(h.con_id)]'
-         WHEN 'p1' THEN q'[h.p1text||':'||h.p1]'
-         WHEN 'p2' THEN q'[h.p2text||':'||h.p2]'
-         WHEN 'p3' THEN q'[h.p3text||':'||h.p3]'
-       END AS cs2_group
-  FROM DUAL
-/
 --
 DEF spool_id_chart_footer_script = 'cs_ash_analytics_footer.sql';
 COL rn FOR 999;
@@ -562,6 +562,8 @@ DEF xaxis_title = '';
 --
 COL xaxis_title NEW_V xaxis_title NOPRI;
 SELECT
+'RGN:"&&cs_rgn." '||
+CASE WHEN '&&cs_con_name.' = 'CDB$ROOT' THEN UPPER('CDB:"&&cs_db_name." ') ELSE 'PDB:"&&cs_con_name." ' END||
 CASE WHEN '&&cs2_machine.' IS NOT NULL THEN 'Machine:"%&&cs2_machine.%" ' END||
 CASE WHEN '&&cs2_sql_text_piece.' IS NOT NULL THEN 'Text:"%&&cs2_sql_text_piece.%" ' END||
 CASE WHEN '&&cs2_sql_id.' IS NOT NULL THEN 'SQL_ID:"&&cs2_sql_id." ' END AS xaxis_title
@@ -576,7 +578,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = '<br>2) &&xaxis_title.';
 DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id." "&&cs2_dimension."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_granularity." "&&cs2_dimension." "&&cs2_machine." "&&cs2_sql_text_piece." "&&cs2_sql_id."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -905,7 +907,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

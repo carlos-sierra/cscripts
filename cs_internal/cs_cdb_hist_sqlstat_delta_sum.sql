@@ -1,3 +1,4 @@
+-- cs_cdb_hist_sqlstat_delta_sum.sql: called by cs_planx.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL snap_id FOR 999999 HEA 'Snap|ID';

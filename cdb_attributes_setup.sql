@@ -2,9 +2,10 @@
 CREATE TABLE c##iod.cdb_attributes (
   -- soft PK
   version                         VARCHAR2(10),
-  host_name                       VARCHAR2(64),
-  -- columns
   db_domain                       VARCHAR2(64),
+  db_name                         VARCHAR2(9),
+  -- columns
+  host_name                       VARCHAR2(64),
   disk_config                     VARCHAR2(16),
   host_shape                      VARCHAR2(64),
   host_class                      VARCHAR2(64),
@@ -30,7 +31,6 @@ CREATE TABLE c##iod.cdb_attributes (
   fs_u02_at_80p                   VARCHAR2(10),
   fs_u02_at_90p                   VARCHAR2(10),
   fs_u02_at_95p                   VARCHAR2(10),
-  db_name                         VARCHAR2(9),
   db_version                      VARCHAR2(17),
   dg_members                      NUMBER,
   pdbs                            NUMBER,
@@ -65,6 +65,25 @@ ALTER TABLE c##iod.cdb_attributes ADD (
   db_version                      VARCHAR2(17)
 )
 /
+
+CREATE UNIQUE INDEX c##iod.cdb_attributes_pk 
+ON c##iod.cdb_attributes 
+(version, db_domain, db_name) 
+COMPRESS ADVANCED LOW
+TABLESPACE IOD
+/
+
+-- SELECT * FROM  c##iod.cdb_attributes WHERE (version, db_domain, db_name) IN (
+-- SELECT DISTINCT version, db_domain, db_name
+-- FROM c##iod.cdb_attributes 
+-- --WHERE version > SYSDATE - 30
+-- GROUP BY version, db_domain, db_name
+-- HAVING COUNT(*) > 1
+-- )
+-- /
+
+-- DELETE c##iod.cdb_attributes WHERE version < SYSDATE - 30;
+
 
 CREATE OR REPLACE 
 PROCEDURE c##iod.merge_cdb_attributes (
@@ -158,7 +177,7 @@ BEGIN
   IF p_wf_pdbs > 0 THEN r.wf_flag := 'Y'; ELSE r.wf_flag := 'N'; END IF;
   IF p_casper_pdbs > 0 THEN r.casper_flag := 'Y'; ELSE r.casper_flag := 'N'; END IF;
   --
-  DELETE c##iod.cdb_attributes WHERE version = r.version AND host_name = r.host_name;
+  DELETE c##iod.cdb_attributes WHERE version = r.version AND db_domain = r.db_domain AND db_name = r.db_name;
   INSERT INTO c##iod.cdb_attributes VALUES r;
   COMMIT;
 END merge_cdb_attributes;

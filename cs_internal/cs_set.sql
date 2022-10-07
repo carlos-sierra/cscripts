@@ -7,12 +7,12 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.FF3';
 --ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT='YYYY-MM-DD"T"HH24:MI:SS.FF3 TZR';
 ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT='YYYY-MM-DD"T"HH24:MI:SS.FF3';
 ALTER SESSION SET STATISTICS_LEVEL = 'ALL';
-ALTER SESSION SET "_px_cdb_view_enabled" = FALSE;
+-- ALTER SESSION SET "_px_cdb_view_enabled" = FALSE; -- set at CDB level on IOD (ODIS)
 --
 -- setting hidden parameter "_with_subquery" [{OPTIMIZER}|MATERIALIZE|INLINE]
 -- workaround for bug: ORA-00600: internal error code, arguments: [qks3tGCL:1]: set to INLINE
 -- ALTER SESSION SET "_with_subquery" = INLINE; 
 -- workaround for ORA-32036: unsupported case for inlining of query name in WITH clause" on DBMS_SQLTUNE.report_sql_monitor: set to MATERIALIZE (or OPTIMIZER)
 -- ALTER SESSION SET "_with_subquery" = MATERIALIZE;
-ALTER SESSION SET "_with_subquery" = OPTIMIZER;
+-- ALTER SESSION SET "_with_subquery" = OPTIMIZER; -- removing because of (ODIS)
 --

@@ -12,6 +12,7 @@ SELECT TO_CHAR(h.timestamp, '&&cs_datetime_full_format.') timestamp,
  WHERE h.sql_id = '&&cs_sql_id.'
    AND ('&&cs_plan_hash_value.' IS NULL OR h.plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
    AND h.id = 0
+   AND h.dbid = TO_NUMBER('&&cs_dbid.') 
  ORDER BY
        h.timestamp
 /

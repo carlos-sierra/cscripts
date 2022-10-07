@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/06/01
+-- Version:     2022/09/08
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -23,6 +23,11 @@
 COL trace_dir NEW_V trace_dir FOR A100 NOPRI;
 COL ckpt_trc NEW_V ckpt_trc FOR A30 NOPRI;
 SELECT d.value AS trace_dir, LOWER('&&cs_db_name._')||LOWER(p.pname)||'_'||p.spid||'.trc' AS ckpt_trc FROM v$diag_info d, v$process p WHERE d.name = 'Diag Trace' AND p.pname = 'CKPT';
+--
+HOS cat &&trace_dir./&&ckpt_trc.
+PRO 
+PRO &&trace_dir./&&ckpt_trc.
+PRO
 HOS cp &&trace_dir./&&ckpt_trc. /tmp/
 HOS chmod 644 /tmp/&&ckpt_trc.
 PRO

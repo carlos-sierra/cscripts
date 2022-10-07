@@ -28,7 +28,6 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        v$containers c
  WHERE 1 = 1
    AND s.segment_type LIKE 'TABLE%'
-  --  AND s.owner NOT LIKE 'C##%'
    AND s.segment_name = COALESCE('&&specific_table.', s.segment_name)
    AND u.con_id = s.con_id
    AND u.username = s.owner
@@ -53,7 +52,6 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        cdb_users u,
        v$containers c
  WHERE 1 = 1
-  --  AND t.owner NOT LIKE 'C##%'
    AND u.con_id = t.con_id
    AND u.username = t.owner
    AND u.oracle_maintained = 'N'
@@ -72,7 +70,6 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        cdb_indexes i
  WHERE 1 = 1
    AND s.segment_type LIKE '%INDEX%'
-  --  AND s.owner NOT LIKE 'C##%'
    AND u.con_id = s.con_id
    AND u.username = s.owner
    AND u.oracle_maintained = 'N'
@@ -98,7 +95,6 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        cdb_lobs l
  WHERE 1 = 1
    AND s.segment_type LIKE 'LOB%'
-  --  AND s.owner NOT LIKE 'C##%'
    AND s.segment_type <> 'LOBINDEX'
    AND u.con_id = s.con_id
    AND u.username = s.owner

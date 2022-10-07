@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/08/17
+-- Version:     2022/10/03
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -25,19 +25,19 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_osstat_cpu_load_chart';
-DEF cs_hours_range_default = '336';
+DEF cs_hours_range_default = '168';
 --
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF report_title = 'CPU Demand between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
 DEF xaxis_title = '';
-DEF vaxis_title = 'Processes and Sessions';
+DEF vaxis_title = '';
 --
 -- (isStacked is true and baseline is null) or (not isStacked and baseline >= 0)
 --DEF is_stacked = "isStacked: false,";
@@ -78,7 +78,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        (CAST(s.end_interval_time AS DATE) - CAST(s.begin_interval_time AS DATE)) * 24 * 3600 seconds,
        h.stat_name,
        CASE 
-         WHEN h.stat_name IN ('NUM_CPUS','LOAD','NUM_CPU_CORES') THEN value
+         WHEN h.stat_name IN ('NUM_CPUS','LOAD','NUM_CPU_CORES') THEN h.value
          WHEN h.stat_name LIKE '%TIME' THEN h.value - LAG(h.value) OVER (PARTITION BY h.stat_name ORDER BY h.snap_id) 
          ELSE 0
        END value,
@@ -140,7 +140,7 @@ DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie
 DEF cs_chart_option_pie = '//';
 -- use oem colors
-DEF cs_oem_colors_series = '';
+DEF cs_oem_colors_series = '//';
 DEF cs_oem_colors_slices = '//';
 -- for line charts
 DEF cs_curve_type = '//';
@@ -150,7 +150,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

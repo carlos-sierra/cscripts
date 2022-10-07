@@ -7,7 +7,7 @@ REM Dummy line to avoid "usage: r_sql_exec" when executed using iodcli
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/09/27
+-- Version:     2022/04/22
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -51,7 +51,7 @@ PRO
 SELECT 
 'ALTER SESSION SET CONTAINER = '||name||';'||CHR(10)||
 'SET ECHO ON TIMI ON TIM ON SERVEROUT ON;'||CHR(10)||
-'BEGIN'||CHR(10)||
+'BEGIN /* cs_dbms_stats_gather_database_stats_job 1 job */'||CHR(10)||
 'FOR i IN (SELECT DBMS_STATS.GET_PREFS(''STALE_PERCENT'') AS stale_percent FROM DUAL)'||CHR(10)||
 'LOOP'||CHR(10)||
 'IF i.stale_percent <> ''5'' THEN'||CHR(10)||
@@ -59,6 +59,9 @@ SELECT
 'DBMS_STATS.SET_GLOBAL_PREFS(''STALE_PERCENT'', ''5'');'||CHR(10)||
 'END IF;'||CHR(10)||
 'END LOOP;'||CHR(10)||
+'END;'||CHR(10)||
+'/'||CHR(10)||
+'BEGIN /* cs_dbms_stats_gather_database_stats_job 2 job */'||CHR(10)||
 'DBMS_STATS.GATHER_DATABASE_STATS_JOB_PROC;'||CHR(10)||
 'END;'||CHR(10)||
 '/' AS lin

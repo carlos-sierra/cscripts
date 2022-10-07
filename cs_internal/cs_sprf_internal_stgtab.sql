@@ -1,8 +1,4 @@
--- gets tablespace
-COL cs_default_tablespace NEW_V cs_default_tablespace NOPRI;
-SELECT default_tablespace cs_default_tablespace FROM dba_users WHERE username = UPPER('&&cs_stgtab_owner.');
-ALTER USER &&cs_stgtab_owner. QUOTA UNLIMITED ON &&cs_default_tablespace.;
---
+@@cs_set_quota_tools_owner.sql
 -- create staging table
 DECLARE
   l_exists NUMBER;

@@ -1,34 +1,39 @@
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 NUM 20 SERVEROUT OFF;
 SET PAGES 300 LONGC 120;
+DEF aas_threshold = '0.3';
 --
-COL type FOR A4 HEA 'Type';
+COL sql_type FOR A4 HEA '.|SQL|Type';
+COL sql_id FOR A13 TRUNC;
 COL row_number NOPRI;
-COL sql_plan_hash_value FOR 9999999999 HEA 'Plan Hash';
-COL aas FOR 990.000 HEA 'AAS';
-COL sessions FOR 9990 HEA 'Sess';
+COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash|Value';
+COL aas_db FOR 9,990.000 HEA 'DB|Load(aas)';
+COL aas_cpu FOR 9,990.000 HEA 'CPU|Load(aas)';
+COL aas_io FOR 9,990.000 HEA 'I/O|Load(aas)';
+COL sessions FOR 9990 HEA 'Dist|Sess';
 COL sql_text FOR A60 TRUNC HEA 'SQL Text';
 COL timed_event FOR A35 TRUNC HEA 'Timed Event';
 COL pdb_name FOR A30 TRUNC HEA 'PDB Name';
 COL module FOR A25 TRUNC HEA 'Module';
-COL version_count FOR 9990 HEA 'VC';
+COL pdb_name_module FOR A30 TRUNC HEA 'PDB Name or Module';
+COL version_count FOR 9990 HEA 'Ver|Cnt';
 COL has_baseline FOR A2 HEA 'BL';
 COL has_profile FOR A2 HEA 'PR';
 COL has_patch FOR A2 HEA 'PA';
-COL sqlid FOR A5 HEA 'SQLHV';
+COL sqlid FOR A5 HEA 'SQL|HV';
 --
-BREAK ON REPORT ON type SKIP 1 DUPL;
-COMPUTE SUM LABEL "TOT:" OF aas ON REPORT;
-COMPUTE SUM LABEL "AAS:" OF aas ON type;
+BREAK ON REPORT ON sql_type SKIP 1 DUPL;
+COMPUTE SUM OF aas_db aas_cpu aas_io ON REPORT;
+COMPUTE SUM OF aas_db aas_cpu aas_io ON sql_type;
 --
 PRO 
-PRO TOP &&cs_top. Active SQL as per Average Active Sessions (AAS) on Timed Event for last &&cs_minutes. minute(s)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PRO TOP Active SQL as per Average Active Sessions (AAS) on Timed Event for last &&cs_minutes. minute(s)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 WITH
 FUNCTION application_category (
   p_sql_text     IN VARCHAR2, 
   p_command_name IN VARCHAR2 DEFAULT NULL
 )
-RETURN VARCHAR2 DETERMINISTIC
+RETURN VARCHAR2
 IS
   k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
@@ -72,6 +77,30 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'isPartitionDropDisabled'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'getWithVersionOffsetSql'||k_appl_handle_suffix 
     OR  LOWER(p_sql_text) LIKE CHR(37)||'lock table kievtransactions'||CHR(37) 
+    --
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Set ddl lock timeout for session'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.leases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.step_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.historical_assignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.workflow_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.step_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'delete.leases_types'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getForUpdate.dataplane_alias'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.leases_types'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.leases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.step_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.historical_assignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.workflow_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'insert.step_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.dataplane_alias'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.leases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.step_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.historical_assignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'update.workflow_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Drop partition'||k_appl_handle_suffix 
   THEN RETURN 'TP'; /* Transaction Processing */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Read Only'||k_appl_handle_suffix 
@@ -112,6 +141,36 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'GetStreamRecords'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'Check if another workflow is running'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'Delete old workflows from'||k_appl_handle_suffix 
+    --
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getFutureWorkflowDefinition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getPriorWorkflowDefinition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'enumerateLeases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'enumerateLeaseTypes'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getHistoricalAssignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getAllWorkflowDefinitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getVersionHistory'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getInstances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Find interval partitions for schema'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getStepInstances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getOldestGcWorkflowInstance'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getNextRecordID'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.dataplane_alias'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getLeaseNonce'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.leases_types'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.leases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getByKey.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getRecordId.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getLast.historical_assignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.historical_assignments'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'isPartitionDropDisabled'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'Check if there are active rows for partition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getRunningInstancesCount'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.workflow_definitions'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getLatestWorkflowDefinition'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getLast.step_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.workflow_instances'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'get.step_instances'||k_appl_handle_suffix 
   THEN RETURN 'RO'; /* Read Only */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Background'||k_appl_handle_suffix 
@@ -174,6 +233,12 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'log'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'register_host'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'updateSchemaVersionInDB'||k_appl_handle_suffix 
+    --
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getUnownedLeases'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getFutureWorks'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getMinorVersionsAtAndAfter'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getLeaseDecorators'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'getUnownedLeasesByFiFo'||k_appl_handle_suffix 
   THEN RETURN 'BG'; /* Background */
   --
   ELSIF p_sql_text LIKE k_appl_handle_prefix||'Ignore'||k_appl_handle_suffix 
@@ -207,10 +272,13 @@ END application_category;
 /****************************************************************************************/
 ash AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
-       ROUND(COUNT(*) / (&&cs_minutes. * 60), 3) AS aas,
+       ROUND(COUNT(*) / (&&cs_minutes. * 60), 3) AS aas_db,
+       ROUND(SUM(CASE  a.session_state WHEN 'ON CPU' THEN 1 ELSE 0 END)/ (&&cs_minutes. * 60), 3) AS aas_cpu,
+       ROUND(SUM(CASE WHEN a.wait_class LIKE '% I/O' THEN 1 ELSE 0 END)/ (&&cs_minutes. * 60), 3) AS aas_io,
        COUNT(DISTINCT a.session_id||','||a.session_serial#) AS sessions,
        COALESCE(a.sql_id, '"null"') AS sql_id,
        a.sql_plan_hash_value,
+      --  a.sql_child_number,
        SUBSTR(CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END, 1, 35) AS timed_event,
        SUBSTR(a.module, 1, 25) AS module,
        c.con_id,
@@ -228,6 +296,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  GROUP BY
        COALESCE(a.sql_id, '"null"'),
        a.sql_plan_hash_value,
+      --  a.sql_child_number,
        SUBSTR(CASE a.session_state WHEN 'ON CPU' THEN a.session_state ELSE a.wait_class||' - '||a.event END, 1, 35),
        SUBSTR(a.module, 1, 25),
        c.con_id,
@@ -236,8 +305,11 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        a.user_id
 ),
 ash_extended AS (
-SELECT a.row_number,
-       a.aas,
+SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.sql_opname) END AS sql_type,
+       a.row_number,
+       a.aas_db,
+       a.aas_cpu,
+       a.aas_io,
        a.sessions,
        a.sql_id,
        a.sql_plan_hash_value,
@@ -245,7 +317,6 @@ SELECT a.row_number,
        s.has_profile,
        s.has_patch,
        s.sql_text,
-       s.sql_fulltext,
        a.module,
        a.con_id,
        a.timed_event,
@@ -254,37 +325,68 @@ SELECT a.row_number,
        a.user_id
   FROM ash a
        OUTER APPLY (
-         SELECT REPLACE(REPLACE(s.sql_text, CHR(10), ' '), CHR(9), ' ') AS sql_text, sql_fulltext,
+         SELECT REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text,
                 CASE WHEN s.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN s.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
                 CASE WHEN s.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch 
            FROM v$sql s
-          WHERE a.sql_plan_hash_value > 0 
-            AND s.sql_id = a.sql_id
+          WHERE s.sql_id = a.sql_id
             AND s.con_id = a.con_id
             AND s.plan_hash_value = a.sql_plan_hash_value
+            -- AND s.child_number = a.sql_child_number
           ORDER BY 
                 s.last_active_time DESC
           FETCH FIRST 1 ROW ONLY
        ) s
- WHERE a.row_number <= &&cs_top.
+ WHERE (a.row_number <= &&cs_top. OR a.aas_db > &&aas_threshold.)
+ UNION ALL
+SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.sql_opname) END AS sql_type,
+       999999 AS row_number,
+       SUM(a.aas_db) AS aas_db,
+       SUM(a.aas_cpu) AS aas_cpu,
+       SUM(a.aas_io) AS aas_io,
+       TO_NUMBER(NULL) AS sessions,
+       '"'||COUNT(DISTINCT a.sql_id)||' others"' AS sql_id,
+       TO_NUMBER(NULL) AS sql_plan_hash_value,
+       NULL AS has_baseline,
+       NULL AS has_profile,
+       NULL AS has_patch,
+       NULL AS sql_text,
+       NULL AS module,
+       TO_NUMBER(NULL) AS con_id,
+       a.timed_event,
+       '"'||COUNT(DISTINCT a.pdb_name)||' PDBs"' AS sql_text,
+       NULL AS sql_opname,
+       TO_NUMBER(NULL) AS user_id
+  FROM ash a
+       OUTER APPLY (
+         SELECT REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text, 
+                CASE WHEN s.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
+                CASE WHEN s.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
+                CASE WHEN s.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch 
+           FROM v$sql s
+          WHERE s.sql_id = a.sql_id
+            AND s.con_id = a.con_id
+            AND s.plan_hash_value = a.sql_plan_hash_value
+            -- AND s.child_number = a.sql_child_number
+          ORDER BY 
+                s.last_active_time DESC
+          FETCH FIRST 1 ROW ONLY
+       ) s
+ WHERE NOT (a.row_number <= &&cs_top. OR a.aas_db > &&aas_threshold.)
+ GROUP BY
+       CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.sql_opname) END,
+       a.timed_event
+HAVING SUM(a.aas_db) > &&aas_threshold.
 ),
 ash_extended2 AS (
-SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.sql_opname) END AS type,
+SELECT a.sql_type,
        a.row_number,
-       a.aas,
+       a.aas_db,
+       a.aas_cpu,
+       a.aas_io,
        a.sessions,
        a.sql_id,
--- ERROR at line 256:
--- ORA-00900: invalid SQL statement
--- ORA-06512: at "SYS.DBMS_SQLTUNE_UTIL0", line 197
--- ORA-06512: at "SYS.DBMS_SQLTUNE", line 11039
--- ORA-06512: at line 1
-      --  CASE 
-      --    WHEN a.sql_id = '"null"' 
-      --    THEN '00000' 
-      --    ELSE LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN a.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(a.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE a.sql_fulltext END),100000),5,'0') 
-      --  END AS sqlid,
        a.sql_plan_hash_value,
        s.version_count,
        a.has_baseline,
@@ -294,7 +396,7 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.
        a.module,
        a.con_id,
        a.timed_event,
-       a.pdb_name,
+       COALESCE(a.pdb_name, '"multiple"') AS pdb_name,
        a.sql_opname,
        a.user_id
   FROM ash_extended a,
@@ -302,9 +404,12 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(a.sql_text, a.
  WHERE s.sql_id(+) = a.sql_id
    AND s.con_id(+) = a.con_id
 )
-SELECT a.type,
+SELECT a.sql_type,
        a.row_number,
-       a.aas,
+       a.aas_db,
+       a.aas_cpu,
+       a.aas_io,
+       a.timed_event,
        a.sessions,
        a.sql_id,
       --  a.sqlid,
@@ -314,13 +419,15 @@ SELECT a.type,
        a.has_profile,
        a.has_patch,
        a.sql_text,
-       a.timed_event,
-       a.pdb_name,
-       a.module
+      --  a.timed_event,
+       CASE '&&cs_con_name.' WHEN 'CDB$ROOT' THEN a.pdb_name ELSE a.module END AS pdb_name_module
+      --  a.pdb_name,
+      --  a.module
   FROM ash_extended2 a
  ORDER BY
-       CASE a.type WHEN 'TP' THEN 1 WHEN 'RO' THEN 2 WHEN 'BG' THEN 3 WHEN 'UN' THEN 4 WHEN 'SYS' THEN 5 ELSE 6 END,
-       a.row_number
+       CASE a.sql_type WHEN 'TP' THEN 1 WHEN 'RO' THEN 2 WHEN 'BG' THEN 3 WHEN 'UN' THEN 4 WHEN 'IG' THEN 5 WHEN 'SYS' THEN 6 ELSE 9  END,
+       a.row_number,
+       a.aas_db DESC
 /
 --
 -- CLEAR BREAK COMPUTE;

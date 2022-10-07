@@ -2,11 +2,11 @@
 --
 -- File name:   cs_sessions_hist.sql
 --
--- Purpose:     Simple list of all historical Sessions (all types and all statuses)
+-- Purpose:     Simple list all historical Sessions (all types and all statuses)
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/06/14
+-- Version:     2022/10/05
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -35,7 +35,7 @@ COL num_days NEW_V num_days NOPRI;
 SELECT NVL('&&num_days.', '1') AS num_days FROM DUAL
 /
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 COL sessions FOR 999,990;
 COL snap_time NEW_V snap_time;
 SELECT TO_CHAR(snap_time, '&&cs_datetime_full_format.') AS snap_time, COUNT(*) sessions
@@ -46,7 +46,7 @@ SELECT TO_CHAR(snap_time, '&&cs_datetime_full_format.') AS snap_time, COUNT(*) s
  ORDER BY
        snap_time
 /
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO Enter Snap Time: [{&&snap_time.}]
@@ -58,7 +58,7 @@ SELECT NVL('&&cs_snap_time.', '&&snap_time.') AS cs_snap_time FROM DUAL
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&num_days." "&&cs_snap_time."
@@ -311,7 +311,7 @@ PRO SQL> @&&cs_script_name..sql "&&num_days." "&&cs_snap_time."
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

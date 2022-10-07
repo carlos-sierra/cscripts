@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/09
+-- Version:     2020/12/19
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -30,14 +30,14 @@ DEF cs_hours_range_default = '336';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
-PRO 3. Metric: [{IOPS}|MBPS]
+PRO 3. Metric: [{MBPS}|IOPS]
 DEF metric_filter = '&3.';
 UNDEF 3;
 COL cs_metric_filter NEW_V cs_metric_filter NOPRI;
-SELECT CASE NVL(UPPER(TRIM('&&metric_filter.')), 'IOPS') WHEN 'MBPS' THEN 'MBPS' ELSE 'IOPS' END AS cs_metric_filter FROM DUAL
+SELECT CASE NVL(UPPER(TRIM('&&metric_filter.')), 'MBPS') WHEN 'MBPS' THEN 'MBPS' ELSE 'IOPS' END AS cs_metric_filter FROM DUAL
 /
 COL metric_name_1 NEW_V metric_name_1 NOPRI;
 COL metric_name_2 NEW_V metric_name_2 NOPRI;
@@ -181,7 +181,7 @@ DEF cs_curve_type = '//';
 PRO
 PRO &&report_foot_note.
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

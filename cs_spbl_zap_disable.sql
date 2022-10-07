@@ -18,12 +18,13 @@
 --
 ---------------------------------------------------------------------------------------
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 -- disable zapper-19
 UPDATE C##IOD.zapper_config SET enabled = 'N' WHERE enabled = 'Y'
 /
 COMMIT
 /
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 PRO
 PRO ZAPPER-19 is now DISABLED persistently. It will NOT be re-enabled automatically.
 PRO

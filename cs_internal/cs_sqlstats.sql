@@ -1,3 +1,4 @@
+-- cs_sqlstats.sql: called by cs_planx.sql and cs_sqlperf.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL avg_et_ms FOR 99,999,990.000 HEA 'Avg Elapsed|Time (ms)';

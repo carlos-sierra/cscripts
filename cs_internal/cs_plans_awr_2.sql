@@ -11,6 +11,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE h.sql_id = '&&cs_sql_id.'
    AND ('&&cs_plan_hash_value.' IS NULL OR h.plan_hash_value = TO_NUMBER('&&cs_plan_hash_value.'))
    AND h.id = 0
+   AND h.dbid = TO_NUMBER('&&cs_dbid.') 
  ORDER BY
        h.timestamp
 )

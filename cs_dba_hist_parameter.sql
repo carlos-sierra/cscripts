@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/27
+-- Version:     2021/12/06
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -58,7 +58,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_id_sample_time.sql
 --
---ALTER SESSION SET container = CDB$ROOT;
+--@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO PARAMETER    : "&&parameter_name."
 --
@@ -84,6 +84,7 @@ COL parameter_name FOR A43;
 COL prior_value FOR A50 HEA 'BEGIN_VALUE';
 COL value FOR A50 HEA 'END_VALUE';
 COL change FOR 999,999,999,999,990 HEA 'NET_CHANGE';
+COL con_id FOR 999990;
 COL pdb_name FOR A30 TRUNC;
 --
 BREAK ON begin_time SKIP PAGE ON end_time;
@@ -133,14 +134,13 @@ SELECT CAST(p.begin_interval_time AS DATE) AS begin_time,
        p.prior_value,
        p.value,
        CASE WHEN REGEXP_LIKE(p.prior_value, '^[^a-zA-Z]*$') AND REGEXP_LIKE(p.value, '^[^a-zA-Z]*$') THEN TO_NUMBER(p.value) - TO_NUMBER(p.prior_value) END AS change, -- https://asktom.oracle.com/pls/apex/asktom.search?tag=determine-whether-the-given-is-numeric-alphanumeric-and-hexadecimal
-       c.name AS pdb_name
-  FROM parameter_changes p,
-       v$containers c
- WHERE c.con_id = p.con_id
+       p.con_id,
+       (SELECT c.name AS pdb_name FROM v$containers c WHERE c.con_id = p.con_id) AS pdb_name
+  FROM parameter_changes p
  ORDER BY
        p.begin_interval_time,
        p.parameter_name,
-       c.name
+       p.con_id
 /
 --
 CLEAR BREAK;
@@ -150,7 +150,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." 
 --
 @@cs_internal/cs_spool_tail.sql
 --
---ALTER SESSION SET CONTAINER = &&cs_con_name.;
+--@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

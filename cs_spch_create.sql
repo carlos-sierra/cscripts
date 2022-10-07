@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/08/19
+-- Version:     2022/09/15
 --
 -- Usage:       Connecting into PDB.
 --
@@ -52,12 +52,14 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
+@@cs_internal/&&cs_zapper_sprf_export.
 --
-@@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
+-- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spch_internal_list.sql
 --
 COL default_hints_text NEW_V default_hints_text NOPRI;
-SELECT q'[FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]'||CASE WHEN '&&cs_kiev_table_name.' IS NOT NULL THEN ' LEADING(@SEL$1 &&cs_kiev_table_name.)' END AS default_hints_text FROM DUAL;
+SELECT q'[&&hints_text.]'||CASE WHEN '&&cs_kiev_table_name.' IS NOT NULL THEN ' LEADING(@SEL$1 &&cs_kiev_table_name.)' END||q'[ OPT_PARAM('_b_tree_bitmap_plans' 'FALSE') OPT_PARAM('_no_or_expansion' 'TRUE')]' AS default_hints_text FROM DUAL;
 PRO
 PRO To enhance diagnostics:          MONITOR GATHER_PLAN_STATISTICS
 PRO

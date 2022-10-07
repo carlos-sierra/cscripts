@@ -1,2 +1,0 @@
--- cs_cpu_sysmetric_for_pdb_mem_chart.sql - CPU System Metrics as per V$CON_SYSMETRIC_HISTORY View for a PDB (time series chart)
-@@cs_some_sysmetric_for_pdb_mem_chart.sql "CentiSeconds Per Second" "CPU Usage Per Sec" "" "" "" "" "" "Scatter"

@@ -8,9 +8,9 @@ BEGIN
   FOR i IN (SELECT t.owner, t.table_name, t.num_rows, t.last_analyzed FROM dba_tables t, dba_users u WHERE /*t.owner <> 'C##IOD' AND t.table_name NOT LIKE 'KIEV%' AND t.num_rows > 0 AND*/ t.last_analyzed < SYSDATE -1 AND u.username = t.owner AND u.oracle_maintained = 'N' ORDER BY t.owner, t.table_name)
   LOOP
     IF NVL(i.num_rows, 0) < 1e6 THEN
-      EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM '||i.owner||'.'||i.table_name INTO l_cnt;
+      EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM "'||i.owner||'"."'||i.table_name||'"' INTO l_cnt;
     ELSE
-      EXECUTE IMMEDIATE 'SELECT 100 * COUNT(*) FROM '||i.owner||'.'||i.table_name||' SAMPLE(1)' INTO l_cnt;
+      EXECUTE IMMEDIATE 'SELECT 100 * COUNT(*) FROM "'||i.owner||'"."'||i.table_name||'" SAMPLE(1)' INTO l_cnt;
     END IF;
     l_pct := ROUND(100 * (l_cnt - i.num_rows) / NULLIF(i.num_rows, 0));
     IF ABS(l_pct) > 10 THEN

@@ -200,7 +200,7 @@ FETCH FIRST &&rows. ROWS ONLY
 /
 --
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL p_u02 NEW_V p_u02 FOR 99999999;
 --
@@ -213,7 +213,7 @@ WHERE TIMESTAMP= (select max(TIMESTAMP) from C##IOD.dbc_system);
 --
 PRO
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 SET SERVEROUTPUT ON
 BEGIN

@@ -31,7 +31,7 @@ DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
-ALTER SESSION SET container = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL owner FOR A30 TRUNC;
 SELECT DISTINCT h.owner
@@ -129,13 +129,13 @@ SELECT TO_CHAR(h.ddl_begin_time, '&&cs_datetime_full_format.') AS ddl_begin_time
        h.ddl_begin_time
 /
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs2_index_owner." "&&cs2_index_name."
 --
 @@cs_internal/cs_spool_tail.sql
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql

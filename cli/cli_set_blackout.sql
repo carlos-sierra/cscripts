@@ -1,0 +1,1 @@
+EXEC C##IOD.IOD_ADMIN.set_blackout(p_minutes => 1620, p_part_maint_blackout => 1, p_ticket => 'DBPERF-7640');

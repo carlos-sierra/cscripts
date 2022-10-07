@@ -14,7 +14,7 @@ iodcli sql_exec -y -t PRIMARY -p "%W%F%" file:/Users/csierra/git/bitbucket.oci.o
 */
 DECLARE
   l_cs_reference VARCHAR2(30) := 'DBPERF-6724';
-  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1) OPT_PARAM('_fix_control' '5922070:OFF')]';
+  l_cbo_hints VARCHAR2(500) := q'[FIRST_ROWS(1)]';
   l_update CHAR(1) := 'Y'; -- N|Y
 --
   l_count NUMBER;

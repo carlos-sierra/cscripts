@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2022/08/10
 --
 -- Usage:       Connecting into PDB or CDB.
 --
@@ -67,21 +67,16 @@ SET HEA OFF;
 PRINT :cs_sql_text
 SET HEA ON;
 --
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql
--- @@cs_internal/cs_spbl_internal_list.sql
---
 PRO
 PRO EXECUTING ZAPPER
 PRO ~~~~~~~~~~~~~~~~
 PRO please wait... (may take a while if there are other &&cs_tools_schema. APIs executing)
 PRO
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 SET SERVEROUT ON;
 EXEC &&cs_tools_schema..IOD_SPM.fpz(p_report_only => '&&report_only.', p_debug => '&&debug.', p_pdb_name => (CASE NVL('&&cs_con_name.', 'CDB$ROOT') WHEN 'CDB$ROOT' THEN 'ALL' ELSE '&&cs_con_name.' END), p_sql_id => NVL('&&cs_sql_id.', 'ALL'));
 SET SERVEROUT OFF;
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
---
--- @@cs_internal/cs_spbl_internal_list.sql
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&report_only." "&&debug."

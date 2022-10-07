@@ -24,7 +24,7 @@ PRO It will require you review its output on every PAUSE.
 PRO It is idempotent, then you can execute it more than once.
 PRO You can use companion script cs_sprf_verify_wf.sql to verify current state of consiered SQL.
 PRO
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
 PRO Search String: performScanQuery(leaseDecorators,ae_timestamp_index)%(1 = 1)%ASC
@@ -61,3 +61,4 @@ PRO
 PAUSE hit "return" to execute idempotent script kiev/cs_sprf_kiev_vcn_events_v2_rgn.sql
 @@kiev/cs_sprf_kiev_vcn_events_v2_rgn.sql
 --
+@@cs_internal/&&cs_set_container_to_curr_pdb.

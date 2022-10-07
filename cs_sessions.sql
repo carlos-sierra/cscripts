@@ -2,11 +2,11 @@
 --
 -- File name:   cs_sessions.sql
 --
--- Purpose:     Simple list of all current Sessions (all types and all statuses)
+-- Purpose:     Simple list all current Sessions (all types and all statuses)
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/28
+-- Version:     2022/10/05
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -49,12 +49,13 @@ COL logon_time FOR A19;
 COL service_name FOR A50;
 --
 SET FEED ON;
+DEF cs_session_type = 'BACKGROUND'
 PRO
-PRO SESSIONS
+PRO SESSIONS: &&cs_session_type.
 PRO ~~~~~~~~
 WITH
 v_session AS (
-SELECT /*+ MATERIALIZE NO_MERGE */ * FROM v$session WHERE &&cs_con_id. IN (1, con_id)
+SELECT /*+ MATERIALIZE NO_MERGE */ * FROM v$session WHERE &&cs_con_id. IN (1, con_id) AND type = '&&cs_session_type.'
 ),
 sessions AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
@@ -62,7 +63,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        sid,
        serial#,
        CASE WHEN final_blocking_session_status = 'VALID' THEN final_blocking_session END AS blocker,
-       type,
+       -- type,
        status,
        username,
        paddr,
@@ -89,7 +90,7 @@ SELECT se.last_call_et,
        se.logon_time,
        se.sid||','||se.serial# sid_serial,
        se.blocker,
-       se.type,
+       -- se.type,
        se.status,
        se.username,
        CASE WHEN se.taddr IS NOT NULL THEN 'TXN' END AS txn,
@@ -110,28 +111,16 @@ SELECT se.last_call_et,
        se.sid,
        se.serial#
 /
+--
+DEF cs_session_type = 'USER'
+PRO
+PRO SESSIONS: &&cs_session_type.
+PRO ~~~~~~~~
+/
 SET FEED OFF;
 --
 COL pdb FOR A35;
-COL total_sessions FOR 99999999 HEA 'TOTAL|SESSIONS';
-COL status_active FOR 999999 HEA 'STATUS|ACTIVE';
-COL status_inactive FOR 99999999 HEA 'STATUS|INACTIVE';
-COL type_user FOR 999999 HEA 'TYPE|USER';
-COL type_background FOR 9999999999 HEA 'TYPE|BACKGROUND';
-COL type_recursive FOR 9999999999 HEA 'TYPE|RECURSIVE';
-COL user_active FOR 999999 HEA 'USER|ACTIVE';
-COL user_inactive FOR 99999999 HEA 'USER|INACTIVE';
-COL user_active_cpu FOR 999999 HEA 'USER|ACTIVE|ON_CPU';
-COL user_active_waiting FOR 9999999 HEA 'USER|ACTIVE|WAITING';
-COL user_scheduler FOR 999999999 HEA 'USER|ACTIVE|WAITING|SCHEDULER';
-COL user_io FOR 99999999 HEA 'USER|ACTIVE|WAITING|USER_I/O';
-COL user_application FOR 99999999999 HEA 'USER|ACTIVE|WAITING|APPLICATION';
-COL user_concurency FOR 99999999999 HEA 'USER|ACTIVE|WAITING|CONCURRENCY';
-COL user_commit FOR 9999999 HEA 'USER|ACTIVE|WAITING|COMMIT';
-COL last_call_secs FOR 999,999,990 HEA 'LAST_CALL|SECONDS';
-COL avg_last_call_secs FOR 999,999,990 HEA 'AVG_LAST_CALL|SECONDS';
---
-COL pdb FOR A35;
+COL total_pdbs FOR 9,990 HEA 'TOTAL|PDBs';
 COL total_sessions FOR 99999999 HEA 'TOTAL|SESSIONS';
 COL status_active FOR 999999 HEA 'STATUS|ACTIVE';
 COL status_inactive FOR 99999999 HEA 'STATUS|INACTIVE';
@@ -152,6 +141,27 @@ COL user_commit FOR 9999999 HEA 'USER|ACTIVE|WAITING|COMMIT';
 COL last_call_secs FOR 999,999,990 HEA 'LAST_CALL|SECONDS';
 COL avg_last_call_secs FOR 999,999,990 HEA 'AVG_LAST_CALL|SECONDS';
 --
+-- COL pdb FOR A35;
+-- COL total_sessions FOR 99999999 HEA 'TOTAL|SESSIONS';
+-- COL status_active FOR 999999 HEA 'STATUS|ACTIVE';
+-- COL status_inactive FOR 99999999 HEA 'STATUS|INACTIVE';
+-- COL type_user FOR 999999 HEA 'TYPE|USER';
+-- COL type_background FOR 9999999999 HEA 'TYPE|BACKGROUND';
+-- COL type_recursive FOR 9999999999 HEA 'TYPE|RECURSIVE';
+-- COL user_active FOR 999999 HEA 'USER|ACTIVE';
+-- COL user_inactive FOR 99999999 HEA 'USER|INACTIVE';
+-- COL user_active_cpu FOR 999999 HEA 'USER|ACTIVE|ON_CPU';
+-- COL user_active_txn FOR 999999 HEA 'USER|ACTIVE|TXN';
+-- COL user_inactive_txn FOR 999999 HEA 'USER|INACTIVE|TXN';
+-- COL user_active_waiting FOR 9999999 HEA 'USER|ACTIVE|WAITING';
+-- COL user_scheduler FOR 999999999 HEA 'USER|ACTIVE|WAITING|SCHEDULER';
+-- COL user_io FOR 99999999 HEA 'USER|ACTIVE|WAITING|USER_I/O';
+-- COL user_application FOR 99999999999 HEA 'USER|ACTIVE|WAITING|APPLICATION';
+-- COL user_concurency FOR 99999999999 HEA 'USER|ACTIVE|WAITING|CONCURRENCY';
+-- COL user_commit FOR 9999999 HEA 'USER|ACTIVE|WAITING|COMMIT';
+-- COL last_call_secs FOR 999,999,990 HEA 'LAST_CALL|SECONDS';
+-- COL avg_last_call_secs FOR 999,999,990 HEA 'AVG_LAST_CALL|SECONDS';
+--
 BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF total_sessions status_active status_inactive type_user type_background type_recursive user_active user_inactive user_active_txn user_inactive_txn user_active_cpu user_active_waiting user_scheduler user_io user_application user_concurency user_commit ON REPORT;
 --
@@ -167,6 +177,7 @@ AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        machine,
        module,
+       COUNT(DISTINCT con_id) AS total_pdbs,
        COUNT(*) total_sessions,
        SUM(CASE WHEN type = 'USER' THEN 1 ELSE 0 END) type_user,
        SUM(CASE WHEN type = 'BACKGROUND' THEN 1 ELSE 0 END) type_background,
@@ -193,6 +204,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 )
 SELECT s.machine,
        s.module,
+       s.total_pdbs,
        s.total_sessions,
        s.type_user,
        s.type_background,
@@ -228,6 +240,7 @@ sessions
 AS (
 SELECT /*+ MATERIALIZE NO_MERGE */
        machine,
+       COUNT(DISTINCT con_id) AS total_pdbs,
        COUNT(*) total_sessions,
        SUM(CASE WHEN type = 'USER' THEN 1 ELSE 0 END) type_user,
        SUM(CASE WHEN type = 'BACKGROUND' THEN 1 ELSE 0 END) type_background,
@@ -252,6 +265,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        machine
 )
 SELECT s.machine,
+       s.total_pdbs,
        s.total_sessions,
        s.type_user,
        s.type_background,
@@ -343,4 +357,3 @@ PRO SQL> @&&cs_script_name..sql
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
 --
-

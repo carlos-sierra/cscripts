@@ -1,0 +1,1 @@
+@cs_rsrc_mgr_sess_chart.sql

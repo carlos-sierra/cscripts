@@ -1,3 +1,4 @@
+-- cs_dba_hist_sqlstat_delta_sum.sql: called by cs_planx.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL snap_id FOR 999999 HEA 'Snap|ID';
@@ -71,6 +72,7 @@ SELECT --h.con_id,
  WHERE h.dbid = TO_NUMBER('&&cs_dbid.')
    AND h.instance_number = TO_NUMBER('&&cs_instance_number.')
    AND h.sql_id = '&&cs_sql_id.'
+   AND h.optimizer_cost > 0 -- if 0 or null then whole row is suspected bogus
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number

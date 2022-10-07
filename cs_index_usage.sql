@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/09/18
+-- Version:     2022/08/26
 --
 -- Usage:       Execute connected to PDB
 --
@@ -31,7 +31,7 @@ COL username FOR A30;
 SELECT username
   FROM dba_users
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
  ORDER BY
        username
 /
@@ -43,7 +43,7 @@ COL p_owner NEW_V p_owner FOR A30 NOPRI;
 SELECT username AS p_owner 
   FROM dba_users 
  WHERE oracle_maintained = 'N'
-   AND username NOT LIKE 'C##%'
+   AND common = 'NO'
    AND username = UPPER(TRIM('&&table_owner.')) 
    AND ROWNUM = 1
 /
@@ -169,6 +169,7 @@ FROM     (  SELECT   p.sql_id, p.plan_hash_value, MAX(timestamp) AS timestamp
             WHERE    p.object_owner = '&&p_owner.'
             AND      p.object_name = '&&p_index_name.'
             AND      p.object_type LIKE '%INDEX%'
+            AND      p.dbid = TO_NUMBER('&&cs_dbid.') 
             GROUP BY p.sql_id, p.plan_hash_value
          ) p
          CROSS APPLY (

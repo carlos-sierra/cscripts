@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/10
+-- Version:     2022/09/29
 --
 -- Usage:       Connecting into PDB.
 --
@@ -72,7 +72,12 @@ BEGIN
                AND name = NVL('&&cs_name.', name)
              ORDER BY name)
   LOOP
-    DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', value => 'ENABLED');
+    $IF DBMS_DB_VERSION.ver_le_12_1
+    $THEN
+      DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', value => 'ENABLED'); -- 12c
+    $ELSE
+      DBMS_SQLDIAG.alter_sql_patch(name => i.name, attribute_name => 'STATUS', attribute_value => 'ENABLED'); -- 19c
+    $END
   END LOOP;
 END;
 /

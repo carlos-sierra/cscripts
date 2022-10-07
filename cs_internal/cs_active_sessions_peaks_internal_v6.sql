@@ -1,5 +1,5 @@
 PRO
-PRO Active Sessions Peaks (when greater than &&times_cpu_cores.x CPU Cores)
+PRO Active Sessions Peaks (when greater than &&times_cpu_cores.x NUM_CPU_CORES)
 PRO ~~~~~~~~~~~~~~~~~~~~~
 COL begin_peak FOR A19 HEA 'Aprox|Start Time';
 COL end_peak FOR A19 HEA 'Aprox|End Time';

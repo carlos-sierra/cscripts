@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/09/13
+-- Version:     2022/03/01
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -98,7 +98,7 @@ BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF mebibytes megabytes segments ON REPORT;
 --
 PRO
-PRO SEGMENTS (dba_segments) top 100 &&table_owner..&&table_name.
+PRO SEGMENTS (dba_segments) top 1000 &&table_owner..&&table_name.
 PRO ~~~~~~~~
 WITH
 t AS (
@@ -134,7 +134,7 @@ SELECT 3 AS oby, s.segment_type, s.owner, s.segment_name, s.partition_name, l.co
 SELECT ROUND(bytes/POWER(10,6),3) AS megabytes, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
   FROM s
  ORDER BY bytes DESC, oby, segment_type, owner, column_name, segment_name, partition_name
- FETCH FIRST 100 ROWS ONLY
+ FETCH FIRST 1000 ROWS ONLY
 /
 --
 PRO
@@ -229,11 +229,16 @@ COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
 COL blkcnt FOR 999,999,990 HEA 'Block Count';
 COL avgrln FOR 999,999,990 HEA 'Avg Row Len';
 COL samplesize FOR 999,999,999,990 HEA 'Sample Size';
+COL rows_inc FOR 999,999,999,990 HEA 'Rows Increase';
+COL days_gap FOR 999,990.0 HEA 'Days Gap';
+COL monthly_growth_perc FOR 999,990.000 HEA 'Monthly Growth Perc%';
 --
 PRO
-PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history) &&table_owner..&&table_name.
+PRO CBO STAT TABLE HISTORY (wri$_optstat_tab_history and dba_tables) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~~~~~~~~~~
-SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+WITH
+cbo_hist AS (
+SELECT h.analyzetime,
        h.rowcnt,
        h.blkcnt,
        h.avgrln,
@@ -246,7 +251,7 @@ SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
    AND h.obj# = o.object_id
    AND h.analyzetime IS NOT NULL
  UNION
-SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS analyzetime,
+SELECT t.last_analyzed AS analyzetime,
        t.num_rows AS rowcnt,
        t.blocks AS blkcnt,
        t.avg_row_len AS avgrln,
@@ -254,8 +259,61 @@ SELECT TO_CHAR(t.last_analyzed, '&&cs_datetime_full_format.') AS analyzetime,
   FROM dba_tables t
  WHERE t.owner = '&&table_owner.'
    AND t.table_name = '&&table_name.' 
+),
+cbo_hist_extended AS (
+SELECT h.analyzetime,
+       h.rowcnt,
+       h.blkcnt,
+       h.avgrln,
+       h.samplesize,
+       h.rowcnt - LAG(h.rowcnt) OVER (ORDER BY h.analyzetime) AS rows_inc,
+       h.analyzetime - LAG(h.analyzetime) OVER (ORDER BY h.analyzetime) AS days_gap,
+       100 * (365.25 / 12) * (h.rowcnt - LAG(h.rowcnt) OVER (ORDER BY h.analyzetime)) / (h.analyzetime - LAG(h.analyzetime) OVER (ORDER BY h.analyzetime)) / NULLIF(h.rowcnt, 0) AS monthly_growth_perc
+  FROM cbo_hist h
+)
+SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
+       h.blkcnt,
+       h.rowcnt,
+       h.rows_inc, 
+       h.days_gap,
+       h.monthly_growth_perc,
+       h.avgrln,
+       h.samplesize
+  FROM cbo_hist_extended h
  ORDER BY
        1
+/
+PRO
+PRO GROWTH (wri$_optstat_tab_history and dba_tables) &&table_owner..&&table_name.
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+WITH
+oldest AS (
+SELECT h.analyzetime,
+       h.rowcnt
+  FROM dba_objects o,
+       wri$_optstat_tab_history h
+ WHERE o.owner = '&&table_owner.'
+   AND o.object_name = '&&table_name.' 
+   AND o.object_type = 'TABLE'
+   AND h.obj# = o.object_id
+   AND h.analyzetime IS NOT NULL
+   AND h.rowcnt > 0
+ ORDER BY
+       h.analyzetime
+ FETCH FIRST 1 ROW ONLY
+),
+newest AS (
+SELECT t.last_analyzed AS analyzetime,
+       t.num_rows AS rowcnt
+  FROM dba_tables t
+ WHERE t.owner = '&&table_owner.'
+   AND t.table_name = '&&table_name.' 
+   AND t.num_rows > 0
+   AND ROWNUM = 1
+)
+SELECT 100 * (365 / 12) * (n.rowcnt - o.rowcnt) / (n.analyzetime - o.analyzetime) / o.rowcnt AS monthly_growth_perc
+  FROM oldest o, newest n
+ WHERE n.analyzetime > o.analyzetime
 /
 --
 COL object_type HEA 'Object Type';
@@ -265,7 +323,7 @@ COL created FOR A19 HEA 'Created';
 COL last_ddl_time FOR A19 HEA 'Last DDL Time';
 --
 PRO
-PRO TABLE OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
+PRO TABLE OBJECTS (dba_objects) up to 1000 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT o.object_type,
        o.object_id,
@@ -278,7 +336,7 @@ SELECT o.object_type,
  ORDER BY
        o.object_type,
        o.object_id
-FETCH FIRST 100 ROWS ONLY       
+FETCH FIRST 1000 ROWS ONLY       
 /
 --
 COL index_name FOR A30 HEA 'Index Name';
@@ -341,7 +399,7 @@ SELECT i.index_name,
 /
 --
 PRO
-PRO INDEX OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
+PRO INDEX OBJECTS (dba_objects) up to 1000 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT o.object_type,
        o.object_name,
@@ -358,7 +416,7 @@ SELECT o.object_type,
  ORDER BY
        o.object_type,
        o.object_name
-FETCH FIRST 100 ROWS ONLY       
+FETCH FIRST 1000 ROWS ONLY       
 /
 --
 COL part_sub FOR A12 HEA 'LEVEL';
@@ -425,6 +483,8 @@ SELECT 'SUBPARTITION' AS part_sub,
 /
 --
 COL index_name FOR A30 HEA 'Index Name';
+COL visibility FOR A10 HEA 'Visibility';
+COL partitioned FOR A4 HEA 'Part';
 COL column_position FOR 999 HEA 'Pos';
 COL column_name FOR A30 HEA 'Column Name';
 COL data_type FOR A33 HEA 'Data Type';
@@ -443,12 +503,14 @@ COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
 COL data_length FOR 999,999,990 HEA 'Data Length';
 COL char_length FOR 999,999,990 HEA 'Char Length';
 --
-BRE ON index_name SKIP 1;
+BRE ON index_name SKIP 1 ON visibility ON partitioned;
 --
 PRO
 PRO INDEX COLUMNS (dba_ind_columns) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT i.index_name,
+       x.visibility,
+       x.partitioned,
        i.column_position,
        c.column_name,
        c.data_type,
@@ -507,12 +569,16 @@ SELECT i.index_name,
        c.data_length, 
        c.char_length
   FROM dba_ind_columns i,
-       dba_tab_cols c
+       dba_tab_cols c,
+       dba_indexes x
  WHERE i.table_owner = '&&table_owner.'
    AND i.table_name = '&&table_name.'
    AND c.owner = i.table_owner
    AND c.table_name = i.table_name
    AND c.column_name = i.column_name
+   AND x.table_owner = i.table_owner
+   AND x.table_name = i.table_name
+   AND x.index_name = i.index_name
  ORDER BY
        i.index_name,
        i.column_position
@@ -743,22 +809,22 @@ SET HEA OFF;
 CLEAR COL;
 SPO /tmp/cs_driver.sql;
 --
---SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
+--SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
 --       'SELECT COUNT(*), '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
---       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' FROM '||i.table_owner||'.'||i.table_name||' GROUP BY '||
---       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
-SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
+--       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM '||i.table_owner||'.'||i.table_name||' GROUP BY '||
+--       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
+SELECT 'PRO'||CHR(10)||'PRO FROM TABLE AND INDEX '||i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~~~~~~~~~~~'||CHR(10)||
        CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN
        'WITH bucket AS (SELECT '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T)'       
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T)'       
        ELSE
        'WITH bucket AS (SELECT CAST(K.BEGINTIME AS DATE) AS begin_date, (CAST(K.BEGINTIME AS DATE) - LAG(CAST(K.BEGINTIME AS DATE)) OVER (PARTITION BY '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY T.KIEVTXNID)) * 24 * 3600 AS lag_secs,T.kievlive,'||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T, '||i.table_owner||'.KIEVTRANSACTIONS K WHERE K.COMMITTRANSACTIONID(+) = T.KIEVTXNID)'
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY T.KIEVTXNID)) * 24 * 3600 AS lag_secs,T.kievlive,'||CHR(10)||
+       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T, '||i.table_owner||'.KIEVTRANSACTIONS K WHERE K.COMMITTRANSACTIONID(+) = T.KIEVTXNID)'
        END||CHR(10)||
        'SELECT COUNT(*) AS row_count, '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'ROUND(AVG(lag_secs),3) AS avg_version_age_seconds, PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY lag_secs) AS p50_version_age_seconds, MIN(lag_secs) AS min_version_age_seconds, MAX(lag_secs) AS max_version_age_seconds, MIN(begin_date) AS min_date, MAX(begin_date) AS max_date, SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
-       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' FROM bucket GROUP BY '||
-       LISTAGG(c.column_name, ',') WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
+       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM bucket GROUP BY '||
+       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
        AS dynamic_sql
   FROM dba_tables t,
        dba_indexes i,
@@ -776,6 +842,11 @@ SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTA
    AND c.column_name <> 'KIEVTXNID'
    AND c.column_name <> 'KIEVLIVE'
  GROUP BY
+       i.table_owner,
+       i.table_name,
+       i.owner,
+       i.index_name
+ ORDER BY
        i.table_owner,
        i.table_name,
        i.owner,

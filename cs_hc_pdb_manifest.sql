@@ -2,11 +2,11 @@
 --
 -- File name:   cs_hc_pdb_manifest.sql
 --
--- Purpose:     Health Check (HC) PDB Manifest
+-- Purpose:     Health Check (HC) PDB Manifest - Detailed Utilization Metrics 
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/04
+-- Version:     2021/11/18
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -31,14 +31,14 @@ SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 PRO SQL> @&&cs_script_name..sql
 @@cs_internal/cs_spool_id.sql
 --
-ALTER SESSION SET CONTAINER = CDB$ROOT;
+@@cs_internal/&&cs_set_container_to_cdb_root.
 --
 PRO
-PRO hc_pdb_manifest_v2 (from CDB$ROOT)
-PRO ~~~~~~~~~~~~~~~~~~
+PRO PDB Manifest (&cs_tools_schema..hc_pdb_manifest_v2)
+PRO ~~~~~~~~~~~~
 @@cs_internal/cs_pr_internal "SELECT v.* FROM &&cs_tools_schema..hc_pdb_manifest_v2 v WHERE &&cs_con_id. IN (1, v.con_id) ORDER BY v.con_id, v.ez_connect_string"
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@cs_internal/&&cs_set_container_to_curr_pdb.
 --
 PRO
 PRO SQL> @&&cs_script_name..sql

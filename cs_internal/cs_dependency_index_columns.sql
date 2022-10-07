@@ -1,6 +1,8 @@
 COL table_owner FOR A30 HEA 'Table Owner';
 COL table_name FOR A30 HEA 'Table Name';
 COL index_name FOR A30 HEA 'Index Name';
+COL visibility FOR A10 HEA 'Visibility';
+COL partitioned FOR A4 HEA 'Part';
 COL column_position FOR 999 HEA 'Pos';
 COL column_name FOR A30 HEA 'Column Name';
 COL data_type FOR A33 HEA 'Data Type';
@@ -20,7 +22,7 @@ COL avg_col_len FOR 999,999,990 HEA 'Avg Col Len';
 COL data_length FOR 999,999,990 HEA 'Data Length';
 COL char_length FOR 999,999,990 HEA 'Char Length';
 --
-BRE ON table_owner ON table_name ON index_name SKIP 1;
+BRE ON table_owner ON table_name ON index_name SKIP 1 ON visibility ON partitioned;
 --
 PRO
 PRO INDEX COLUMNS (dba_ind_columns) 
@@ -71,6 +73,8 @@ SELECT /*+ QB_NAME(get_stats) */
        i.table_owner,
        i.table_name,
        i.index_name,
+       x.visibility,
+       x.partitioned,
        i.column_position,
        c.column_name,
        c.data_type,
@@ -131,12 +135,16 @@ SELECT /*+ QB_NAME(get_stats) */
        c.char_length
   FROM dba_tables_m t,
        dba_ind_columns i,
-       dba_tab_cols c
+       dba_tab_cols c,
+       dba_indexes x
  WHERE i.table_owner = t.owner
    AND i.table_name = t.table_name
    AND c.owner = i.table_owner
    AND c.table_name = i.table_name
    AND c.column_name = i.column_name
+   AND x.table_owner = i.table_owner
+   AND x.table_name = i.table_name
+   AND x.index_name = i.index_name
  ORDER BY
        i.table_owner,
        i.table_name,

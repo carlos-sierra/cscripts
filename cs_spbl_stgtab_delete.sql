@@ -37,8 +37,6 @@ UNDEF 1;
 --
 @@cs_internal/cs_signature.sql
 --
-DEF cs_plan_id = '';
---
 PRO
 --
 @@cs_internal/cs_spool_head.sql

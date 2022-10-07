@@ -8,9 +8,9 @@ BEGIN
   FOR i IN (SELECT t.owner, t.table_name, t.num_rows, t.last_analyzed FROM dba_tables t, dba_users u WHERE /*t.owner <> 'C##IOD' AND t.table_name NOT LIKE 'KIEV%' AND t.num_rows > 0 AND*/ u.username = t.owner AND u.oracle_maintained = 'N' ORDER BY t.owner, t.table_name)
   LOOP
     IF NVL(i.num_rows, 0) < 1e6 THEN
-      EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM '||i.owner||'.'||i.table_name INTO l_cnt;
+      EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM "'||i.owner||'"."'||i.table_name||'"' INTO l_cnt;
     ELSE
-      EXECUTE IMMEDIATE 'SELECT 100 * COUNT(*) FROM '||i.owner||'.'||i.table_name||' SAMPLE(1)' INTO l_cnt;
+      EXECUTE IMMEDIATE 'SELECT 100 * COUNT(*) FROM "'||i.owner||'"."'||i.table_name||'" SAMPLE(1)' INTO l_cnt;
     END IF;
     l_pct := ROUND(100 * (l_cnt - i.num_rows) / NULLIF(i.num_rows, 0));
     DBMS_OUTPUT.put_line(RPAD(i.owner||'.'||i.table_name, 61, '.')||'  GAP:'||LPAD(NVL(TO_CHAR(l_pct), ' '), 4)||'%  DAYS:'||LPAD(NVL(TO_CHAR(ROUND(SYSDATE - i.last_analyzed)), ' '), 4)||'  COUNT:'||LPAD(l_cnt, 10)||'  NUM_ROWS:'||LPAD(i.num_rows, 10)||'  ANALYZED:'||TO_CHAR(i.last_analyzed, 'YYYY-MM-DD"T"HH24:MI:SS'));

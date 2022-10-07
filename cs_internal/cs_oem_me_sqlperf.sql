@@ -1,4 +1,4 @@
-ALTER SESSION SET container = CDB$ROOT;
+@@&&cs_set_container_to_cdb_root.
 --
 COL uom FOR A6;
 COL value FOR 999,999,990.0;
@@ -6,8 +6,8 @@ COL threshold_violation_factor FOR 999,990.0 HEA 'VIOLATION|FACTOR';
 COL message FOR A200 TRUNC;
 --
 PRO
-PRO ZAPPER V02 ALERTS for past &&cs_me_days. days (&&cs_stgtab_owner..alerts_hist)
-PRO ~~~~~~~~~~~~~~~~~
+PRO HC SQL - ALERTS for past &&cs_me_days. days (&&cs_stgtab_owner..alerts_hist)
+PRO ~~~~~~~~~~~~~~~
 --
 SELECT snap_time AS alert_time,
        alert_type||CASE WHEN severity IS NOT NULL THEN ' ['||severity||'] ' END||key_value AS message,
@@ -36,8 +36,8 @@ COL source FOR A6;
 COL top FOR 990;
 --
 PRO
-PRO LONG EXECUTIONS top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..longexecs_hist_v1)
-PRO ~~~~~~~~~~~~~~~
+PRO HC SQL - LONG EXECUTIONS top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..longexecs_hist_v1)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~
 --
 WITH
 snaps AS (
@@ -100,8 +100,8 @@ COL top FOR 990;
 COL dummy FOR A2 HEA '';
 --
 PRO
-PRO PERFORMANCE REGRESSION top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..regress_hist)
-PRO ~~~~~~~~~~~~~~~~~~~~~~
+PRO HC SQL - PERFORMANCE REGRESSION top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..regress_hist)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 --
 WITH
 snaps AS (
@@ -169,8 +169,8 @@ COL top FOR 990;
 COL dummy FOR A2 HEA '';
 --
 PRO
-PRO HIGH AVERAGE ACTIVE SESSIONS (AAS) top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..highaas_hist)
-PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PRO HC SQL - HIGH AVERAGE ACTIVE SESSIONS (AAS) top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..highaas_hist)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 --
 WITH
 snaps AS (
@@ -227,8 +227,8 @@ COL top FOR 990;
 COL dummy FOR A2 HEA '';
 --
 PRO
-PRO NON SCALABLE PLANS top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..non_scalable_plan_hist)
-PRO ~~~~~~~~~~~~~~~~~~
+PRO HC SQL - NON SCALABLE PLANS top &&cs_me_top. and last &&cs_me_last. for past &&cs_me_days. days (&&cs_stgtab_owner..non_scalable_plan_hist)
+PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 --
 WITH
 snaps AS (
@@ -266,4 +266,4 @@ SELECT snap_time,
        pdb_name
 /
 --
-ALTER SESSION SET CONTAINER = &&cs_con_name.;
+@@&&cs_set_container_to_curr_pdb.

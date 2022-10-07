@@ -1,3 +1,4 @@
+-- cs_plans_summary.sql: called by s_planx.sql, cs_sqlperf.sql and cs_purge_cursor.sql (deprecated)
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
 COL last_active_time FOR A19 HEA 'Last Active Time';
@@ -25,7 +26,7 @@ COL bg_per_capped_rows FOR 999,999,999,990 HEA 'Avg|Buffer Gets|Per Capped Rows'
 COL ms_per_capped_rows FOR 99,999,990.000 HEA 'Avg CPU|Time (ms)|Per Capped Rows';
 --
 PRO
-PRO PLANS SUMMARY (v$sql)
+PRO PLANS SUMMARY (v$sql this PDB)
 PRO ~~~~~~~~~~~~~
 SELECT s.con_id,
        c.name AS pdb_name,

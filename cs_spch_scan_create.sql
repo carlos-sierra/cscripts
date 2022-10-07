@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/03/07
+-- Version:     2022/09/12
 --
 -- Usage:       Connecting into PDB.
 --
@@ -18,8 +18,6 @@
 --
 ---------------------------------------------------------------------------------------
 --
-DEF hints_text = "FIRST_ROWS(1) OPT_PARAM(''_fix_control'' ''5922070:OFF'')";
---
 @@cs_internal/cs_primary.sql
 @@cs_internal/cs_cdb_warn.sql
 @@cs_internal/cs_set.sql
@@ -27,6 +25,7 @@ DEF hints_text = "FIRST_ROWS(1) OPT_PARAM(''_fix_control'' ''5922070:OFF'')";
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_spch_scan_create';
+DEF hints_text = "FIRST_ROWS(1) OPT_PARAM(''_fix_control'' ''5922070:OFF'')";
 --
 SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
@@ -148,7 +147,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 )
 SELECT CASE
          WHEN '&&cs_db_version.' > '12.1.0.2.0' 
-         THEN 'DECLARE'||CHR(10)||'l_name VARCHAR2(64);'||CHR(10)||'BEGIN'||CHR(10)||
+         THEN 'DECLARE'||CHR(10)||'l_name VARCHAR2(1000);'||CHR(10)||'BEGIN'||CHR(10)||
               'l_name :=  DBMS_SQLDIAG.create_sql_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized.]'');'||CHR(10)|| -- 19c
               'END;'||CHR(10)||'/'
          ELSE 'EXEC DBMS_SQLDIAG_INTERNAL.i_create_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized.]'');' -- 12c

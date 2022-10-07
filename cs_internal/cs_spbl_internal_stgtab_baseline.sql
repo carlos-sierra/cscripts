@@ -4,7 +4,7 @@ COL origin FOR A29 HEA 'Origin';
 COL timestamp FOR A19 HEA 'Timestamp';
 COL last_executed FOR A19 HEA 'Last Executed';
 COL last_modified FOR A19 HEA 'Last Modified';
-COL description FOR A125 HEA 'Description';
+COL description FOR A100 HEA 'Description' WOR;
 COL executions FOR 999,999,990 HEA 'Executions';
 COL et_per_exec_ms FOR 999,999,990.000 HEA 'Elapsed Time|AVG (ms)';
 COL cpu_per_exec_ms FOR 999,999,990.000 HEA 'CPU Time|AVG (ms)';
