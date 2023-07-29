@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/08/17
+-- Version:     2023/02/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -62,9 +62,7 @@ PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO CBO_HINTS    : &&cs_hint_text.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
+@@cs_internal/cs_print_sql_text.sql
 --
 -- create content of xfr script
 VAR xfr CLOB;
@@ -96,7 +94,7 @@ VAR xfr CLOB;
 --   '    sql_text    => :sql_text,'||CHR(10)||
 --   '    hint_text   => :hint_text,'||CHR(10)||
 --   '    name        => ''spch_''||:sql_id||''_xfr'','||CHR(10)||
---   '    description => ''cs_spch_xfr.sql /*+ ''||:hint_text||'' */ &&cs_reference_sanitized.'''||CHR(10)||
+--   '    description => ''cs_spch_xfr.sql /*+ ''||:hint_text||'' */ &&cs_reference_sanitized. &&who_am_i.'''||CHR(10)||
 --   '  );'||CHR(10)||
 --   'END;'||CHR(10)||
 --   '/';
@@ -134,14 +132,14 @@ BEGIN
   '      sql_text    => l_sql_text,'||CHR(10)||
   '      hint_text   => l_hint_text,'||CHR(10)||
   '      name        => ''spch_''||l_sql_id||''_xfr'','||CHR(10)||
-  '      description => ''cs_spch_xfr.sql /*+ ''||l_hint_text||'' */ &&cs_reference_sanitized.'''||CHR(10)||
+  '      description => ''cs_spch_xfr.sql /*+ ''||l_hint_text||'' */ &&cs_reference_sanitized. &&who_am_i.'''||CHR(10)||
   '    ); --12c'||CHR(10)||
   '  $ELSE'||CHR(10)||
   '    l_name := DBMS_SQLDIAG.create_sql_patch('||CHR(10)||
   '      sql_text    => l_sql_text,'||CHR(10)||
   '      hint_text   => l_hint_text,'||CHR(10)||
   '      name        => ''spch_''||l_sql_id||''_xfr'','||CHR(10)||
-  '      description => ''cs_spch_xfr.sql /*+ ''||l_hint_text||'' */ &&cs_reference_sanitized.'''||CHR(10)||
+  '      description => ''cs_spch_xfr.sql /*+ ''||l_hint_text||'' */ &&cs_reference_sanitized. &&who_am_i.'''||CHR(10)||
   '    ); -- 19c'||CHR(10)||
   '  $END'||CHR(10)||
   'END;'||CHR(10)||

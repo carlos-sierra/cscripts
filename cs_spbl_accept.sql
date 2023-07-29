@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/10
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -36,8 +36,6 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spbl_internal_list.sql
 --
@@ -50,19 +48,11 @@ PRO
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_name."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO PLAN_NAME    : "&&cs_plan_name."
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spbl_internal_list.sql
 --
@@ -84,7 +74,7 @@ BEGIN
     IF i.accepted = 'NO' THEN
       l_report := DBMS_SPM.evolve_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, verify => 'NO', commit => 'YES');
     END IF;
-    l_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'DESCRIPTION', attribute_value => TRIM(i.description||' &&cs_script_name..sql &&cs_reference_sanitized. ACCEPTED='||TO_CHAR(SYSDATE, '&&cs_datetime_full_format.')));    
+    l_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'DESCRIPTION', attribute_value => TRIM(i.description||' &&cs_script_name..sql &&cs_reference_sanitized. &&who_am_i. ACCEPTED='||TO_CHAR(SYSDATE, '&&cs_datetime_full_format.')));    
   END LOOP;
 END;
 /

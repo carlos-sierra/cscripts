@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/09/12
+-- Version:     2023/02/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -148,9 +148,9 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 SELECT CASE
          WHEN '&&cs_db_version.' > '12.1.0.2.0' 
          THEN 'DECLARE'||CHR(10)||'l_name VARCHAR2(1000);'||CHR(10)||'BEGIN'||CHR(10)||
-              'l_name :=  DBMS_SQLDIAG.create_sql_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized.]'');'||CHR(10)|| -- 19c
+              'l_name :=  DBMS_SQLDIAG.create_sql_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized. &&who_am_i.]'');'||CHR(10)|| -- 19c
               'END;'||CHR(10)||'/'
-         ELSE 'EXEC DBMS_SQLDIAG_INTERNAL.i_create_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized.]'');' -- 12c
+         ELSE 'EXEC DBMS_SQLDIAG_INTERNAL.i_create_patch(sql_id => '''||s.sql_id||''', hint_text => q''[&&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||')]'', name => ''spch_'||s.sql_id||''', description => q''[&&cs_script_name..sql /*+ &&hints_text. LEADING(@SEL$1 '||s.kiev_table_name||') */ &&cs_reference_sanitized. &&who_am_i.]'');' -- 12c
        END||CHR(10) AS line
   FROM sqlstats s
   CROSS APPLY (

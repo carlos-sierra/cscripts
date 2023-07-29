@@ -27,13 +27,14 @@ BRE ON table_owner ON table_name ON index_name SKIP 1 ON visibility ON partition
 PRO
 PRO INDEX COLUMNS (dba_ind_columns) 
 PRO ~~~~~~~~~~~~~
-WITH /* INDEXES */
+WITH /* INDEXE COLUMNS */
 v_sqlarea_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlarea) */ 
        DISTINCT 
        hash_value, address
   FROM v$sqlarea 
  WHERE sql_id = '&&cs_sql_id.'
+   AND ROWNUM >= 1
 ),
 v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
@@ -45,6 +46,7 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
    AND o.to_type = 2 -- table
+   AND ROWNUM >= 1
 ),
 -- v_db_object_cache_m AS (
 -- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
@@ -59,6 +61,7 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */
 -- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
+       DISTINCT
        t.owner, 
        t.table_name
   FROM dba_tables t,
@@ -68,7 +71,11 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */
 --    AND t.table_name = c.object_name 
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
-)
+   AND ROWNUM >= 1
+), 
+ic AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_ind_columns WHERE (table_owner, table_name) IN (SELECT owner, table_name FROM dba_tables_m) AND ROWNUM >= 1),
+tc AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_tab_cols WHERE (owner, table_name) IN (SELECT owner, table_name FROM dba_tables_m) AND ROWNUM >= 1),
+ix AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_indexes WHERE (table_owner, table_name) IN (SELECT owner, table_name FROM dba_tables_m) AND ROWNUM >= 1)
 SELECT /*+ QB_NAME(get_stats) */
        i.table_owner,
        i.table_name,
@@ -134,9 +141,9 @@ SELECT /*+ QB_NAME(get_stats) */
        c.data_length, 
        c.char_length
   FROM dba_tables_m t,
-       dba_ind_columns i,
-       dba_tab_cols c,
-       dba_indexes x
+       ic i,
+       tc c,
+       ix x
  WHERE i.table_owner = t.owner
    AND i.table_name = t.table_name
    AND c.owner = i.table_owner

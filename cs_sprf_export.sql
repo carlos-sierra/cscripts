@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/16
+-- Version:     2023/01/04
 --
 -- Usage:       Connecting into PDB.
 --
@@ -79,7 +79,7 @@ PRO SQL_TEXT     : "&&cs2_sql_text_piece."
 PRO SQL_ID       : "&&cs_sql_id."
 --
 COL export_version NEW_V export_version NOPRI;
-SELECT TO_CHAR(SYSDATE, 'YYMMDDHH24MISS') AS export_version FROM DUAL;
+SELECT TO_CHAR(SYSDATE, 'HH24MISS') AS export_version FROM DUAL;
 VAR v_exported NUMBER;
 EXEC :v_exported := 0;
 --
@@ -152,11 +152,11 @@ BEGIN
                       ROW_NUMBER() OVER (PARTITION BY s.exact_matching_signature, s.sql_id ORDER BY s.last_active_time DESC) AS rn,
                       -- bucket_name and bucket_id are KIEV specific, and needed to support statement caching on KIEV, which requires to embed the bucket_id into sql decoration (e.g. /* performScanQuery(NOTIFICATION_BOARD,EVENT_BY_SCHEDULED_TIME) [1002] */)
                       CASE 
-                        WHEN s.sql_text LIKE '/* %(%,%)% [%] */%' AND SUBSTR(s.sql_text, INSTR(s.sql_text, '/* ') + 3, INSTR(s.sql_text, '(') - INSTR(s.sql_text, '/*') - 3) IN ('performScanQuery','performSegmentedScanQuery','getValues') 
+                        WHEN s.sql_text LIKE '%/* %(%,%)% [%] */%' AND (s.sql_text LIKE '%performScanQuery%' OR s.sql_text LIKE '%performSegmentedScanQuery%' OR s.sql_text LIKE '%getValues%') 
                         THEN SUBSTR(s.sql_fulltext, INSTR(s.sql_fulltext, '(') + 1, INSTR(s.sql_fulltext, ',') -  INSTR(s.sql_fulltext, '(') - 1) 
                       END AS bucket_name,
                       CASE 
-                        WHEN s.sql_text LIKE '/* %(%,%)% [%] */%' AND SUBSTR(s.sql_text, INSTR(s.sql_text, '/* ') + 3, INSTR(s.sql_text, '(') - INSTR(s.sql_text, '/*') - 3) IN ('performScanQuery','performSegmentedScanQuery','getValues') 
+                        WHEN s.sql_text LIKE '%/* %(%,%)% [%] */%' AND (s.sql_text LIKE '%performScanQuery%' OR s.sql_text LIKE '%performSegmentedScanQuery%' OR s.sql_text LIKE '%getValues%') 
                         THEN SUBSTR(s.sql_fulltext, INSTR(s.sql_fulltext, '[') + 1, INSTR(s.sql_fulltext, ']') -  INSTR(s.sql_fulltext, '[') - 1) 
                       END AS bucket_id
               FROM    v$sql s, u u1, u u2
@@ -263,7 +263,7 @@ BEGIN
         o('END IF;');
         o('l_target_signature := DBMS_SQLTUNE.sqltext_to_signature (sql_text => l_sql_text_clob);');
         o('o(''[''||l_target_signature||''][''||l_target_bucket_id||'']'');');
-        o('l_plan_name := ''exp_'||i.sql_id||'_&&export_version.'';');
+        o('l_plan_name := ''exp_'||i.sql_id||'_&&export_version.''||l_target_bucket_id;');
         o('l_description := ''[''||l_target_signature||'']['||i.plan_hash_value||']['||i.plan_hash_value_2||']['||i.signature||']['||i.sql_id||']['||i.bucket_name||']['||i.bucket_id||'][&&cs_rgn.][&&cs_db_name_u.][&&cs_con_name.][EXP]['||i.type||'][&&cs_reference.]'';');
 -- DBPERF-8216 begin
         o('-- drop unexpected profile');
@@ -392,7 +392,7 @@ BEGIN
     o('o(''~~~~~~~~~~~~~~~~~~~~~~~~~~'');');
     o('o(''drop imported sql_profiles'');');
     o('o(''~~~~~~~~~~~~~~~~~~~~~~~~~~'');');
-    o('FOR i IN (SELECT name FROM dba_sql_profiles WHERE name LIKE ''exp_%_&&export_version.'' AND category = ''DEFAULT'' AND status = ''ENABLED'' AND description LIKE ''%][EXP][%'')');
+    o('FOR i IN (SELECT name FROM dba_sql_profiles WHERE name LIKE ''exp_%_&&export_version.%'' AND category = ''DEFAULT'' AND status = ''ENABLED'' AND description LIKE ''%][EXP][%'')');
     o('LOOP');
     o('o(''SPRF drop: ''||i.name);');
     o('DBMS_SQLTUNE.drop_sql_profile(name => i.name);');
@@ -401,7 +401,7 @@ BEGIN
     o('o(''~~~~~~~~~~~~~~~~~~~~~~~~~'');');
     o('o(''enable prior sql_profiles'');');
     o('o(''~~~~~~~~~~~~~~~~~~~~~~~~~'');');
-    o('FOR i IN (SELECT name FROM dba_sql_profiles WHERE name NOT LIKE ''exp_%_&&export_version.'' AND category = ''BACKUP'' AND status = ''ENABLED'' AND NVL(description, ''NULL'') NOT LIKE ''%][EXP][%'')');
+    o('FOR i IN (SELECT name FROM dba_sql_profiles WHERE name NOT LIKE ''exp_%_&&export_version.%'' AND category = ''BACKUP'' AND status = ''ENABLED'' AND NVL(description, ''NULL'') NOT LIKE ''%][EXP][%'')');
     o('LOOP');
     o('o(''SPRF enable: ''||i.name);');
     o('DBMS_SQLTUNE.alter_sql_profile(name => i.name, attribute_name => ''CATEGORY'', value => ''DEFAULT'');');
@@ -487,7 +487,7 @@ BEGIN
     o('PRO PRO');
     o('PRO PRO &&cs_file_name._VERIFY_&&double_ampersand.report_time..txt');
     o('PRO PRO');
-    o('SELECT * FROM dba_sql_profiles WHERE name LIKE ''exp_%_&&export_version.'' AND category = ''DEFAULT'' AND status = ''ENABLED'' AND description LIKE ''%][EXP][%'';');
+    o('SELECT * FROM dba_sql_profiles WHERE name LIKE ''exp_%_&&export_version.%'' AND category = ''DEFAULT'' AND status = ''ENABLED'' AND description LIKE ''%][EXP][%'';');
     o('PRO PRO');
     o('PRO PRO &&cs_file_name._VERIFY_&&double_ampersand.report_time..txt');
     o('PRO PRO');

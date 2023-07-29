@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/09/08
+-- Version:     2023/01/03
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -41,11 +41,13 @@ SELECT d.value AS trace_dir, LOWER(b.name)||'_'||LOWER(p.pname)||'_'||p.spid||'.
 relevant_lines AS (
 SELECT line_number, 
        CASE 
-         WHEN payload LIKE CHR(10)||'*** '||TO_CHAR(SYSDATE, 'YYYY')||'%' THEN 'DATE' 
+        --  WHEN payload LIKE CHR(10)||'*** '||TO_CHAR(SYSDATE, 'YYYY')||'%' THEN 'DATE' -- failed after 2023-01-01
+         WHEN payload LIKE CHR(10)||'*** ____-__-__T__:__:__%' THEN 'DATE' 
          WHEN payload LIKE 'Warning: log write elapsed time %'            THEN 'WRITE'
        END AS line_type,
        CASE 
-         WHEN payload LIKE CHR(10)||'*** '||TO_CHAR(SYSDATE, 'YYYY')||'%' THEN SUBSTR(SUBSTR(payload, 1, INSTR(payload, '(') - 2), INSTR(payload, TO_CHAR(SYSDATE, 'YYYY'))) 
+        --  WHEN payload LIKE CHR(10)||'*** '||TO_CHAR(SYSDATE, 'YYYY')||'%' THEN SUBSTR(SUBSTR(payload, 1, INSTR(payload, '(') - 2), INSTR(payload, TO_CHAR(SYSDATE, 'YYYY'))) -- failed after 2023-01-01
+         WHEN payload LIKE CHR(10)||'*** ____-__-__T__:__:__%' THEN SUBSTR(SUBSTR(payload, 1, INSTR(payload, '(') - 2), INSTR(payload, '20')) 
          WHEN payload LIKE 'Warning: log write elapsed time %'            THEN REPLACE(payload, 'Warning: log write elapsed time ')
        END AS line_text
   FROM v$diag_trace_file_contents
@@ -75,6 +77,7 @@ SELECT line_number,
         ROW_NUMBER() OVER (PARTITION BY timestamp ORDER BY payload_size DESC) AS rn
   FROM normalized_lines
  WHERE write_duration||payload_size IS NOT NULL
+   AND timestamp IS NOT NULL
 )
 SELECT timestamp,
     --    payload_size AS payload_size_display,

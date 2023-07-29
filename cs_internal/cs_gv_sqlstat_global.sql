@@ -21,8 +21,10 @@ END get_pdb_name;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sqlstats_metrics AS (
@@ -72,7 +74,7 @@ SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS MONITOR */
        s.delta_disk_reads/GREATEST(s.delta_rows_processed,s.delta_execution_count,1) AS reads_per_row,
       --  s.avg_hard_parse_time,
       --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_text, '\[([[:digit:]]{4})\] ') ELSE s.sql_text END),100000),5,'0') AS sqlid
-       get_sql_hv(s.sql_text) AS sqlid
+       get_sql_hv(s.sql_fulltext) AS sqlid
   FROM gv$sqlstats s, 
        (SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS MONITOR */ 
                ((86400 * EXTRACT(DAY FROM (SYSTIMESTAMP - MAX(end_interval_time))) + (3600 * EXTRACT(HOUR FROM (systimestamp - MAX(end_interval_time)))) + (60 * EXTRACT(MINUTE FROM (systimestamp - MAX(end_interval_time)))) + EXTRACT(SECOND FROM (systimestamp - MAX(end_interval_time))))) AS age_seconds ,

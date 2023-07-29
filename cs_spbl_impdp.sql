@@ -7,7 +7,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -80,18 +80,12 @@ PRO
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_dp_file_name." "&&cs_sql_id." "&&cs_plan_name."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
 PRO DATAPUMP_FILE: &&dp_file_name.
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO PLAN_NAME    : "&&cs_plan_name."
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 PRO
 PRO Unpack plan: "&&cs_plan_name."
 DECLARE

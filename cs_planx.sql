@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/15
+-- Version:     2023/05/29
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -22,7 +22,7 @@
 ---------------------------------------------------------------------------------------
 --
 @@cs_internal/cs_primary.sql
-@@cs_internal/cs_cdb_warn.sql
+@@cs_internal/cs_cdb_warn2.sql
 @@cs_internal/cs_set.sql
 @@cs_internal/cs_def.sql
 @@cs_internal/cs_file_prefix.sql
@@ -34,6 +34,7 @@ DEF cs_sql_id_col = 'NOPRI';
 DEF cs_uncommon_col = 'NOPRI';
 DEF cs_delta_col = 'NOPRI';
 --
+DEF cs_binds_days = '1';
 DEF cs_sqlstat_days = '61';
 DEF cs_scope_1 = 'last &&cs_sqlstat_days. day(s)';
 @@cs_internal/cs_sample_time_boundaries.sql
@@ -51,21 +52,11 @@ DEF cs2_sql_text_piece = '';
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."
 @@cs_internal/cs_spool_id.sql
---
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
---
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_spool_id_list_sql_id.sql
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_plans_performance.sql 
 DEF cs_scope_1 = 'last &&cs_sqlstat_days. day(s)';
 @@cs_internal/cs_dba_hist_sqlstat_global.sql
@@ -74,7 +65,7 @@ DEF cs_scope_1 = '';
 --
 @@cs_internal/&&cs_set_container_to_cdb_root.
 DEF cs_scope_1 = '- SCOPE CDB$ROOT';
-DEF cs_filter_1 = 'get_sql_hv(sql_text) = ''&&cs_sqlid.'' AND sql_text LIKE SUBSTR(:cs_sql_text_1000, 1, 40)||''%''';
+DEF cs_filter_1 = 'get_sql_hv(sql_text) = ''&&cs_sql_hv.'' AND sql_text LIKE SUBSTR(:cs_sql_text_1000, 1, 40)||''%''';
 DEF cs_sql_id_col = 'PRI';
 @@cs_internal/cs_gv_sql_global.sql 
 PRO
@@ -123,6 +114,7 @@ PRO
 PRO
 PRO ********************************************************************************************************************************************************************************************************
 PRO
+@@cs_internal/cs_plans_mem_0.sql
 @@cs_internal/cs_plans_mem_1.sql
 @@cs_internal/cs_plans_mem_2.sql
 @@cs_internal/cs_plans_awr_1.sql
@@ -167,7 +159,10 @@ PRO
 PRO
 PRO ********************************************************************************************************************************************************************************************************
 PRO
-@@cs_internal/cs_top_keys.sql
+DEF cs_num_rows_limit_display = '10B';
+DEF cs_num_rows_limit_number = '1e10';
+@@cs_internal/cs_top_primary_keys_table.sql
+@@cs_internal/cs_top_keys_sql.sql
 PRO
 PRO ********************************************************************************************************************************************************************************************************
 PRO
@@ -181,4 +176,5 @@ PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql
 @@cs_internal/cs_reset.sql
+@@cs_internal/cs_cdb_warn2.sql
 --

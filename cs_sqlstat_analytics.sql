@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/10/03
+-- Version:     2023/03/30
 --
 -- Usage:       Execute connected to CDB or PDB
 --
@@ -104,6 +104,12 @@ PRO cpu_ms_per_row
 PRO io_ms_per_row
 PRO gets_per_row
 PRO reads_per_row
+PRO mbps_r
+PRO mbps_w
+PRO mbps_rw
+PRO iops_r
+PRO iops_w
+PRO iops_rw
 PRO
 PRO 3. SQL Statistic: [{et_ms_per_exec}|<SQL Statistic>]
 DEF cs_sql_statistic = '&3.';
@@ -132,6 +138,22 @@ UNDEF 6;
 DEF cs_filter_1 = '';
 COL cs_filter_1 NEW_V cs_filter_1 NOPRI;
 SELECT CASE WHEN LENGTH('&&cs_sql_id.') = 13 THEN 'sql_id = ''&&cs_sql_id.''' ELSE '1 = 1' END AS cs_filter_1 FROM DUAL
+/
+--
+PRO
+PRO 7. Include SYS: [{N}|Y]
+DEF cs_include_sys = '&7.';
+UNDEF 7;
+COL cs_include_sys NEW_V cs_include_sys NOPRI;
+SELECT CASE WHEN UPPER(TRIM('&&cs_include_sys.')) IN ('Y', 'N') THEN UPPER(TRIM('&&cs_include_sys.')) ELSE 'N' END AS cs_include_sys FROM DUAL
+/
+--
+PRO
+PRO 8. Graph Type: [{Scatter}|Line|SteppedArea|Area] note: SteppedArea and Area are stacked 
+DEF graph_type = '&8.';
+UNDEF 8;
+COL cs_graph_type NEW_V cs_graph_type NOPRI;
+SELECT CASE WHEN '&&graph_type.' IN ('SteppedArea', 'Line', 'Area', 'Scatter') THEN '&&graph_type.' ELSE 'Scatter' END AS cs_graph_type FROM DUAL
 /
 --
 DEF spool_id_chart_footer_script = 'cs_sqlstat_analytics_footer.sql';
@@ -219,6 +241,34 @@ COL value_10 NEW_V value_10 TRUNC NOPRI;
 COL value_11 NEW_V value_11 TRUNC NOPRI;
 COL value_12 NEW_V value_12 TRUNC NOPRI;
 COL value_13 NEW_V value_13 TRUNC NOPRI;
+--
+DEF data_points_01 = '            ';
+DEF data_points_02 = '            ';
+DEF data_points_03 = '            ';
+DEF data_points_04 = '            ';
+DEF data_points_05 = '            ';
+DEF data_points_06 = '            ';
+DEF data_points_07 = '            ';
+DEF data_points_08 = '            ';
+DEF data_points_09 = '            ';
+DEF data_points_10 = '            ';
+DEF data_points_11 = '            ';
+DEF data_points_12 = '            ';
+DEF data_points_13 = '            ';
+--
+COL data_points_01 NEW_V data_points_01 TRUNC NOPRI;
+COL data_points_02 NEW_V data_points_02 TRUNC NOPRI;
+COL data_points_03 NEW_V data_points_03 TRUNC NOPRI;
+COL data_points_04 NEW_V data_points_04 TRUNC NOPRI;
+COL data_points_05 NEW_V data_points_05 TRUNC NOPRI;
+COL data_points_06 NEW_V data_points_06 TRUNC NOPRI;
+COL data_points_07 NEW_V data_points_07 TRUNC NOPRI;
+COL data_points_08 NEW_V data_points_08 TRUNC NOPRI;
+COL data_points_09 NEW_V data_points_09 TRUNC NOPRI;
+COL data_points_10 NEW_V data_points_10 TRUNC NOPRI;
+COL data_points_11 NEW_V data_points_11 TRUNC NOPRI;
+COL data_points_12 NEW_V data_points_12 TRUNC NOPRI;
+COL data_points_13 NEW_V data_points_13 TRUNC NOPRI;
 --
 DEF sql_type_01 = '   ';
 DEF sql_type_02 = '   ';
@@ -358,7 +408,7 @@ FUNCTION application_category (
 )
 RETURN VARCHAR2
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -577,7 +627,7 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSIF p_command_name IN ('INSERT', 'UPDATE')
@@ -596,8 +646,10 @@ END application_category;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sqltext_mv AS (
@@ -605,7 +657,6 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqltext_mv) */
        dbid,
        con_id,
        sql_id,
-      --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(sql_text, '\[([[:digit:]]{4})\] ') ELSE sql_text END),100000),5,'0') AS sqlid,
        get_sql_hv(sql_text) AS sqlid,
        application_category(DBMS_LOB.substr(sql_text, 1000), 'UNKNOWN') AS sql_type, -- passing UNKNOWN else KIEV envs would show a lot of unrelated SQL under RO
        REPLACE(REPLACE(DBMS_LOB.substr(sql_text, 1000), CHR(10), CHR(32)), CHR(9), CHR(32)) AS sql_text,
@@ -639,6 +690,7 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlstats_mv) */
    AND s.snap_id BETWEEN TO_NUMBER('&&cs_snap_id_from.') AND TO_NUMBER('&&cs_snap_id_to.') + 1
   --  AND ('&&cs_sql_id.' IS NULL OR s.sql_id = TRIM('&&cs_sql_id.'))
    AND &&cs_filter_1.
+   AND ('&&cs_include_sys.' = 'Y' OR s.parsing_user_id > 0)
    AND s.optimizer_cost > 0 -- if 0 or null then whole row is suspected bogus
    AND ROWNUM >= 1
 ),
@@ -708,6 +760,7 @@ sqlstats_metrics AS (
 SELECT MIN(d.begin_timestamp) AS begin_timestamp,
        MAX(d.end_timestamp) AS end_timestamp,
        SUM(d.seconds) AS seconds,
+       COUNT(*) AS data_points,
        SUM(d.delta_elapsed_time)/NULLIF(SUM(d.delta_execution_count),0)/1e3 AS et_ms_per_exec,
        SUM(d.delta_cpu_time)/NULLIF(SUM(d.delta_execution_count),0)/1e3 AS cpu_ms_per_exec,
        SUM(d.delta_user_io_wait_time)/NULLIF(SUM(d.delta_execution_count),0)/1e3 AS io_ms_per_exec,
@@ -738,6 +791,12 @@ SELECT MIN(d.begin_timestamp) AS begin_timestamp,
        SUM(d.delta_physical_read_bytes)/NULLIF(SUM(d.delta_execution_count),0)/1e6 AS phy_read_mb_per_exec,
        SUM(d.delta_physical_write_requests)/NULLIF(SUM(d.delta_execution_count),0) AS phy_write_req_per_exec,
        SUM(d.delta_physical_write_bytes)/NULLIF(SUM(d.delta_execution_count),0)/1e6 AS phy_write_mb_per_exec,
+       SUM(d.delta_physical_read_bytes)/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_r,
+       SUM(d.delta_physical_write_bytes)/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_w,
+       (SUM(d.delta_physical_read_bytes)+SUM(d.delta_physical_write_bytes))/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_rw,
+       SUM(d.delta_physical_read_requests)/NULLIF(SUM(d.seconds),0) AS iops_r,
+       SUM(d.delta_physical_write_requests)/NULLIF(SUM(d.seconds),0) AS iops_w,
+       (SUM(d.delta_physical_read_requests)+SUM(d.delta_physical_write_requests))/NULLIF(SUM(d.seconds),0) AS iops_rw,
        SUM(d.delta_fetch_count)/NULLIF(SUM(d.delta_execution_count),0) AS fetches_per_exec,
        SUM(d.delta_sorts)/NULLIF(SUM(d.delta_execution_count),0) AS sorts_per_exec,
        SUM(d.delta_rows_processed)/NULLIF(SUM(d.delta_execution_count),0) AS rows_per_exec,
@@ -823,7 +882,8 @@ SELECT m.con_id,
        m.sql_type,
        SUBSTR(m.sql_text, 1, 60) AS sql_text,
        m.&&cs_sql_statistic. AS value,
-       ROW_NUMBER() OVER (ORDER BY m.&&cs_sql_statistic. DESC NULLS LAST) AS rn
+       ROW_NUMBER() OVER (ORDER BY m.&&cs_sql_statistic. DESC NULLS LAST) AS rn,
+       m.data_points
   FROM sqlstats_metrics m
  WHERE NVL(m.&&cs_sql_statistic., 0) >= 0 -- negative values are possible but unwanted
 ),
@@ -843,7 +903,8 @@ SELECT con_id,
        sql_type,
        sql_text,
        value,
-       rn
+       rn,
+       data_points
   FROM full_list
  WHERE rn < 14
 )
@@ -888,6 +949,19 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
        MAX(CASE rn WHEN 11 THEN LPAD(TO_CHAR(value, 'fm999,999,990.000'), 15, ' ') ELSE LPAD(' ', 15, ' ') END) AS value_11,
        MAX(CASE rn WHEN 12 THEN LPAD(TO_CHAR(value, 'fm999,999,990.000'), 15, ' ') ELSE LPAD(' ', 15, ' ') END) AS value_12,
        MAX(CASE rn WHEN 13 THEN LPAD(TO_CHAR(value, 'fm999,999,990.000'), 15, ' ') ELSE LPAD(' ', 15, ' ') END) AS value_13,
+       MAX(CASE rn WHEN 01 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_01,
+       MAX(CASE rn WHEN 02 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_02,
+       MAX(CASE rn WHEN 03 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_03,
+       MAX(CASE rn WHEN 04 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_04,
+       MAX(CASE rn WHEN 05 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_05,
+       MAX(CASE rn WHEN 06 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_06,
+       MAX(CASE rn WHEN 07 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_07,
+       MAX(CASE rn WHEN 08 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_08,
+       MAX(CASE rn WHEN 09 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_09,
+       MAX(CASE rn WHEN 10 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_10,
+       MAX(CASE rn WHEN 11 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_11,
+       MAX(CASE rn WHEN 12 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_12,
+       MAX(CASE rn WHEN 13 THEN LPAD(TO_CHAR(data_points, 'fm999,999,990'), 12, ' ') ELSE LPAD(' ', 12, ' ') END) AS data_points_13,
        MAX(CASE rn WHEN 01 THEN RPAD(sql_type, 3, ' ') ELSE RPAD(' ', 3, ' ') END) AS sql_type_01,
        MAX(CASE rn WHEN 02 THEN RPAD(sql_type, 3, ' ') ELSE RPAD(' ', 3, ' ') END) AS sql_type_02,
        MAX(CASE rn WHEN 03 THEN RPAD(sql_type, 3, ' ') ELSE RPAD(' ', 3, ' ') END) AS sql_type_03,
@@ -944,7 +1018,7 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
 /
 /****************************************************************************************/
 --
-SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_statistic.'||NVL2('&&cs_sql_id.', '_&&cs_sql_id.', NULL) AS cs_file_name FROM DUAL;
 --
 DEF report_title = 'Top SQL by average "&&cs_sql_statistic." between &&cs_sample_time_from. and &&cs_sample_time_to. UTC';
 DEF chart_title = '&&report_title.';
@@ -953,7 +1027,7 @@ DEF xaxis_title = '';
 --
 COL xaxis_title NEW_V xaxis_title NOPRI;
 SELECT
-'&&cs_rgn. &&cs_locale. &&cs_con_name.'||
+'&&cs_rgn. &&cs_locale. &&cs_con_name. sys:&&cs_include_sys.'||
 CASE WHEN '&&cs_sql_type.' IS NOT NULL THEN ' Type:&&cs_sql_type.' END||
 CASE WHEN '&&cs2_sql_text_piece.' IS NOT NULL THEN ' Text:"%&&cs2_sql_text_piece.%"' END||
 CASE WHEN '&&cs_sql_id.' IS NOT NULL THEN ' SQL_ID:&&cs_sql_id.' END AS xaxis_title
@@ -969,7 +1043,7 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = '<br>2) &&xaxis_title.';
 DEF chart_foot_note_3 = "<br>";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_statistic." "&&cs_sql_type." "&&cs2_sql_text_piece." "&&cs_sql_id."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_statistic." "&&cs_sql_type." "&&cs2_sql_text_piece." "&&cs_sql_id." "&&cs_include_sys." "&&cs_graph_type."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -1019,7 +1093,7 @@ FUNCTION application_category (
 )
 RETURN VARCHAR2 
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -1238,7 +1312,7 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSIF p_command_name IN ('INSERT', 'UPDATE')
@@ -1257,8 +1331,10 @@ END application_category;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sqltext_mv AS (
@@ -1266,7 +1342,6 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqltext_mv) */
        dbid,
        con_id,
        sql_id,
-      --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(sql_text, '\[([[:digit:]]{4})\] ') ELSE sql_text END),100000),5,'0') AS sqlid,
        get_sql_hv(sql_text) AS sqlid,
        application_category(DBMS_LOB.substr(sql_text, 1000), 'UNKNOWN') AS sql_type, -- passing UNKNOWN else KIEV envs would show a lot of unrelated SQL under RO
        REPLACE(REPLACE(DBMS_LOB.substr(sql_text, 1000), CHR(10), CHR(32)), CHR(9), CHR(32)) AS sql_text,
@@ -1316,6 +1391,7 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqlstats_mv) */
    AND ('&&cs_sql_id.' IS NULL OR s.sql_id = TRIM('&&cs_sql_id.'))
    AND s.optimizer_cost > 0 -- if 0 or null then whole row is suspected bogus
   --  AND &&cs_filter_1. -- for some reason it performs poorly when used on this query... it needs further investigation!
+  --  AND ('&&cs_include_sys.' = 'Y' OR s.parsing_user_id > 0) -- not needed here since other filters (below) already considered this
    AND s.sql_id IN 
    (TRIM('&&sql_id_01')
    ,TRIM('&&sql_id_02')
@@ -1444,6 +1520,12 @@ SELECT d.begin_timestamp,
        SUM(d.delta_physical_read_bytes)/NULLIF(SUM(d.delta_execution_count),0)/1e6 AS phy_read_mb_per_exec,
        SUM(d.delta_physical_write_requests)/NULLIF(SUM(d.delta_execution_count),0) AS phy_write_req_per_exec,
        SUM(d.delta_physical_write_bytes)/NULLIF(SUM(d.delta_execution_count),0)/1e6 AS phy_write_mb_per_exec,
+       SUM(d.delta_physical_read_bytes)/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_r,
+       SUM(d.delta_physical_write_bytes)/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_w,
+       (SUM(d.delta_physical_read_bytes)+SUM(d.delta_physical_write_bytes))/POWER(10,6)/NULLIF(SUM(d.seconds),0) AS mbps_rw,
+       SUM(d.delta_physical_read_requests)/NULLIF(SUM(d.seconds),0) AS iops_r,
+       SUM(d.delta_physical_write_requests)/NULLIF(SUM(d.seconds),0) AS iops_w,
+       (SUM(d.delta_physical_read_requests)+SUM(d.delta_physical_write_requests))/NULLIF(SUM(d.seconds),0) AS iops_rw,
        SUM(d.delta_fetch_count)/NULLIF(SUM(d.delta_execution_count),0) AS fetches_per_exec,
        SUM(d.delta_sorts)/NULLIF(SUM(d.delta_execution_count),0) AS sorts_per_exec,
        SUM(d.delta_rows_processed)/NULLIF(SUM(d.delta_execution_count),0) AS rows_per_exec,
@@ -1605,7 +1687,7 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
 SET HEA ON PAGES 100;
 --
 -- [Line|Area|SteppedArea|Scatter]
-DEF cs_chart_type = 'Scatter';
+DEF cs_chart_type = '&&cs_graph_type.';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie

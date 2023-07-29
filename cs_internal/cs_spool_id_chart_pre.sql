@@ -15,7 +15,7 @@ PRO focusTarget: '&&cs_chart_option_focustarget.',
 PRO pointSize: '&&cs_chart_option_pointsize.',
 PRO legend: {position: '&&cs_legend_position.', textStyle: {fontSize: 14}},
 PRO tooltip: {textStyle: {fontSize: 14}},
-PRO &&cs_trendlines. trendlines: {type: '&&cs_trendlines_type.', degree: 2, lineWidth:10, opacity:0.2 &&cs_trendlines_series. }, //type:[{linear}|polynomial|exponential]
+PRO &&cs_trendlines. trendlines: {type: '&&cs_trendlines_type.', degree: 2, lineWidth:66, opacity:0.2 &&cs_trendlines_series. }, //type:[{linear}|polynomial|exponential]
 --PRO hAxis: {title: '&&xaxis_title.', gridlines: {count: -1}, titleTextStyle: {fontSize: 16, bold: false}},
 PRO hAxis: {title: '&&xaxis_title.', titleTextStyle: {fontSize: 16, bold: false}, &&hAxis_maxValue. minorGridlines: {count: -1}, gridlines: {count: -1, units: {months: {format: 'yyyy-MM-dd'}, days: {format: 'MM-ddTHH'}, hours: {format: 'ddTHH:mm'}, minutes: {format: 'HH:mm:ss'}, seconds: {format: 'mm:ss'}}}},
 PRO &&cs_oem_colors_series. series: { 0: { color :'#34CF27'}, 1: { color :'#0252D7'},  2: { color :'#1E96DD'},  3: { color :'#CEC3B5'},  4: { color :'#EA6A05'},  5: { color :'#871C12'},  6: { color :'#C42A05'}, 7: {color :'#75763E'},

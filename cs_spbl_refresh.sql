@@ -41,7 +41,8 @@ SELECT /*+ MATERIALIZE NO_MERGE OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */
   FROM cdb_sql_plan_baselines b
  WHERE b.enabled = 'YES'
    AND b.accepted = 'YES'
-   AND b.created < SYSDATE - 30 -- only consider refreshing baselines older than these many days
+   AND b.created < SYSDATE - 60 -- only consider refreshing baselines older than these many days
+   AND b.last_executed > SYSDATE - 7 -- only refresh a baseline if it has been executed during the last 7 days
    AND b.parsing_schema_name NOT IN ('SYS', 'SYSTEM', 'MDSYS', 'ORDDATA', 'CTXSYS', 'WMSYS', 'DVSYS', 'XDB', 'LBACSYS', 'DBSNMP', 'GSMADMIN_INTERNAL') -- to reduce selection
    AND b.parsing_schema_name NOT LIKE 'C##%' -- to reduce selection
    AND b.parsing_schema_name NOT LIKE 'APEX%' -- to reduce selection

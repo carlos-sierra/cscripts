@@ -22,7 +22,7 @@ ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS';
 COL view_owner NEW_V view_owner NOPRI;
 SELECT owner AS view_owner FROM dba_views WHERE view_name = 'DBC_SNAPSHOT_LOG_V';
 --
-COL table_name FOR A30 TRUNC;
+COL table_name FOR A30;
 COL region_acronym FOR A3 HEA 'RGN';
 COL locale FOR A6;
 COL runs FOR 999,990;
@@ -32,7 +32,7 @@ COL total_rows_processed FOR 999,999,999,990;
 COL errors FOR 99,990;
 COL seconds FOR 999,990;
 COL last_rows_processed FOR 999,999,999,990;
-COL last_error_stack FOR A100 TRUNC;
+COL last_error_stack FOR A100;
 --
 BREAK ON REPORT;
 COMPUTE SUM LABEL "TOTAL" OF runs secs_per_day total_rows_processed errors seconds last_rows_processed ON REPORT;
@@ -93,13 +93,13 @@ ORDER BY s.collect_name
 --
 CLEAR BREAK;
 --
-COL job_name FOR A30 TRUNC;
-COL job_action FOR A40 TRUNC;
-COL repeat_interval FOR A30 TRUNC;
-COL enabled FOR A7 TRUNC;
-COL last_start_date FOR A19 TRUNC;
+COL job_name FOR A30;
+COL job_action FOR A40;
+COL repeat_interval FOR A30;
+COL enabled FOR A7;
+COL last_start_date FOR A19;
 COL last_run_secs FOR 999,990.000;
-COL next_run_date FOR A19 TRUNC;
+COL next_run_date FOR A19;
 --
 PRO
 PRO DBA_SCHEDULER_JOBS

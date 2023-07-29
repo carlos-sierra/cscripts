@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/03/01
+-- Version:     2023/01/20
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -77,8 +77,9 @@ PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."
 PRO TABLE_OWNER  : &&table_owner.
 PRO TABLE_NAME   : &&table_name.
 --
+DEF specific_owner = '&&table_owner.';
 DEF specific_table = '&&table_name.';
-DEF order_by = 't.pdb_name, t.owner, t.table_name';
+DEF order_by = 't.owner, t.table_name';
 DEF fetch_first_N_rows = '1';
 PRO
 PRO SUMMARY &&table_owner..&&table_name.
@@ -98,7 +99,7 @@ BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF mebibytes megabytes segments ON REPORT;
 --
 PRO
-PRO SEGMENTS (dba_segments) top 1000 &&table_owner..&&table_name.
+PRO SEGMENTS (dba_segments) top 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~
 WITH
 t AS (
@@ -134,7 +135,7 @@ SELECT 3 AS oby, s.segment_type, s.owner, s.segment_name, s.partition_name, l.co
 SELECT ROUND(bytes/POWER(10,6),3) AS megabytes, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
   FROM s
  ORDER BY bytes DESC, oby, segment_type, owner, column_name, segment_name, partition_name
- FETCH FIRST 1000 ROWS ONLY
+ FETCH FIRST 100 ROWS ONLY
 /
 --
 PRO
@@ -268,7 +269,7 @@ SELECT h.analyzetime,
        h.samplesize,
        h.rowcnt - LAG(h.rowcnt) OVER (ORDER BY h.analyzetime) AS rows_inc,
        h.analyzetime - LAG(h.analyzetime) OVER (ORDER BY h.analyzetime) AS days_gap,
-       100 * (365.25 / 12) * (h.rowcnt - LAG(h.rowcnt) OVER (ORDER BY h.analyzetime)) / (h.analyzetime - LAG(h.analyzetime) OVER (ORDER BY h.analyzetime)) / NULLIF(h.rowcnt, 0) AS monthly_growth_perc
+       100 * (365.25 / 12) * (h.rowcnt - LAG(h.rowcnt) OVER (ORDER BY h.analyzetime)) / NULLIF((h.analyzetime - LAG(h.analyzetime) OVER (ORDER BY h.analyzetime)), 0) / NULLIF(h.rowcnt, 0) AS monthly_growth_perc
   FROM cbo_hist h
 )
 SELECT TO_CHAR(h.analyzetime, '&&cs_datetime_full_format.') AS analyzetime,
@@ -316,16 +317,18 @@ SELECT 100 * (365 / 12) * (n.rowcnt - o.rowcnt) / (n.analyzetime - o.analyzetime
  WHERE n.analyzetime > o.analyzetime
 /
 --
-COL object_type HEA 'Object Type';
+COL object_type HEA 'Object Type' FOR A30;
 COL object_id FOR 999999999 HEA 'Object ID';
 COL object_name FOR A30 HEA 'Object Name' TRUNC;
-COL created FOR A19 HEA 'Created';
-COL last_ddl_time FOR A19 HEA 'Last DDL Time';
+COL subobject_name FOR A30 HEA 'Sub Object Name' TRUNC;
+COL created FOR A23 HEA 'Created';
+COL last_ddl_time FOR A23 HEA 'Last DDL Time';
 --
 PRO
-PRO TABLE OBJECTS (dba_objects) up to 1000 &&table_owner..&&table_name.
+PRO TABLE OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT o.object_type,
+       o.subobject_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time
@@ -336,7 +339,7 @@ SELECT o.object_type,
  ORDER BY
        o.object_type,
        o.object_id
-FETCH FIRST 1000 ROWS ONLY       
+FETCH FIRST 100 ROWS ONLY       
 /
 --
 COL index_name FOR A30 HEA 'Index Name';
@@ -399,10 +402,11 @@ SELECT i.index_name,
 /
 --
 PRO
-PRO INDEX OBJECTS (dba_objects) up to 1000 &&table_owner..&&table_name.
+PRO INDEX OBJECTS (dba_objects) up to 100 &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
 SELECT o.object_type,
        o.object_name,
+       o.subobject_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time
@@ -415,8 +419,9 @@ SELECT o.object_type,
    AND o.object_type LIKE 'INDEX%'
  ORDER BY
        o.object_type,
-       o.object_name
-FETCH FIRST 1000 ROWS ONLY       
+       o.object_name,
+       o.subobject_name
+FETCH FIRST 100 ROWS ONLY       
 /
 --
 COL part_sub FOR A12 HEA 'LEVEL';
@@ -508,6 +513,9 @@ BRE ON index_name SKIP 1 ON visibility ON partitioned;
 PRO
 PRO INDEX COLUMNS (dba_ind_columns) &&table_owner..&&table_name.
 PRO ~~~~~~~~~~~~~
+WITH ic AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_ind_columns WHERE table_owner = '&&table_owner.' AND table_name = '&&table_name.' AND ROWNUM >= 1),
+     tc AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_tab_cols WHERE owner = '&&table_owner.' AND table_name = '&&table_name.' AND ROWNUM >= 1),
+     ix AS (SELECT /*+ MATERIALIZE NO_MERGE */ * FROM dba_indexes WHERE table_owner = '&&table_owner.' AND table_name = '&&table_name.' AND ROWNUM >= 1)
 SELECT i.index_name,
        x.visibility,
        x.partitioned,
@@ -568,9 +576,9 @@ SELECT i.index_name,
        c.avg_col_len,
        c.data_length, 
        c.char_length
-  FROM dba_ind_columns i,
-       dba_tab_cols c,
-       dba_indexes x
+  FROM ic i,
+       tc c,
+       ix x
  WHERE i.table_owner = '&&table_owner.'
    AND i.table_name = '&&table_name.'
    AND c.owner = i.table_owner
@@ -796,68 +804,10 @@ SELECT SUBSTR(UTL_RAW.CAST_TO_VARCHAR2(SUBSTR(LPAD(TO_CHAR(h.endpoint_value,'fmx
        1
 /
 --
-PRO
-PRO If you want to preserve script output, execute corresponding scp command below, from a TERM session running on your Mac/PC:
-PRO scp &&cs_host_name.:&&cs_file_prefix._&&cs_script_name.*.txt &&cs_local_dir.
-PRO scp &&cs_host_name.:&&cs_file_dir.&&cs_reference_sanitized._*.* &&cs_local_dir.
---
-PRO
-PRO TOP_KEYS (if dba_tables.num_rows < 25MM) &&table_owner..&&table_name.
-PRO ~~~~~~~~
---
-SET HEA OFF;
-CLEAR COL;
-SPO /tmp/cs_driver.sql;
---
---SELECT 'PRO'||CHR(10)||'PRO FROM INDEX '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~'||CHR(10)||
---       'SELECT COUNT(*), '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
---       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM '||i.table_owner||'.'||i.table_name||' GROUP BY '||
---       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
-SELECT 'PRO'||CHR(10)||'PRO FROM TABLE AND INDEX '||i.table_owner||'.'||i.table_name||' '||i.owner||'.'||i.index_name||'('||LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||')'||CHR(10)||'PRO ~~~~~~~~~~~~~~~~~~~~'||CHR(10)||
-       CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN
-       'WITH bucket AS (SELECT '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T)'       
-       ELSE
-       'WITH bucket AS (SELECT CAST(K.BEGINTIME AS DATE) AS begin_date, (CAST(K.BEGINTIME AS DATE) - LAG(CAST(K.BEGINTIME AS DATE)) OVER (PARTITION BY '||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY T.KIEVTXNID)) * 24 * 3600 AS lag_secs,T.kievlive,'||CHR(10)||
-       LISTAGG('T.'||c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||'  FROM '||i.table_owner||'.'||i.table_name||' T, '||i.table_owner||'.KIEVTRANSACTIONS K WHERE K.COMMITTRANSACTIONID(+) = T.KIEVTXNID)'
-       END||CHR(10)||
-       'SELECT COUNT(*) AS row_count, '||CASE '&&cs_kiev_version.' WHEN 'NOT_KIEV' THEN NULL ELSE 'ROUND(AVG(lag_secs),3) AS avg_version_age_seconds, PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY lag_secs) AS p50_version_age_seconds, MIN(lag_secs) AS min_version_age_seconds, MAX(lag_secs) AS max_version_age_seconds, MIN(begin_date) AS min_date, MAX(begin_date) AS max_date, SUM(CASE WHEN kievlive = ''Y'' THEN 1 ELSE 0 END) AS kievlive_y, SUM(CASE WHEN kievlive = ''N'' THEN 1 ELSE 0 END) AS kievlive_n,' END||
-       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' FROM bucket GROUP BY '||
-       LISTAGG(c.column_name, ',' ON OVERFLOW TRUNCATE) WITHIN GROUP (ORDER BY c.column_position)||' ORDER BY 1 DESC FETCH FIRST 30 ROWS ONLY;'
-       AS dynamic_sql
-  FROM dba_tables t,
-       dba_indexes i,
-       dba_ind_columns c
- WHERE t.table_name NOT LIKE 'KIEV%'
-   AND t.owner = '&&table_owner.'
-   AND t.table_name = '&&table_name.'
-   AND t.num_rows < 25e6
-   AND i.table_owner = t.owner
-   AND i.table_name = t.table_name
-   AND i.index_type = 'NORMAL'
-   --AND i.uniqueness = 'UNIQUE'
-   AND c.index_owner = i.owner
-   AND c.index_name = i.index_name
-   AND c.column_name <> 'KIEVTXNID'
-   AND c.column_name <> 'KIEVLIVE'
- GROUP BY
-       i.table_owner,
-       i.table_name,
-       i.owner,
-       i.index_name
- ORDER BY
-       i.table_owner,
-       i.table_name,
-       i.owner,
-       i.index_name
-/
---
-SPO OFF;
-SET HEA ON;
---
-SPO &&cs_file_name..txt APP
-@/tmp/cs_driver.sql;
+DEF cs_num_rows_limit_display = '1B';
+DEF cs_num_rows_limit_number = '1e9';
+@@cs_internal/cs_top_primary_keys_table.sql
+@@cs_internal/cs_top_secondary_keys_table.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&table_owner." "&&table_name."

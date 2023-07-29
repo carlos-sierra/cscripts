@@ -1,6 +1,6 @@
 PRO
-PRO PLANS IN AWR - DISPLAY (dbms_xplan.display_awr)
-PRO ~~~~~~~~~~~~~~~~~~~~~~
+PRO AWR PLANS - DISPLAY (dbms_xplan.display_awr)
+PRO ~~~~~~~~~~~~~~~~~~~
 SET HEA OFF PAGES 0;
 WITH 
 plans_by_timestamp AS (

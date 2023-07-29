@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -36,19 +36,11 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id."
 @@cs_internal/cs_spool_id.sql
---
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
---
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
+@@cs_internal/cs_spool_id_list_sql_id.sql
+@@cs_internal/cs_print_sql_text.sql
 --
 CLEAR SQL
 PRO

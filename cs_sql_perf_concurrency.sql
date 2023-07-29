@@ -100,7 +100,7 @@ WITH
 FUNCTION application_category (p_sql_text IN VARCHAR2)
 RETURN VARCHAR2
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -319,7 +319,7 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSE RETURN 'UN'; /* Unknown */

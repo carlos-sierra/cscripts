@@ -1,4 +1,4 @@
-COL created FOR A19;
+COL created FOR A23;
 COL name FOR A30;
 COL category FOR A30;
 COL status FOR 99999999;

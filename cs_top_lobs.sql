@@ -42,12 +42,12 @@ PRO SQL> @&&cs_script_name..sql "&&cs_oracle_maint."
 PRO ORACLE MAINT : "&&cs_oracle_maint." [{N}|Y]
 --
 COL gb FOR 999,990.000 HEA 'GB';
-COL owner FOR A30 TRUNC;
-COL segment_name FOR A30 TRUNC;
-COL table_name FOR A30 TRUNC;
-COL column_name FOR A30 TRUNC;
-COL tablespace_name FOR A30 TRUNC;
-COL pdb_name FOR A30 TRUNC;
+COL owner FOR A30;
+COL segment_name FOR A30;
+COL table_name FOR A30;
+COL column_name FOR A30;
+COL tablespace_name FOR A30;
+COL pdb_name FOR A30;
 --
 BREAK ON REPORT;
 COMPUTE SUM LABEL 'TOTAL' OF gb ON REPORT;

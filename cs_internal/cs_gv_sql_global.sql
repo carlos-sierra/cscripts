@@ -22,8 +22,10 @@ END get_pdb_name;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sql_metrics AS (
@@ -59,7 +61,7 @@ SELECT /*+ MATERIALIZE NO_MERGE GATHER_PLAN_STATISTICS MONITOR */
        s.user_io_wait_time/GREATEST(s.rows_processed,s.executions,1)/1e3 AS io_ms_per_row,
        s.buffer_gets/GREATEST(s.rows_processed,s.executions,1) AS gets_per_row,
        s.disk_reads/GREATEST(s.rows_processed,s.executions,1) AS reads_per_row,
-       get_sql_hv(s.sql_text) AS sqlid
+       get_sql_hv(s.sql_fulltext) AS sqlid
   FROM gv$sql s
  WHERE &&cs_filter_1.
    AND ('&&cs2_sql_text_piece.' IS NULL OR UPPER(s.sql_text) LIKE CHR(37)||UPPER('&&cs2_sql_text_piece.')||CHR(37))

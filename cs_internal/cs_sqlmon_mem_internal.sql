@@ -1,8 +1,10 @@
 COL sql_exec_start FOR A19 HEA 'SQL Exec Start';
+COL rn_sql_exec_start FOR 999,990 HEA 'Sta RN';
 COL last_refresh_time FOR A19 HEA 'Last Refresh Time';
 COL sql_exec_id NEW_V sql_exec_id FOR 99999999999 HEA 'SQL Exec ID';
 COL status FOR A20 HEA 'Status';
 COL duration FOR 999,990 HEA 'Duration';
+COL rn_duration FOR 999,990 HEA 'Dur RN';
 COL plan_hash FOR 9999999999 HEA 'Plan Hash';
 COL full_plan_hash FOR 9999999999 HEA 'Full Plan Hash';
 COL elapsed_time FOR 999,990.000 HEA 'Elapsed Time';
@@ -23,17 +25,20 @@ COL service FOR A40 TRUNC HEA 'Service';
 COL program FOR A40 TRUNC HEA 'Program';
 --
 PRO
-PRO SQL MONITOR REPORTS (v$sql_monitor) top &&cs_sqlmon_top.
+PRO SQL MONITOR REPORTS (v$sql_monitor) top &&cs_sqlmon_top. and &&cs_sqlmon_top. most recent
 PRO ~~~~~~~~~~~~~~~~~~~
 WITH 
 sql_mon_mem_reports AS (
-SELECT r.sql_exec_start,
+SELECT /*+ OPT_PARAM('_newsort_enabled' 'FALSE') OPT_PARAM('_adaptive_fetch_enabled' 'FALSE') OPT_PARAM('query_rewrite_enabled' 'FALSE') */ /* ORA-00600: internal error code, arguments: [15851], [3], [2], [1], [1] */ 
+       r.sql_exec_start,
+       ROW_NUMBER() OVER(ORDER BY r.sql_exec_start DESC NULLS LAST/*, MAX(r.last_refresh_time) - r.sql_exec_start DESC NULLS LAST*/) AS rn_sql_exec_start,
        MAX(r.last_refresh_time) AS last_refresh_time,
        r.sql_exec_id,
        MAX(r.status) AS status,
        MAX(r.sql_plan_hash_value) AS plan_hash,
        MAX(r.sql_full_plan_hash_value) AS full_plan_hash,
        ROUND((MAX(r.last_refresh_time) - r.sql_exec_start) * 24 * 3600) AS duration,
+       ROW_NUMBER() OVER(ORDER BY MAX(r.last_refresh_time) - r.sql_exec_start DESC NULLS LAST/*, r.sql_exec_start DESC NULLS LAST*/) AS rn_duration,
        ROUND(SUM(r.elapsed_time) /  POWER(10, 6), 3) AS elapsed_time,
        ROUND(SUM(r.cpu_time) /  POWER(10, 6), 3) AS cpu_time,
        ROUND(SUM(r.user_io_wait_time) /  POWER(10, 6), 3) AS user_io_wait_time,
@@ -59,12 +64,13 @@ SELECT r.sql_exec_start,
        c.name,
        r.sql_exec_id,
        r.sql_exec_start
- ORDER BY
-       7 DESC, 1 DESC
-FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
+--  ORDER BY
+--        8 DESC NULLS LAST, 1 DESC NULLS LAST
+-- FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
 )
 SELECT *
   FROM sql_mon_mem_reports
+ WHERE rn_sql_exec_start <= &&cs_sqlmon_top. OR rn_duration <= &&cs_sqlmon_top.
  ORDER BY
-       sql_exec_start, last_refresh_time, sql_exec_id
+       sql_exec_start, rn_sql_exec_start
 /

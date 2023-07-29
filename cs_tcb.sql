@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -49,19 +49,13 @@ ACCEPT sys_password CHAR PROMPT 'Enter SYS Password (hidden): ' HIDE
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_samplingPercent."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO SAMPLING_PERC: "&&cs_samplingPercent." [{100}|1-100]
 PRO PARSE_SCHEMA : &&cs_parsing_schema_name.
 PRO TEMP_DIR     : "&&cs_temp_dir." 
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_temp_dir_create.sql
 --
 ALTER SESSION SET current_schema = &&cs_parsing_schema_name.;

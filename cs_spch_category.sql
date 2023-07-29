@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/10
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -36,8 +36,6 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spch_internal_list.sql
 --
@@ -57,19 +55,12 @@ SELECT CASE WHEN UPPER(NVL('&&category_passed.','DEFAULT')) IN ('DEF', 'DEFAULT'
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name." "&&cs_category."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO NAME         : &&cs_name.
 PRO CATEGORY     : &&cs_category.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_spch_internal_list.sql
 --

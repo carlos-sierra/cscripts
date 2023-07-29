@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/26
+-- Version:     2023/01/09
 --
 -- Usage:       Execute connected to PDB
 --
@@ -79,6 +79,7 @@ PRO
 PRO 3. Index Name:
 DEF index_name = '&3.'
 UNDEF 3;
+DEF p_index_name = '';
 COL p_index_name NEW_V p_index_name NOPRI;
 SELECT index_name AS p_index_name
   FROM dba_indexes
@@ -94,10 +95,11 @@ SELECT '&&cs_file_prefix._&&cs_script_name._&&p_owner..&&p_table_name..&&p_index
 PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_table_name." "&&p_index_name." 
 @@cs_internal/cs_spool_id.sql
 --
-PRO TABLE_OWNER  : &&p_owner.
-PRO TABLE_NAME   : &&p_table_name.
-PRO INDEX_NAME   : &&p_index_name.
+PRO TABLE_OWNER  : "&&p_owner."
+PRO TABLE_NAME   : "&&p_table_name."
+PRO INDEX_NAME   : "&&p_index_name."
 --
+COL index_name FOR A30;
 COL plan_hash_value FOR 999999999999999;
 COL executions FOR 999,999,999,990;
 COL elapsed_seconds FOR 999,999,990;
@@ -108,17 +110,18 @@ COMPUTE SUM LABEL "TOTAL" OF executions elapsed_seconds cpu_seconds ON REPORT;
 PRO
 PRO v$object_dependency -> v$sql
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SELECT   s.sql_id, s.plan_hash_value, s.sql_text, 
+SELECT   d.to_name AS index_name, s.sql_id, s.plan_hash_value, s.sql_text, 
          s.executions, s.elapsed_seconds, s.cpu_seconds, s.last_active_time
-FROM     (  SELECT   d.from_hash, d.from_address
+FROM     (  SELECT   d.to_name, d.from_hash, d.from_address
             FROM     v$object_dependency d, v$db_object_cache c
             WHERE    d.to_owner = '&&p_owner.'
-            AND      d.to_name = '&&p_index_name.'
+            AND      d.to_name = NVL('&&p_index_name.', d.to_name)
             --AND      d.to_type = 70 -- MULTI-VERSIONED OBJECT
+            AND      d.to_name IN (SELECT index_name FROM dba_indexes WHERE owner = '&&p_owner.' AND table_name = '&&p_table_name.')
             AND      c.hash_value = d.to_hash
             AND      c.addr = d.to_address
             AND      c.type = 'MULTI-VERSIONED OBJECT'
-            GROUP BY d.from_hash, d.from_address
+            GROUP BY d.to_name, d.from_hash, d.from_address
          ) d
          CROSS APPLY (
             SELECT   s.sql_id, s.sql_text, s.plan_hash_value,
@@ -129,23 +132,26 @@ FROM     (  SELECT   d.from_hash, d.from_address
             FROM     v$sql s
             WHERE    s.hash_value = d.from_hash
             AND      s.address = d.from_address
+            -- AND      s.parsing_user_id <> 0
+            -- AND      s.parsing_schema_id <> 0
             GROUP BY
                      s.sql_id, s.sql_text, s.plan_hash_value
          ) s
 ORDER BY
-         s.sql_id, s.plan_hash_value
+         d.to_name, s.sql_id, s.plan_hash_value
 /
 PRO
 PRO v$sql_plan -> v$sql
 PRO ~~~~~~~~~~~~~~~~~~~
-SELECT   p.sql_id, p.plan_hash_value, s.sql_text,
+SELECT   p.object_name AS index_name, p.sql_id, p.plan_hash_value, s.sql_text,
          s.executions, s.elapsed_seconds, s.cpu_seconds, s.last_active_time
-FROM     (  SELECT   p.sql_id, p.plan_hash_value
+FROM     (  SELECT   p.object_name, p.sql_id, p.plan_hash_value
             FROM     v$sql_plan p
             WHERE    p.object_owner = '&&p_owner.'
-            AND      p.object_name = '&&p_index_name.'
+            AND      p.object_name = NVL('&&p_index_name.', p.object_name)
             AND      p.object_type LIKE '%INDEX%'
-            GROUP BY p.sql_id, p.plan_hash_value
+            AND      p.object_name IN (SELECT index_name FROM dba_indexes WHERE owner = '&&p_owner.' AND table_name = '&&p_table_name.')
+            GROUP BY p.object_name, p.sql_id, p.plan_hash_value
          ) p
          CROSS APPLY (
             SELECT   MAX(s.sql_text) AS sql_text,
@@ -156,21 +162,24 @@ FROM     (  SELECT   p.sql_id, p.plan_hash_value
             FROM     v$sql s
             WHERE    s.sql_id = p.sql_id
             AND      s.plan_hash_value = p.plan_hash_value
+            -- AND      s.parsing_user_id <> 0
+            -- AND      s.parsing_schema_id <> 0
          ) s
 ORDER BY
-         s.sql_id, s.plan_hash_value
+         p.object_name, s.sql_id, s.plan_hash_value
 /
 PRO
 PRO dba_hist_sql_plan -> dba_hist_sqltext
 PRO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SELECT   p.sql_id, p.plan_hash_value, s.sql_text, p.timestamp
-FROM     (  SELECT   p.sql_id, p.plan_hash_value, MAX(timestamp) AS timestamp
+SELECT   p.object_name AS index_name, p.sql_id, p.plan_hash_value, s.sql_text, p.timestamp
+FROM     (  SELECT   p.object_name, p.sql_id, p.plan_hash_value, MAX(timestamp) AS timestamp
             FROM     dba_hist_sql_plan p
             WHERE    p.object_owner = '&&p_owner.'
-            AND      p.object_name = '&&p_index_name.'
+            AND      p.object_name = NVL('&&p_index_name.', p.object_name)
             AND      p.object_type LIKE '%INDEX%'
             AND      p.dbid = TO_NUMBER('&&cs_dbid.') 
-            GROUP BY p.sql_id, p.plan_hash_value
+            AND      p.object_name IN (SELECT index_name FROM dba_indexes WHERE owner = '&&p_owner.' AND table_name = '&&p_table_name.')
+            GROUP BY p.object_name, p.sql_id, p.plan_hash_value
          ) p
          CROSS APPLY (
             SELECT   MAX(DBMS_LOB.SUBSTR(s.sql_text, 1000)) AS sql_text
@@ -178,7 +187,7 @@ FROM     (  SELECT   p.sql_id, p.plan_hash_value, MAX(timestamp) AS timestamp
             WHERE    s.sql_id = p.sql_id
          ) s
 ORDER BY
-         p.sql_id, p.plan_hash_value
+         p.object_name, p.sql_id, p.plan_hash_value
 /
 --
 PRO

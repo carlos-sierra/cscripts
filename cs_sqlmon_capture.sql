@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/02/04
+-- Version:     2023/04/27
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -44,33 +44,26 @@ DEF cs_additional_cbo_hints = "&2.";
 UNDEF 2;
 --
 PRO
-PRO 3. REPORT_TYPE: [{ACTIVE}|TEXT|HTML]
+PRO 3. REPORT_TYPE: [{TEXT}|ACTIVE|HTML]
 DEF report_type = '&3.';
 UNDEF 3;
 --
 COL report_type NEW_V report_type NOPRI;
 COL cs_report_type NEW_V cs_report_type NOPRI;
-SELECT CASE WHEN UPPER(TRIM('&&report_type.')) IN ('TEXT', 'HTML', 'ACTIVE') THEN UPPER(TRIM('&&report_type.')) ELSE 'ACTIVE' END AS report_type, CASE WHEN NVL(UPPER(TRIM('&&report_type.')), 'ACTIVE') IN ('HTML', 'ACTIVE') THEN 'html' ELSE 'txt' END AS cs_report_type FROM DUAL;
+SELECT CASE WHEN UPPER(TRIM('&&report_type.')) IN ('TEXT', 'HTML', 'ACTIVE') THEN UPPER(TRIM('&&report_type.')) ELSE 'TEXT' END AS report_type, CASE WHEN NVL(UPPER(TRIM('&&report_type.')), 'TEXT') IN ('HTML', 'ACTIVE') THEN 'html' ELSE 'txt' END AS cs_report_type FROM DUAL;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_additional_cbo_hints." "&&report_type."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO CBO_HINTS    : &&cbo_hints. &&cs_additional_cbo_hints.
-PRO REPORT_TYPE  : "&&report_type." [{ACTIVE}|TEXT|HTML]
+PRO REPORT_TYPE  : "&&report_type." [{TEXT}|ACTIVE|HTML]
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
+@@cs_internal/cs_print_sql_text.sql
 --
 PRO
 PRO Drop SQL Patch(es) for: "&&cs_sql_id."
@@ -96,9 +89,9 @@ DECLARE
 BEGIN
   $IF DBMS_DB_VERSION.ver_le_12_1
   $THEN
-    DBMS_SQLDIAG_INTERNAL.i_create_patch(sql_id => '&&cs_sql_id.', hint_text => q'[&&cbo_hints. &&cs_additional_cbo_hints.]', name => 'spch_&&cs_sql_id._&&hash.', description => q'[cs_sqlmon_capture.sql /*+ &&cbo_hints. &&cs_additional_cbo_hints. */ &&cs_reference_sanitized.]'); -- 12c
+    DBMS_SQLDIAG_INTERNAL.i_create_patch(sql_id => '&&cs_sql_id.', hint_text => q'[&&cbo_hints. &&cs_additional_cbo_hints.]', name => 'spch_&&cs_sql_id._&&hash.', description => q'[cs_sqlmon_capture.sql /*+ &&cbo_hints. &&cs_additional_cbo_hints. */ &&cs_reference_sanitized. &&who_am_i.]'); -- 12c
   $ELSE
-    l_name := DBMS_SQLDIAG.create_sql_patch(sql_id => '&&cs_sql_id.',  hint_text => q'[&&cbo_hints. &&cs_additional_cbo_hints.]', name => 'spch_&&cs_sql_id._&&hash.', description => q'[cs_sqlmon_capture.sql /*+ &&cbo_hints. &&cs_additional_cbo_hints. */ &&cs_reference_sanitized.]'); -- 19c
+    l_name := DBMS_SQLDIAG.create_sql_patch(sql_id => '&&cs_sql_id.',  hint_text => q'[&&cbo_hints. &&cs_additional_cbo_hints.]', name => 'spch_&&cs_sql_id._&&hash.', description => q'[cs_sqlmon_capture.sql /*+ &&cbo_hints. &&cs_additional_cbo_hints. */ &&cs_reference_sanitized. &&who_am_i.]'); -- 19c
   $END
   NULL;
 END;

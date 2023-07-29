@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/25
+-- Version:     2022/10/20
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -15,7 +15,7 @@
 -- Example:     $ sqlplus / as sysdba
 --              SQL> @cs_table_stats_chart.sql
 --
--- Notes:       Developed and tested on 12.1.0.2.
+-- Notes:       Developed and tested on 19c
 --
 ---------------------------------------------------------------------------------------
 --
@@ -65,7 +65,7 @@ UNDEF 3;
 SELECT UPPER(NVL('&&table_owner.', '&&owner.')) table_owner FROM DUAL
 /
 --
-COL table_name FOR A30 TRUNC PRI;
+COL table_name FOR A30 PRI;
 COL num_rows FOR 999,999,999,990;
 COL blocks FOR 9,999,999,990;
 WITH 
@@ -93,13 +93,21 @@ PRO
 PRO 4. Table Name:
 DEF table_name = '&4.';
 UNDEF 4;
-COL table_name NEW_V table_name FOR A30 TRUNC NOPRI;
+COL table_name NEW_V table_name FOR A30 NOPRI;
 SELECT UPPER(TRIM('&&table_name.')) table_name FROM DUAL;
 --
 PRO
-PRO 5. Trendlines Type: &&cs_trendlines_types.
-DEF cs_trendlines_type = '&5.';
+PRO 5. Graph Type: [{Line}|Scatter|Area]
+DEF graph_type = '&5.';
 UNDEF 5;
+COL cs_graph_type NEW_V cs_graph_type NOPRI;
+SELECT CASE WHEN '&&graph_type.' IN ('Line', 'Scatter', 'Area') THEN '&&graph_type.' ELSE 'Line' END AS cs_graph_type FROM DUAL
+/
+--
+PRO
+PRO 6. Trendlines Type: &&cs_trendlines_types.
+DEF cs_trendlines_type = '&6.';
+UNDEF 6;
 COL cs_trendlines_type NEW_V cs_trendlines_type NOPRI;
 COL cs_trendlines NEW_V cs_trendlines NOPRI;
 COL cs_hAxis_maxValue NEW_V cs_hAxis_maxValue NOPRI;
@@ -128,7 +136,7 @@ DEF chart_foot_note_2 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&table_owner." "&&table_name." "&&cs_trendlines_type."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&table_owner." "&&table_name." "&&cs_graph_type." "&&cs_trendlines_type."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
@@ -183,7 +191,9 @@ SELECT ', [new Date('||
 SET HEA ON PAGES 100;
 --
 -- [Line|Area|SteppedArea|Scatter]
-DEF cs_chart_type = 'Scatter';
+-- DEF cs_chart_type = 'Line';
+-- DEF cs_chart_type = 'Scatter';
+DEF cs_chart_type = '&&cs_graph_type.';
 -- disable explorer with "//" when using Pie
 DEF cs_chart_option_explorer = '';
 -- enable pie options with "" when using Pie

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/15
+-- Version:     2023/04/10
 --
 -- Usage:       Execute connected to PDB
 --
@@ -141,13 +141,13 @@ COL p_compression NEW_V p_compression NOPRI;
 SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
 /
 PRO
-PRO 7. CLOB Compression and Deduplication: [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO 7. CLOB Compression and Deduplication: [{NO}|C|CD] NO:None, C:Compression, CD:Compression and Deduplication
 DEF redeflob = '&7.';
 UNDEF 7;
 COL api_name NEW_V api_name NOPRI;
 COL p_redeflob NEW_V p_redeflob NOPRI;
-SELECT CASE UPPER(TRIM('&&redeflob.')) WHEN 'C' THEN 'REDEFLOBC' WHEN 'CD' THEN 'REDEFLOBCD' WHEN 'NO' THEN 'REDEFNOLOBCD' ELSE 'REDEFLOBCD' END AS api_name,
-       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('C', 'CD', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'C' END AS p_redeflob
+SELECT CASE UPPER(TRIM('&&redeflob.')) WHEN 'C' THEN 'REDEFLOBC' WHEN 'CD' THEN 'REDEFLOBCD' WHEN 'NO' THEN 'REDEFNOLOBCD' ELSE 'REDEFNOLOBCD' END AS api_name,
+       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('C', 'CD', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'NO' END AS p_redeflob
 FROM DUAL
 /
 PRO
@@ -171,11 +171,12 @@ PRO DATE_TYPE    : &&p_data_type.
 PRO THRESHOLD    : &&p_value. (&&p_purge_label.)
 PRO TABLESPACE   : &&p_newtbs.
 PRO OLTP_COMPRES : &&p_compression.
-PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO LOB_COMPRES  : &&p_redeflob. [{NO}|C|CD] NO:None, C:Compression, CD:Compression and Deduplication
 PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
+DEF specific_owner = '&&p_owner.';
 DEF specific_table = '&&p_table_name.';
-DEF order_by = 't.pdb_name, t.owner, t.table_name';
+DEF order_by = 't.owner, t.table_name';
 DEF fetch_first_N_rows = '1';
 DEF total_MB = '';
 DEF table_MB = '';

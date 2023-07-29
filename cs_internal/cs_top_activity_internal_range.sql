@@ -3,6 +3,7 @@
 DEF aas_threshold = '0.3';
 --
 COL sql_type FOR A4 HEA '.|SQL|Type';
+COL sql_hv FOR A5 HEA 'SQL|HV';
 COL sql_id FOR A13 TRUNC;
 COL row_number NOPRI;
 COL sql_plan_hash_value FOR 9999999999 HEA 'Plan|Hash|Value';
@@ -10,7 +11,7 @@ COL aas_db FOR 9,990.000 HEA 'DB|Load(aas)';
 COL aas_cpu FOR 9,990.000 HEA 'CPU|Load(aas)';
 COL aas_io FOR 9,990.000 HEA 'I/O|Load(aas)';
 COL sessions FOR 9990 HEA 'Dist|Sess';
-COL sql_text FOR A60 TRUNC HEA 'SQL Text';
+COL sql_text FOR A90 TRUNC HEA 'SQL Text';
 COL timed_event FOR A35 TRUNC HEA 'Timed Event';
 COL pdb_name FOR A30 TRUNC HEA 'PDB Name';
 COL module FOR A25 TRUNC HEA 'Module';
@@ -19,7 +20,6 @@ COL version_count FOR 9990 HEA 'Ver|Cnt';
 COL has_baseline FOR A2 HEA 'BL';
 COL has_profile FOR A2 HEA 'PR';
 COL has_patch FOR A2 HEA 'PA';
-COL sqlid FOR A5 HEA 'SQL|HV';
 --
 BREAK ON REPORT ON sql_type SKIP 1 DUPL;
 COMPUTE SUM OF aas_db aas_cpu aas_io ON REPORT;
@@ -49,7 +49,7 @@ FUNCTION application_category (
 )
 RETURN VARCHAR2
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -268,7 +268,7 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSIF p_command_name IN ('INSERT', 'UPDATE')
@@ -283,6 +283,15 @@ BEGIN
   ELSE RETURN 'UN'; /* Unknown */
   END IF;
 END application_category;
+/****************************************************************************************/
+FUNCTION get_sql_hv (p_sqltext IN CLOB)
+RETURN VARCHAR2
+IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
+BEGIN
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
+END get_sql_hv;
 /****************************************************************************************/
 both_ash AS (
 SELECT h.sample_id,
@@ -342,7 +351,7 @@ SELECT MIN(a.sample_time_from) AS min_sample_time_from,
 ash AS (
 SELECT ROUND(SUM(a.seconds) / b.seconds, 3) AS aas_db,
        ROUND(SUM(CASE a.session_state WHEN 'ON CPU' THEN a.seconds ELSE 0 END)/ b.seconds, 3) AS aas_cpu,
-       ROUND(SUM(CASE WHEN a.wait_class LIKE '% I/O' THEN 1 ELSE 0 END)/ (&&cs_minutes. * 60), 3) AS aas_io,
+       ROUND(SUM(CASE WHEN a.wait_class LIKE '% I/O' THEN a.seconds ELSE 0 END)/ b.seconds, 3) AS aas_io,
        COUNT(DISTINCT a.session_id||','||a.session_serial#) AS sessions,
        COALESCE(a.sql_id, '"null"') AS sql_id,
        a.sql_plan_hash_value,
@@ -375,6 +384,7 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.
        a.aas_cpu,
        a.aas_io,
        a.sessions,
+       s.sql_hv,
        a.sql_id,
        a.sql_plan_hash_value,
        s.has_baseline,
@@ -389,7 +399,9 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.
        a.user_id
   FROM ash a
        OUTER APPLY (
-         SELECT REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text, 
+         SELECT get_sql_hv(s.sql_fulltext) AS sql_hv,
+                -- REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text, 
+                REGEXP_SUBSTR(s.sql_fulltext, '.*$', 1, 1, 'm') AS sql_text, 
                 CASE WHEN s.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN s.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
                 CASE WHEN s.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch 
@@ -410,6 +422,7 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.
        SUM(a.aas_cpu) AS aas_cpu,
        SUM(a.aas_io) AS aas_io,
        TO_NUMBER(NULL) AS sessions,
+       NULL AS sql_hv,
        '"'||COUNT(DISTINCT a.sql_id)||' others"' AS sql_id,
        TO_NUMBER(NULL) AS sql_plan_hash_value,
        NULL AS has_baseline,
@@ -424,7 +437,9 @@ SELECT CASE a.user_id WHEN 0 THEN 'SYS' ELSE application_category(s.sql_text, a.
        TO_NUMBER(NULL) AS user_id
   FROM ash a
        OUTER APPLY (
-         SELECT REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text, 
+         SELECT --get_sql_hv(s.sql_fulltext) AS sql_hv,
+                -- REGEXP_REPLACE(s.sql_text, '[^[:print:]]') AS sql_text, 
+                REGEXP_SUBSTR(s.sql_fulltext, '.*$', 1, 1, 'm') AS sql_text, 
                 CASE WHEN s.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN s.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
                 CASE WHEN s.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch 
@@ -451,6 +466,7 @@ SELECT a.sql_type,
        a.aas_cpu,
        a.aas_io,
        a.sessions,
+       a.sql_hv,
        a.sql_id,
        a.sql_plan_hash_value,
        s.version_count,
@@ -477,6 +493,7 @@ SELECT a.sql_type,
        a.aas_io,
        a.timed_event,
        a.sessions,
+       a.sql_hv,
        a.sql_id,
       --  a.sqlid,
        a.sql_plan_hash_value,

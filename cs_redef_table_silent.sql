@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/11/02
+-- Version:     2023/04/10
 --
 -- Usage:       Execute connected to PDB
 --
@@ -23,7 +23,7 @@
 DEF cs_reference = 'cs_redef_table_silent.sql';
 DEF p_compression = 'FALSE';
 DEF api_name = 'REDEFLOBC';
-DEF p_redeflob = 'C';
+DEF p_redeflob = 'NO';
 DEF p_pxdegree = '1';
 --
 @@cs_internal/cs_primary.sql
@@ -88,11 +88,12 @@ PRO TABLE_NAME   : &&p_table_name.
 PRO TICKET       : &&cs_reference.
 PRO TABLESPACE   : &&p_newtbs. 
 PRO OLTP_COMPRES : &&p_compression. [{FALSE}|TRUE]
-PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO LOB_COMPRES  : &&p_redeflob. [{NO}|C|CD] NO:None, C:Compression, CD:Compression and Deduplication
 PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
+DEF specific_owner = '&&p_owner.';
 DEF specific_table = '&&p_table_name.';
-DEF order_by = 't.pdb_name, t.owner, t.table_name';
+DEF order_by = 't.owner, t.table_name';
 DEF fetch_first_N_rows = '1';
 DEF total_MB = '';
 DEF table_MB = '';

@@ -37,7 +37,7 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ DISTINCT h.owner
  WHERE h.pdb_name = '&&cs_con_name.'
    AND h.owner NOT LIKE 'C##'||CHR(37) 
    AND h.segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
-   AND h.segment_name NOT LIKE 'BIN$%'
+   AND h.segment_name NOT LIKE 'BIN$%==$0'
    AND h.segment_name NOT LIKE 'MLOG$%'
    AND h.segment_name NOT LIKE 'REDEF$%'
    AND u.con_id = &&cs_con_id.
@@ -59,7 +59,7 @@ SELECT /*+ OPT_PARAM('_px_cdb_view_enabled' 'FALSE') */ DISTINCT h.segment_name 
  WHERE h.owner = '&&table_owner.'
    AND h.pdb_name = '&&cs_con_name.'
    AND h.segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
-   AND h.segment_name NOT LIKE 'BIN$%'
+   AND h.segment_name NOT LIKE 'BIN$%==$0'
    AND h.segment_name NOT LIKE 'MLOG$%'
    AND h.segment_name NOT LIKE 'REDEF$%'
    AND u.con_id = &&cs_con_id.
@@ -126,7 +126,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
   FROM &&cs_tools_schema..dbc_segments
  WHERE owner = '&&table_owner.'
    AND pdb_name = '&&cs_con_name.'
-   AND segment_name NOT LIKE 'BIN$%'
+   AND segment_name NOT LIKE 'BIN$%==$0'
    AND segment_name NOT LIKE 'MLOG$%'
    AND segment_name NOT LIKE 'REDEF$%'
  GROUP BY

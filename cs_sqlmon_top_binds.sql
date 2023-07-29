@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/03/09
+-- Version:     2023/01/03
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -57,11 +57,10 @@ PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.
+PRO TABLE_OWNER  : &&table_owner.
+PRO TABLE_NAME   : &&table_name.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/&&cs_set_container_to_cdb_root.
 --
 COL key NOPRI;
@@ -84,8 +83,8 @@ PRO
 PRO TOP SQL MONITOR BINDS (&&cs_tools_schema..iod_sql_monitor)
 PRO ~~~~~~~~~~~~~~~~~~~~~
 --
-COL sum_elapsed_secs FOR 999,990 HEA 'Sum|Elapsed|Seconds';
-COL sum_cpu_secs FOR 999,990 HEA 'Sum|CPU|Seconds';
+COL sum_elapsed_secs FOR 999,999,990 HEA 'Sum|Elapsed|Seconds';
+COL sum_cpu_secs FOR 999,999,990 HEA 'Sum|CPU|Seconds';
 COL sum_buffer_gets FOR 999,999,999,990 HEA 'Sum|Buffer|Gets';
 COL sum_disk_reads FOR 999,999,999,990 HEA 'Sum|Disk|Reads';
 COL avg_elapsed_secs FOR 999,990 HEA 'Avg|Elapsed|Seconds';

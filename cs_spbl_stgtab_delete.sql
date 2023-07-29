@@ -47,10 +47,7 @@ PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_spbl_internal_stgtab.sql
 @@cs_internal/cs_spbl_internal_stgtab_delete.sql
 --

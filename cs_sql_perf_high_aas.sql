@@ -128,7 +128,7 @@ WITH
 FUNCTION application_category (p_sql_text IN VARCHAR2)
 RETURN VARCHAR2
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -347,22 +347,65 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSE RETURN 'UN'; /* Unknown */
   END IF;
 END application_category;
 --
+FUNCTION get_kiev_token (
+  p_sqltext    IN VARCHAR2,
+  p_token_type IN VARCHAR2 DEFAULT 'o' -- [{o}|t|i] operation(o), table(t) or index(i)
+)
+RETURN VARCHAR2 DETERMINISTIC
+IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
+  l_operation VARCHAR2(1000);
+  l_table VARCHAR2(1000);
+  l_index VARCHAR2(1000);
+  l_sql_type VARCHAR2(2) := application_category(l_sqltext, 'UNKNOWN');
+BEGIN
+  IF l_sql_type IN ('SYS', 'IG', 'UN') THEN
+    RETURN 'UN';
+  END IF;
+  --
+  IF l_sqltext LIKE '%/* % */%' THEN
+    l_operation := NVL(TRIM(SUBSTR(l_sqltext, 3, LEAST(INSTR(l_sqltext||'(', '('), INSTR(l_sqltext||'*/', '*/')) - 3)), 'null');
+    IF l_sqltext LIKE '%/* %(%) %*/%' THEN
+      l_table := NVL(SUBSTR(l_sqltext, INSTR(l_sqltext, '(') + 1, LEAST(INSTR(l_sqltext||',', ','), INSTR(l_sqltext||')', ')')) - INSTR(l_sqltext, '(') - 1), 'null');
+      IF l_sqltext LIKE '%/* %(%,%) %*/%' THEN
+        l_index := NVL(SUBSTR(l_sqltext, INSTR(l_sqltext, ',') + 1, LEAST(INSTR(l_sqltext||')', ')', INSTR(l_sqltext, ',')), INSTR(l_sqltext||'(', '(', INSTR(l_sqltext, ','))) - INSTR(l_sqltext, ',') - 1), 'null');
+        IF l_index = 'HashRangeIndex' THEN l_index := l_table||'_PK'; END IF;
+      ELSE
+        l_index := 'null';
+      END IF;
+    ELSE
+      l_table := 'null';
+      l_index := 'null';
+    END IF;
+  ELSE
+    l_operation := 'null';
+    l_table := 'null';
+    l_index := 'null';
+  END IF;
+  --
+  IF p_token_type = 'o' THEN RETURN l_operation; END IF;
+  IF p_token_type = 't' THEN RETURN l_table; END IF;
+  IF p_token_type = 'i' THEN RETURN l_index; END IF;
+  RETURN 'null';
+END get_kiev_token;
+--
 FUNCTION sql_decoration (p_sql_text IN VARCHAR2)
 RETURN VARCHAR2
 IS
 BEGIN
-  IF p_sql_text LIKE '/*'||CHR(37) AND application_category(p_sql_text) <> 'UN' THEN
-    RETURN SUBSTR(p_sql_text, 1, INSTR(p_sql_text, '*/') + 1);
-  ELSE
-    RETURN NULL;
-  END IF;
+  RETURN get_kiev_token(p_sql_text, 'o');
+  -- IF p_sql_text LIKE '/*'||CHR(37) AND application_category(p_sql_text) <> 'UN' THEN
+  --   RETURN SUBSTR(p_sql_text, 1, INSTR(p_sql_text, '*/') + 1);
+  -- ELSE
+  --   RETURN NULL;
+  -- END IF;
 END sql_decoration;
 /****************************************************************************************/
 ash_raw AS (

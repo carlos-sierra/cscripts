@@ -20,13 +20,16 @@ COL user_name FOR A30 TRUNC HEA 'User Name';
 COL module FOR A40 TRUNC HEA 'Module';
 COL service FOR A40 TRUNC HEA 'Service';
 COL program FOR A40 TRUNC HEA 'Program';
+COL rn_sql_exec_start FOR 999,990 HEA 'Sta RN';
+COL rn_duration FOR 999,990 HEA 'Dur RN';
 --
 PRO
-PRO SQL MONITOR REPORTS (dba_hist_reports) top &&cs_sqlmon_top.
+PRO SQL MONITOR REPORTS (dba_hist_reports) top &&cs_sqlmon_top. and &&cs_sqlmon_top. most recent
 PRO ~~~~~~~~~~~~~~~~~~~
 WITH
 sql_mon_hist_reports AS (
-SELECT r.snap_id, 
+SELECT /*+ OPT_PARAM('_newsort_enabled' 'FALSE') OPT_PARAM('_adaptive_fetch_enabled' 'FALSE') OPT_PARAM('query_rewrite_enabled' 'FALSE') */ /* ORA-00600: internal error code, arguments: [15851], [3], [2], [1], [1] */ 
+       r.snap_id, 
        r.dbid, 
        r.instance_number, 
        r.report_id, 
@@ -44,6 +47,7 @@ SELECT r.snap_id,
        --xt.sql_id, 
        To_date(xt.sql_exec_start, 'MM/DD/YYYY HH24:MI:SS')                    AS 
        sql_exec_start, 
+       ROW_NUMBER() OVER(ORDER BY To_date(xt.sql_exec_start, 'MM/DD/YYYY HH24:MI:SS') DESC NULLS LAST/*, To_number(Extractvalue(Xmltype(r.report_summary), '//stat[@name = "duration"]')) DESC NULLS LAST*/) AS rn_sql_exec_start,
        xt.sql_exec_id, 
        Xmltype(r.report_summary).extract('//status/text()')                   AS 
        status, 
@@ -81,6 +85,7 @@ SELECT r.snap_id,
        To_number(Extractvalue(Xmltype(r.report_summary), 
                  '//stat[@name = "duration"]')) 
                                       AS duration, 
+       ROW_NUMBER() OVER(ORDER BY To_number(Extractvalue(Xmltype(r.report_summary), '//stat[@name = "duration"]')) DESC NULLS LAST/*, To_date(xt.sql_exec_start, 'MM/DD/YYYY HH24:MI:SS') DESC NULLS LAST*/) AS rn_duration,
        To_number(Extractvalue(Xmltype(r.report_summary), 
                  '//stat[@name = "elapsed_time"]'))                           AS 
        elapsed_time, 
@@ -124,15 +129,17 @@ WHERE  (r.period_end_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_dateti
        AND r.component_name = 'sqlmonitor' 
        AND r.report_name = 'main' 
        AND r.key1 = '&&cs_sql_id.' 
-ORDER BY r.period_end_time - r.period_start_time DESC, r.period_start_time DESC
-FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
+-- ORDER BY r.period_end_time - r.period_start_time DESC, r.period_start_time DESC
+-- FETCH FIRST &&cs_sqlmon_top. ROWS ONLY
 )
 SELECT  r.sql_exec_start,
+        r.rn_sql_exec_start,
         r.last_refresh_time,
         r.report_id,
         r.status,
         r.plan_hash,
         r.duration,
+        r.rn_duration,
         ROUND(r.elapsed_time / POWER(10, 6), 3) AS elapsed_time,
         ROUND(r.cpu_time / POWER(10, 6), 3) AS cpu_time,
         ROUND(r.user_io_wait_time / POWER(10, 6), 3) AS user_io_wait_time,
@@ -150,6 +157,7 @@ SELECT  r.sql_exec_start,
         r.program,
         r.service
   FROM  sql_mon_hist_reports r
+ WHERE r.rn_sql_exec_start <= &&cs_sqlmon_top. OR r.rn_duration <= &&cs_sqlmon_top.
  ORDER BY
-        r.sql_exec_start, r.last_refresh_time, r.report_id
+        r.sql_exec_start, r.rn_sql_exec_start
 /

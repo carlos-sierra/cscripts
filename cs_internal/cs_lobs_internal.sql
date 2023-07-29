@@ -1,9 +1,9 @@
-COL owner FOR A30 TRUNC;
-COL table_name FOR A30 TRUNC;
-COL tablespace_name FOR A30 TRUNC;
-COL column_name FOR A30 TRUNC;
-COL segment_name FOR A30 TRUNC;
-COL index_name FOR A30 TRUNC;
+COL owner FOR A30;
+COL table_name FOR A30;
+COL tablespace_name FOR A30;
+COL column_name FOR A30;
+COL segment_name FOR A30;
+COL index_name FOR A30;
 COL encrypt FOR A8;
 COL compression FOR A12;
 COL deduplication FOR A14;
@@ -26,6 +26,7 @@ SELECT l.owner,
        l.securefile
   FROM dba_lobs l
  WHERE l.table_name = COALESCE('&&specific_table.', l.table_name)
+   AND l.owner = COALESCE('&&specific_owner.', l.owner)
  ORDER BY
        l.owner,
        l.table_name,

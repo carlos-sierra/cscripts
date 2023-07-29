@@ -22,9 +22,9 @@ SET SERVEROUT ON;
 DEF top_n = '20';
 DEF debug = 'N';
 --
-COL owner FOR A30 TRUNC;
-COL table_name FOR A30 TRUNC;
-COL index_name FOR A30 TRUNC;
+COL owner FOR A30;
+COL table_name FOR A30;
+COL index_name FOR A30;
 COL partitioned FOR A4 HEA 'PART';
 COL current_gb FOR 9,990.000 HEA 'CURRENT|GB';
 COL estimated_gb FOR 9,990.000 HEA 'ESTIMATED|GB';

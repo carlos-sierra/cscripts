@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/08/26
+-- Version:     2023/04/27
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -82,6 +82,7 @@ SELECT SUM(seconds) seconds,
  GROUP BY
        sql_id,
        pdb_name
+HAVING SUM(seconds) > 1
  ORDER BY
        1 DESC, 
        2 DESC
@@ -94,11 +95,11 @@ DEF cs_sql_id = '&1.';
 UNDEF 1;
 --
 PRO
-PRO 2. Top: [{1000}|1-10000]
+PRO 2. Top: [{100}|1-10000]
 DEF sqlmon_top = '&2.';
 UNDEF 2;
 COL cs_sqlmon_top NEW_V cs_sqlmon_top NOPRI;
-SELECT CASE WHEN TO_NUMBER('&&sqlmon_top.') BETWEEN 1 AND 10000 THEN '&&sqlmon_top.' ELSE '1000' END AS cs_sqlmon_top FROM DUAL
+SELECT CASE WHEN TO_NUMBER('&&sqlmon_top.') BETWEEN 1 AND 10000 THEN '&&sqlmon_top.' ELSE '100' END AS cs_sqlmon_top FROM DUAL
 /
 --
 @@cs_internal/cs_sqlmon_mem_internal.sql
@@ -132,23 +133,15 @@ SELECT CASE WHEN UPPER(TRIM('&&report_type.')) IN ('TEXT', 'HTML', 'ACTIVE') THE
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_sqlmon_top." "&&sql_exec_id_from." "&&sql_exec_id_to." "&&report_type."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO SQL_EXEC_ID  : FROM &&sql_exec_id_from. TO &&sql_exec_id_to.
 PRO REPORT_TYPE  : "&&report_type." [{TEXT}|ACTIVE|HTML]
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_sqlmon_mem_internal.sql
 --
 SET PAGES 0;

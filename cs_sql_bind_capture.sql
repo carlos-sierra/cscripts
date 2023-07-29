@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/07/21
+-- Version:     2023/04/27
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -28,14 +28,6 @@
 DEF cs_script_name = 'cs_sql_bind_capture';
 DEF cs_hours_range_default = '168';
 --
-@@cs_internal/&&cs_set_container_to_cdb_root.
---
-COL cs_hours_range_default NEW_V cs_hours_range_default NOPRI;
-SELECT TRIM(TO_CHAR(LEAST(TRUNC((SYSDATE - MIN(snap_time)) * 24), TO_NUMBER('&&cs_hours_range_default.')))) AS cs_hours_range_default FROM &&cs_tools_schema..iod_sql_bind_capture
-/
---
-@@cs_internal/&&cs_set_container_to_curr_pdb.
---
 @@cs_internal/cs_sample_time_from_and_to.sql
 @@cs_internal/cs_snap_id_from_and_to.sql
 --
@@ -46,49 +38,47 @@ UNDEF 3;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id."
 @@cs_internal/cs_spool_id.sql
---
 @@cs_internal/cs_spool_id_sample_time.sql
---
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
---
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_spool_id_list_sql_id.sql
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/&&cs_set_container_to_cdb_root.
 --
-COL last_captured FOR A19;
-COL child_number FOR 999999 HEA 'CHILD';
-COL position FOR 990 HEA 'POS';
-COL datatype_string FOR A20 HEA 'TYPE';
-COL name_and_value FOR A200;
+COL con_id FOR 999 HEA 'Con|ID';
+COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
+COL last_captured FOR A19 HEA 'Last Captured';
+COL child_number FOR 999999 HEA 'Child|Number';
+COL position FOR 990 HEA 'Pos';
+COL datatype_string FOR A15 HEA 'Data Type';
+COL name_and_value FOR A200 HEA 'Bind Name and Value';
+COL max_length FOR 999999 HEA 'Max|Length';
 --
-BRE ON last_captured SKIP PAGE ON child_number;
+BRE ON last_captured SKIP PAGE ON con_id ON pdb_name ON child_number;
+
 PRO
 PRO SQL BIND CAPTURE (&&cs_tools_schema..iod_sql_bind_capture)
 PRO ~~~~~~~~~~~~~~~~
 --
 SELECT  TO_CHAR(c.last_captured, '&&cs_datetime_full_format.') AS last_captured,
-        c.child_number,
+        -- c.child_number, -- it seems there is a single child_number per capture
         c.position, 
         c.datatype_string,
-        c.name||' = '||c.value_string AS name_and_value
-  FROM &&cs_tools_schema..iod_sql_bind_capture c
+        c.max_length,
+        c.name||' = '||c.value_string AS name_and_value,
+        x.name AS pdb_name,
+        c.con_id
+  FROM &&cs_tools_schema..iod_sql_bind_capture c,
+       v$containers x
  WHERE c.snap_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
+   AND  &&cs_con_id. IN (1, c.con_id)
    AND c.sql_id = '&&cs_sql_id.'
+   AND x.con_id = c.con_id
  ORDER BY
-       c.last_captured,
-       c.child_number,
-       c.position
+       1, 2, 3
 /
+CL BRE;
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id."

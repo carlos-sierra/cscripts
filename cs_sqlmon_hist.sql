@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/08/26
+-- Version:     2023/04/27
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -92,6 +92,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  GROUP BY
        r.key1,
        r.pdb_name
+HAVING SUM(r.period_end_time - r.period_start_time) * 24 * 3600 > 1
 )
 , sqlmonitor_extended AS (
 SELECT r.seconds,
@@ -144,11 +145,11 @@ DEF cs_sql_id = '&3.';
 UNDEF 3;
 --
 PRO
-PRO 4. Top: [{1000}|1-10000]
+PRO 4. Top: [{100}|1-10000]
 DEF sqlmon_top = '&4.';
 UNDEF 4;
 COL cs_sqlmon_top NEW_V cs_sqlmon_top NOPRI;
-SELECT CASE WHEN TO_NUMBER('&&sqlmon_top.') BETWEEN 1 AND 10000 THEN '&&sqlmon_top.' ELSE '1000' END AS cs_sqlmon_top FROM DUAL
+SELECT CASE WHEN TO_NUMBER('&&sqlmon_top.') BETWEEN 1 AND 10000 THEN '&&sqlmon_top.' ELSE '100' END AS cs_sqlmon_top FROM DUAL
 /
 --
 @@cs_internal/cs_sqlmon_hist_internal.sql
@@ -182,24 +183,16 @@ SELECT CASE WHEN UPPER(TRIM('&&report_type.')) IN ('TEXT', 'HTML', 'ACTIVE') THE
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_sqlmon_top." "&&report_id_from." "&&report_id_to." "&&report_type."
 @@cs_internal/cs_spool_id.sql
---
 @@cs_internal/cs_spool_id_sample_time.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO REPORT_ID    : FROM &&report_id_from. TO &&report_id_to.
 PRO REPORT_TYPE  : "&&report_type." [{TEXT}|ACTIVE|HTML]
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_sqlmon_hist_internal.sql
 --
 SET PAGES 0;

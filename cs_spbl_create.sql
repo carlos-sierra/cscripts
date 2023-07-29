@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/10
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -34,9 +34,8 @@ DEF cs_sql_id = '&1.';
 UNDEF 1;
 --
 @@cs_internal/cs_signature.sql
-@@cs_internal/&&cs_zapper_sprf_export.
+@@cs_internal/&&cs_zapper_managed.
 --
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 --@@cs_internal/cs_spbl_internal_list.sql
 --
@@ -54,19 +53,11 @@ SELECT TO_CHAR(SYSDATE, '&&cs_datetime_full_format.') AS creation_time FROM DUAL
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." 
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO PLAN_HASH_VAL: &&cs_plan_hash_value. 
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
-SET SERVEROUT ON;
---
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/&&cs_spbl_create_pre.
 --
 ---------------------------------------------------------------------------------------
@@ -84,7 +75,7 @@ BEGIN
     DBMS_OUTPUT.put_line('Plans loaded from cursor cache:'||l_created_plans);
     FOR i IN (SELECT /* 1 */ sql_handle, plan_name FROM dba_sql_plan_baselines WHERE l_created_plans > 0 AND signature = l_signature AND created > TO_DATE('&&creation_time.', '&&cs_datetime_full_format.') - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
     LOOP
-      l_description := 'cs_spbl_create.sql SRC=MEM SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. CREATED=&&creation_time.';
+      l_description := 'cs_spbl_create.sql SRC=MEM SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. &&who_am_i. CREATED=&&creation_time.';
       l_modified_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'DESCRIPTION', attribute_value => l_description);
       DBMS_OUTPUT.put_line('plan loaded from cursor cache: '||i.sql_handle||' '||i.plan_name||' '||l_description);
     END LOOP;
@@ -135,7 +126,7 @@ BEGIN
           --
           FOR i IN (SELECT /* 2 */ sql_handle, plan_name FROM dba_sql_plan_baselines WHERE l_created_plans > 0 AND signature = l_signature AND created > TO_DATE('&&creation_time.', '&&cs_datetime_full_format.') - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
           LOOP
-            l_description := 'cs_spbl_create.sql SRC=STS SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. CREATED=&&creation_time.';
+            l_description := 'cs_spbl_create.sql SRC=STS SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. &&who_am_i. CREATED=&&creation_time.';
             l_modified_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name  => 'DESCRIPTION', attribute_value => l_description);
             DBMS_OUTPUT.put_line('plan loaded from awr using a sts: '||i.sql_handle||' '||i.plan_name||' '||l_description);
           END LOOP;
@@ -146,7 +137,7 @@ BEGIN
       --   DBMS_OUTPUT.put_line('Plans loaded from awr:'||l_created_plans);
       --   FOR i IN (SELECT /* 3 */ sql_handle, plan_name FROM dba_sql_plan_baselines WHERE l_created_plans > 0 AND signature = l_signature AND created > TO_DATE('&&creation_time.', '&&cs_datetime_full_format.') - 1/1440 AND description IS NULL AND origin LIKE 'MANUAL-LOAD%') /* on 19c it transformed from MANUAL-LOAD into MANUAL-LOAD-FROM-CURSOR-CACHE */
       --   LOOP
-      --     l_description := 'cs_spbl_create.sql SRC=AWR SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. CREATED=&&creation_time.';
+      --     l_description := 'cs_spbl_create.sql SRC=AWR SQL_ID=&&cs_sql_id. PHV=&&cs_plan_hash_value. &&cs_reference_sanitized. &&who_am_i. CREATED=&&creation_time.';
       --     l_modified_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name  => 'DESCRIPTION', attribute_value => l_description);
       --     DBMS_OUTPUT.put_line('plan loaded from awr: '||i.sql_handle||' '||i.plan_name||' '||l_description);
       --   END LOOP;
@@ -162,6 +153,7 @@ END;
 --
 SET SERVEROUT OFF;
 @@cs_internal/cs_spbl_internal_list.sql
+@@cs_internal/cs_plans_performance.sql 
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." 

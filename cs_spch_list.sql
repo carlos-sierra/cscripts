@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/10
+-- Version:     2023/02/28
 --
 -- Usage:       Connecting into PDB.
 --
@@ -45,12 +45,9 @@ PRO SQL_ID       : &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
-@@cs_internal/cs_dba_plans_performance.sql
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_spch_internal_list.sql
+@@cs_internal/cs_plans_performance.sql
 --
 PRO
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." 

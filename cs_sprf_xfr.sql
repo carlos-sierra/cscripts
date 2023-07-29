@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/26
+-- Version:     2023/05/29
 --
 -- Usage:       Connecting into PDB.
 --
@@ -33,17 +33,16 @@ PRO 1. SQL_ID:
 DEF cs_sql_id = '&1.';
 UNDEF 1;
 --
-SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
---
 @@cs_internal/cs_signature.sql
 --
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 --
 PRO
 PRO 2. PLAN_HASH_VALUE (required) 
 DEF cs_plan_hash_value = "&2.";
 UNDEF 2;
+--
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id._&&cs_plan_hash_value.' cs_file_name FROM DUAL;
 --
 -- get other_xml with hints
 VAR cs_other_xml CLOB;
@@ -67,17 +66,11 @@ END;
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." 
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO PLAN_HASH_VAL: &&cs_plan_hash_value. 
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
+@@cs_internal/cs_print_sql_text.sql
 --
 -- create content of xfr scripts
 VAR xfr_1 CLOB;
@@ -144,7 +137,7 @@ BEGIN
   '    sql_text    => :sql_text_from_xfr_1_to_xfr_2,'||CHR(10)||
   '    profile     => profile_attr,'||CHR(10)||
   '    name        => ''xfr_''||:sql_id_from_xfr_1_to_xfr_2||''_&&cs_plan_hash_value.'','||CHR(10)||
-  '    description => ''cs_sprf_xfr.sql ''||:sql_id_from_xfr_1_to_xfr_2||'' &&cs_plan_hash_value. &&cs_reference_sanitized.'','||CHR(10)||
+  '    description => ''cs_sprf_xfr.sql ''||:sql_id_from_xfr_1_to_xfr_2||'' &&cs_plan_hash_value. &&cs_reference_sanitized. &&who_am_i.'','||CHR(10)||
   '    category    => ''DEFAULT'','||CHR(10)||
   '    validate    => TRUE,'||CHR(10)||
   '    replace     => TRUE,'||CHR(10)||

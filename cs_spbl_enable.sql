@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/03/10
+-- Version:     2023/02/28
 --
 -- Usage:       Connecting into PDB.
 --
@@ -37,7 +37,7 @@ SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL
 --
 @@cs_internal/cs_signature.sql
 --
-@@cs_internal/cs_dba_plans_performance.sql
+@@cs_internal/cs_plans_performance.sql
 @@cs_internal/cs_spbl_internal_list.sql
 --
 PRO
@@ -55,12 +55,9 @@ PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO PLAN_NAME    : "&&cs_plan_name."
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
-@@cs_internal/cs_dba_plans_performance.sql
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_spbl_internal_list.sql
+@@cs_internal/cs_plans_performance.sql
 --
 PRO
 PRO Enable plan: "&&cs_plan_name."
@@ -75,7 +72,7 @@ BEGIN
              ORDER BY signature, plan_name)
   LOOP
     l_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'ENABLED', attribute_value => 'YES');
-    l_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'DESCRIPTION', attribute_value => TRIM(i.description||' &&cs_script_name..sql &&cs_reference_sanitized. ENABLED='||TO_CHAR(SYSDATE, '&&cs_datetime_full_format.')));    
+    l_plans := DBMS_SPM.alter_sql_plan_baseline(sql_handle => i.sql_handle, plan_name => i.plan_name, attribute_name => 'DESCRIPTION', attribute_value => TRIM(i.description||' &&cs_script_name..sql &&cs_reference_sanitized. &&who_am_i. ENABLED='||TO_CHAR(SYSDATE, '&&cs_datetime_full_format.')));    
   END LOOP;
 END;
 /

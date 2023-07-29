@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/10/15
+-- Version:     2023/04/10
 --
 -- Usage:       Execute connected to PDB
 --
@@ -88,15 +88,15 @@ COL p_compression NEW_V p_compression NOPRI;
 SELECT CASE WHEN SUBSTR(UPPER(TRIM('&&compression.')),1,1) IN ('T', 'Y') THEN 'TRUE' ELSE 'FALSE' END AS p_compression FROM DUAL
 /
 PRO
-PRO 4. CLOB Compression and Deduplication: [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO 4. CLOB Compression and Deduplication: [{NO}|C|CD] NO:None, C:Compression, CD:Compression and Deduplication
 DEF redeflob = '&5.';
 UNDEF 4;
 COL p_lobcomp NEW_V p_lobcomp NOPRI;
 COL p_lobdedup NEW_V p_lobdedup NOPRI; 
 COL p_redeflob NEW_V p_redeflob NOPRI;
-SELECT CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'C') IN ('CD', 'C') THEN 'TRUE' ELSE 'FALSE' END AS p_lobcomp,
-       CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'C') = 'CD' THEN 'TRUE' ELSE 'FALSE' END AS p_lobdedup,
-       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'C' END AS p_redeflob
+SELECT CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'NO') IN ('CD', 'C') THEN 'TRUE' ELSE 'FALSE' END AS p_lobcomp,
+       CASE WHEN NVL(UPPER(TRIM('&&redeflob.')), 'NO') = 'CD' THEN 'TRUE' ELSE 'FALSE' END AS p_lobdedup,
+       CASE WHEN UPPER(TRIM('&&redeflob.')) IN ('CD', 'C', 'NO') THEN UPPER(TRIM('&&redeflob.')) ELSE 'NO' END AS p_redeflob
 FROM DUAL
 /
 PRO
@@ -116,7 +116,7 @@ PRO SQL> @&&cs_script_name..sql "&&p_owner." "&&p_sourcetbs." "&&p_newtbs." "&&p
 PRO TABLE_OWNER  : &&p_owner.
 PRO TABLESPACE   : &&p_newtbs.
 PRO OLTP_COMPRES : &&p_compression.
-PRO LOB_COMPRES  : &&p_redeflob. [{C}|CD|NO] C:Compression, CD:Compression and Deduplication, NO:None
+PRO LOB_COMPRES  : &&p_redeflob. [{NO}|C|CD] NO:None, C:Compression, CD:Compression and Deduplication
 PRO PX_DEGREE    : &&p_pxdegree. [{1}|2|4|8]
 --
 @@cs_internal/&&cs_set_container_to_cdb_root.

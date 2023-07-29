@@ -95,7 +95,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
   FROM &&cs_tools_schema..dbc_segments
  WHERE snap_time = (SELECT MAX(snap_time) FROM &&cs_tools_schema..dbc_segments WHERE snap_time >= TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND snap_time < TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.'))
    AND pdb_name = '&&cs_con_name.'
-   AND segment_name NOT LIKE 'BIN$%'
+   AND segment_name NOT LIKE 'BIN$%==$0'
    AND segment_name NOT LIKE 'MLOG$%'
    AND segment_name NOT LIKE 'REDEF$%'
    AND owner NOT LIKE 'C##%'
@@ -252,7 +252,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
  WHERE snap_time >= TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') 
    AND snap_time < TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND pdb_name = '&&cs_con_name.'
-   AND segment_name NOT LIKE 'BIN$%'
+   AND segment_name NOT LIKE 'BIN$%==$0'
    AND segment_name NOT LIKE 'MLOG$%'
    AND segment_name NOT LIKE 'REDEF$%'
    AND owner NOT LIKE 'C##%'

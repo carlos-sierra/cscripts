@@ -157,29 +157,29 @@ SELECT SUM(seconds) AS sum_seconds,
        con_id,
        (SELECT c.name FROM v$containers c WHERE c.con_id = e.con_id) AS pdb_name,
        sql_plan_hash_value,
-       binds,
-       status,
+       binds
+      --  status,
       --  sid||','||serial# AS sid_serial#,
       --  --username,
       --  machine,
-       TRIM(
-       CASE WHEN module IS NOT NULL THEN 'm:'||SUBSTR(module, 1, 64) END||
-       CASE WHEN action IS NOT NULL THEN ' a:'||SUBSTR(action, 1, 64) END||
-       CASE WHEN program IS NOT NULL THEN ' p:'||SUBSTR(program, 1, 64) END
-       ) AS module_action_program
+      --  TRIM(
+      --  CASE WHEN module IS NOT NULL THEN 'm:'||SUBSTR(module, 1, 64) END||
+      --  CASE WHEN action IS NOT NULL THEN ' a:'||SUBSTR(action, 1, 64) END||
+      --  CASE WHEN program IS NOT NULL THEN ' p:'||SUBSTR(program, 1, 64) END
+      --  ) AS module_action_program
   FROM execs e
  GROUP BY
        con_id,
        sql_plan_hash_value,
-       binds,
-       status,
-       username,
+       binds
+      --  status,
+      --  username,
       --  sid,
       --  serial#,
       --  machine,
-       module,
-       action,
-       program
+      --  module,
+      --  action,
+      --  program
  ORDER BY
        1 DESC,
        2 DESC,
@@ -328,29 +328,29 @@ SELECT MAX(last_refresh_time) AS last_refresh_time,
        con_id,
        (SELECT c.name FROM v$containers c WHERE c.con_id = e.con_id) AS pdb_name,
        sql_plan_hash_value,
-       binds,
-       status,
-       sid||','||serial# AS sid_serial#,
+       binds
+      --  status,
+      --  sid||','||serial# AS sid_serial#,
        --username,
-       machine,
-       TRIM(
-       CASE WHEN module IS NOT NULL THEN 'm:'||SUBSTR(module, 1, 64) END||
-       CASE WHEN action IS NOT NULL THEN ' a:'||SUBSTR(action, 1, 64) END||
-       CASE WHEN program IS NOT NULL THEN ' p:'||SUBSTR(program, 1, 64) END
-       ) AS module_action_program
+      --  machine,
+      --  TRIM(
+      --  CASE WHEN module IS NOT NULL THEN 'm:'||SUBSTR(module, 1, 64) END||
+      --  CASE WHEN action IS NOT NULL THEN ' a:'||SUBSTR(action, 1, 64) END||
+      --  CASE WHEN program IS NOT NULL THEN ' p:'||SUBSTR(program, 1, 64) END
+      --  ) AS module_action_program
   FROM execs e
  GROUP BY
        con_id,
        sql_plan_hash_value,
-       binds,
-       status,
-       username,
-       sid,
-       serial#,
-       machine,
-       module,
-       action,
-       program
+       binds
+      --  status,
+      --  username,
+      --  sid,
+      --  serial#,
+      --  machine,
+      --  module,
+      --  action,
+      --  program
  ORDER BY
        1 DESC
 FETCH FIRST 100 ROWS ONLY
@@ -367,12 +367,12 @@ SELECT last_refresh_time,
        con_id,
        pdb_name,
        sql_plan_hash_value,
-       binds,
-       status,
-       sid_serial#,
+       binds
+      --  status,
+      --  sid_serial#,
        --username,
-       machine,
-       module_action_program
+      --  machine,
+      --  module_action_program
   FROM top
  ORDER BY
        last_refresh_time

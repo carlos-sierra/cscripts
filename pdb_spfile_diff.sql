@@ -1,4 +1,4 @@
--- pdb_spfile.sql - PDB SPFILE Parameters (from CDB)
+-- pdb_spfile_diff.sql - PDB SPFILE Parameters (from CDB)
 SET HEA ON LIN 2490 PAGES 100 TAB OFF FEED OFF ECHO OFF VER OFF TRIMS ON TRIM ON TI OFF TIMI OFF LONG 240000 LONGC 2400 SERVEROUT OFF;
 --
 COL pdb_name FOR A30 TRUNC;

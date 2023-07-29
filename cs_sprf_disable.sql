@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/10
+-- Version:     2023/04/27
 --
 -- Usage:       Connecting into PDB.
 --
@@ -36,8 +36,6 @@ UNDEF 1;
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_sprf_internal_list.sql
 --
@@ -50,19 +48,11 @@ PRO
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_name."
 @@cs_internal/cs_spool_id.sql
+@@cs_internal/cs_spool_id_list_sql_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
-PRO SQLHV        : &&cs_sqlid.
-PRO SIGNATURE    : &&cs_signature.
-PRO SQL_HANDLE   : &&cs_sql_handle.
-PRO APPLICATION  : &&cs_application_category.
 PRO NAME         : &&cs_name.
 --
-SET HEA OFF;
-PRINT :cs_sql_text
-SET HEA ON;
---
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
+@@cs_internal/cs_print_sql_text.sql
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_sprf_internal_list.sql
 --

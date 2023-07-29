@@ -45,15 +45,15 @@ PRO SQL> @&&cs_script_name..sql &&cs2_tablespace_name.
 PRO TABLESPACE   : "&&cs2_tablespace_name."
 --
 COL rn FOR A5 HEA 'TOP#';
-COL owner FOR A30 TRUNC;
-COL segment_name FOR A30 TRUNC;
-COL partition_name FOR A30 TRUNC;
+COL owner FOR A30;
+COL segment_name FOR A30;
+COL partition_name FOR A30;
 COL mbs FOR 999,990;
 COL gb FOR 99,990.000 HEA 'SEGMENT|GB';
-COL table_name FOR A30 TRUNC;
-COL column_name FOR A30 TRUNC;
-COL tablespace_name FOR A30 TRUNC;
-COL pdb_name FOR A35 TRUNC;
+COL table_name FOR A30;
+COL column_name FOR A30;
+COL tablespace_name FOR A30;
+COL pdb_name FOR A35;
 COL securefile FOR A6 HEA 'SECURE|FILE';
 COL segment_space_management FOR A10 HEA 'SEGMENT|SPACE|MANAGEMENT';
 --

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/06
+-- Version:     2022/11/17
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -53,7 +53,7 @@ PRO ITERATIONS   : &&iterations.
 --
 VAR results CLOB;
 EXEC :results := 'Results'||CHR(10)||'~~~~~~~'||CHR(10);
-SPO /tmp/cs_driver.sql;
+SPO /tmp/cs_driver_&&cs_mysid..sql;
 SET SERVEROUT ON;
 BEGIN
   FOR i IN 1..&&iterations.
@@ -72,7 +72,7 @@ END;
 /
 SET SERVEROUT OFF;
 SPO &&cs_file_name..txt APP;
-@/tmp/cs_driver.sql;
+@/tmp/cs_driver_&&cs_mysid..sql;
 --SET HEA OFF;
 --PRINT :results;
 --SET HEA ON;

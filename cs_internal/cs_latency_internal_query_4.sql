@@ -23,7 +23,7 @@ FUNCTION application_category (
 )
 RETURN VARCHAR2
 IS
-  k_appl_handle_prefix CONSTANT VARCHAR2(30) := '/*'||CHR(37);
+  k_appl_handle_prefix CONSTANT VARCHAR2(30) := CHR(37)||'/*'||CHR(37);
   k_appl_handle_suffix CONSTANT VARCHAR2(30) := CHR(37)||'*/'||CHR(37);
 BEGIN
   IF    p_sql_text LIKE k_appl_handle_prefix||'Transaction Processing'||k_appl_handle_suffix 
@@ -242,7 +242,7 @@ BEGIN
     OR  p_sql_text LIKE k_appl_handle_prefix||'countSequenceInstances'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'iod-telemetry'||k_appl_handle_suffix 
     OR  p_sql_text LIKE k_appl_handle_prefix||'insert snapshot metadata'||k_appl_handle_suffix 
-    OR  p_sql_text LIKE CHR(37)||k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
+    OR  p_sql_text LIKE k_appl_handle_prefix||'OPT_DYN_SAMP'||k_appl_handle_suffix 
   THEN RETURN 'IG'; /* Ignore */
   --
   ELSIF p_command_name IN ('INSERT', 'UPDATE')
@@ -261,8 +261,10 @@ END application_category;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sqltext_mv AS (
@@ -273,7 +275,8 @@ SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(sqltext_mv) */
       --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN sql_text LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(sql_text, '\[([[:digit:]]{4})\] ') ELSE sql_text END),100000),5,'0') AS sqlid,
        get_sql_hv(sql_text) AS sqlid,
        application_category(DBMS_LOB.substr(sql_text, 1000), 'UNKNOWN') AS sql_type, -- passing UNKNOWN else KIEV envs would show a lot of unrelated SQL under RO
-       REPLACE(REPLACE(DBMS_LOB.substr(sql_text, 1000), CHR(10), CHR(32)), CHR(9), CHR(32)) AS sql_text,
+      --  REPLACE(REPLACE(DBMS_LOB.substr(sql_text, 1000), CHR(10), CHR(32)), CHR(9), CHR(32)) AS sql_text,
+       DBMS_LOB.substr(REGEXP_SUBSTR(sql_text, '.*$', 1, 1, 'm'), 1000) AS sql_text,
        sql_text AS sql_fulltext
   FROM dba_hist_sqltext
  WHERE dbid = TO_NUMBER('&&cs_dbid.') 
@@ -470,6 +473,7 @@ SELECT MIN(d.begin_timestamp) AS begin_timestamp,
 )
 /****************************************************************************************/
 SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
+       '!' AS sep0,
        s.sql_type,
        s.latency_rn,
        s.load_rn,
@@ -527,6 +531,8 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
        v.has_patch,
        s.sql_text,
        CASE SYS_CONTEXT('USERENV', 'CON_ID') WHEN '1' THEN get_pdb_name(s.con_id) ELSE s.parsing_schema_name END AS pdb_or_parsing_schema_name,
+       t.num_rows, 
+       t.blocks,
        s.begin_timestamp,
        s.end_timestamp,
        s.seconds
@@ -534,7 +540,9 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
   OUTER APPLY (
          SELECT CASE WHEN v.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN v.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
-                CASE WHEN v.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch
+                CASE WHEN v.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch,
+                v.hash_value,
+                v.address
            FROM v$sql v
           WHERE v.sql_id = s.sql_id
             AND v.con_id = s.con_id
@@ -543,6 +551,23 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
                 v.last_active_time DESC
           FETCH FIRST 1 ROW ONLY
        ) v
+  OUTER APPLY ( -- only works when executed within a PDB
+        SELECT  t.num_rows, t.blocks
+          FROM  v$object_dependency d, dba_users u, dba_tables t
+         WHERE  d.from_hash = v.hash_value
+           AND  d.from_address = v.address
+           AND  d.to_type = 2 -- table
+           AND  d.to_owner <> 'SYS'
+           AND  d.con_id = s.con_id
+           AND  u.username = d.to_owner
+           AND  u.oracle_maintained = 'N'
+           AND  u.common = 'NO'
+           AND  t.owner = d.to_owner
+           AND  t.table_name = d.to_name
+         ORDER BY 
+               t.num_rows DESC NULLS LAST
+         FETCH FIRST 1 ROW ONLY
+       ) t
  WHERE ((s.latency_rn <= &&cs_top_latency. AND s.et_aas >= &&cs_aas_threshold_latency.) OR (s.load_rn <= &&cs_top_load. AND s.et_aas >= &&cs_aas_threshold_load.))
    AND s.et_ms_per_exec >= &&cs_ms_threshold_latency.
  ORDER BY

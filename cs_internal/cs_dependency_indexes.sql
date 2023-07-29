@@ -39,33 +39,18 @@ v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
        DISTINCT 
        o.to_owner, o.to_name
-      --  o.to_hash, o.to_address 
   FROM v$object_dependency o,
        v_sqlarea_m s
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
    AND o.to_type = 2 -- table
 ),
--- v_db_object_cache_m AS (
--- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
---        DISTINCT 
---        SUBSTR(c.owner,1,30) AS object_owner, 
---        SUBSTR(c.name,1,30) AS object_name 
---   FROM v$db_object_cache c,
---        v_object_dependency_m d
---  WHERE c.type IN ('TABLE','VIEW') 
---    AND c.hash_value = d.to_hash
---    AND c.addr = d.to_address 
--- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
        t.owner, 
        t.table_name
   FROM dba_tables t,
        v_object_dependency_m o
-      --  v_db_object_cache_m c
---  WHERE t.owner = c.object_owner
---    AND t.table_name = c.object_name 
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
 )
@@ -83,9 +68,7 @@ SELECT /*+ QB_NAME(get_stats) */
        i.visibility,
        i.blevel,
        i.leaf_blocks,
-       --i.leaf_blocks * COALESCE(b.block_size, TO_NUMBER(p.value)) / POWER(2,20) AS size_MiB,
        i.leaf_blocks * COALESCE(b.block_size, TO_NUMBER(p.value)) / POWER(10,6) AS size_MB,
-       --(SELECT SUM(s.bytes) / POWER(2,20) FROM dba_segments s WHERE s.owner = i.owner AND s.segment_name = i.index_name AND s.segment_type LIKE 'INDEX%') AS seg_size_MiB,
        (SELECT SUM(s.bytes) / POWER(10,6) FROM dba_segments s WHERE s.owner = i.owner AND s.segment_name = i.index_name AND s.segment_type LIKE 'INDEX%') AS seg_size_MB,
        i.distinct_keys,
        i.clustering_factor,
@@ -110,12 +93,13 @@ SELECT /*+ QB_NAME(get_stats) */
 --
 COL object_type HEA 'Object Type';
 COL object_id FOR 999999999 HEA 'Object ID';
-COL object_name FOR A30 HEA 'Object Name' TRUNC;
-COL created FOR A19 HEA 'Created';
-COL last_ddl_time FOR A19 HEA 'Last DDL Time';
+COL object_name FOR A30 HEA 'Object Name';
+COL subobject_name FOR A30 HEA 'Sub Object Name';
+COL created FOR A23 HEA 'Created';
+COL last_ddl_time FOR A23 HEA 'Last DDL Time';
 --
 PRO
-PRO INDEX OBJECTS (dba_objects) up to 1000
+PRO INDEX OBJECTS (dba_objects) up to 100
 PRO ~~~~~~~~~~~~~
 WITH /* OBJECTS */
 v_sqlarea_m AS (
@@ -129,39 +113,25 @@ v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
        DISTINCT 
        o.to_owner, o.to_name
-      --  o.to_hash, o.to_address 
   FROM v$object_dependency o,
        v_sqlarea_m s
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
    AND o.to_type = 2 -- table
 ),
--- v_db_object_cache_m AS (
--- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
---        DISTINCT 
---        SUBSTR(c.owner,1,30) AS object_owner, 
---        SUBSTR(c.name,1,30) AS object_name 
---   FROM v$db_object_cache c,
---        v_object_dependency_m d
---  WHERE c.type IN ('TABLE','VIEW') 
---    AND c.hash_value = d.to_hash
---    AND c.addr = d.to_address 
--- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
        t.owner, 
        t.table_name
   FROM dba_tables t,
        v_object_dependency_m o
-      --  v_db_object_cache_m c
---  WHERE t.owner = c.object_owner
---    AND t.table_name = c.object_name 
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
 )
 SELECT o.object_type,
        o.owner,
        o.object_name,
+       o.subobject_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time
@@ -176,16 +146,18 @@ SELECT o.object_type,
  ORDER BY
        o.object_type,
        o.owner,
-       o.object_name
-FETCH FIRST 1000 ROWS ONLY       
+       o.object_name,
+       o.subobject_name
+FETCH FIRST 100 ROWS ONLY       
 /
-
+--
 COL object_type HEA 'Object Type';
 COL owner FOR A30 HEA 'Owner';
 COL object_id FOR 999999999 HEA 'Object ID';
-COL object_name FOR A30 HEA 'Object Name' TRUNC;
-COL created FOR A19 HEA 'Created';
-COL last_ddl_time FOR A19 HEA 'Last DDL Time';
+COL object_name FOR A30 HEA 'Object Name';
+COL subobject_name FOR A30 HEA 'Sub Object Name';
+COL created FOR A23 HEA 'Created';
+COL last_ddl_time FOR A23 HEA 'Last DDL Time';
 COL analyzetime FOR A19 HEA 'Analyze Time';
 COL savtime FOR A23 HEA 'Saved Time';
 COL rowcnt FOR 999,999,999,990 HEA 'Row Count';
@@ -210,40 +182,25 @@ v_object_dependency_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_dependency) */ 
        DISTINCT 
        o.to_owner, o.to_name
-      --  o.to_hash, o.to_address 
   FROM v$object_dependency o,
        v_sqlarea_m s
  WHERE o.from_hash = s.hash_value 
    AND o.from_address = s.address
    AND o.to_type = 2 -- table
 ),
--- v_db_object_cache_m AS (
--- SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(obj_cache) */ 
---        DISTINCT 
---        SUBSTR(c.owner,1,30) AS object_owner, 
---        SUBSTR(c.name,1,30) AS object_name 
---   FROM v$db_object_cache c,
---        v_object_dependency_m d
---  WHERE c.type IN ('TABLE','VIEW') 
---    AND c.hash_value = d.to_hash
---    AND c.addr = d.to_address 
--- ),
 dba_tables_m AS (
 SELECT /*+ MATERIALIZE NO_MERGE QB_NAME(dba_tables) */ 
        t.owner, 
        t.table_name
   FROM dba_tables t,
        v_object_dependency_m o
-      --  v_db_object_cache_m c
---  WHERE t.owner = c.object_owner
---    AND t.table_name = c.object_name 
  WHERE t.owner = o.to_owner
    AND t.table_name = o.to_name 
 ),
 dba_indexes_o AS (
-SELECT --o.object_type,
-       o.owner,
+SELECT o.owner,
        o.object_name,
+       o.subobject_name,
        o.object_id,
        o.created,
        o.last_ddl_time,
@@ -267,9 +224,9 @@ SELECT --o.object_type,
    AND h.obj# = o.object_id
 )
 SELECT DISTINCT
-       --o.object_type,
        o.owner,
        o.object_name,
+       o.subobject_name,
        o.object_id,
        TO_CHAR(o.created, '&&cs_datetime_full_format.') AS created,
        TO_CHAR(o.last_ddl_time, '&&cs_datetime_full_format.') AS last_ddl_time,
@@ -280,19 +237,9 @@ SELECT DISTINCT
        o.leafcnt,
        o.distkey,
        o.samplesize
-     --   o.rn
   FROM dba_indexes_o o
  WHERE o.rn <= 25
- ORDER BY 1, 2, 3, 4, 5, 6 NULLS FIRST, 7 NULLS FIRST
-       --o.object_type,
-     --   o.owner,
-     --   o.object_name,
-     --   o.object_id,
-     --   o.created,
-     --   o.last_ddl_time,
-     --   o.analyzetime NULLS FIRST,
-     --   o.savtime NULLS FIRST
--- FETCH FIRST 1000 ROWS ONLY       
+ ORDER BY 1, 2, 3, 4, 5, 6, 7 NULLS FIRST, 8 NULLS FIRST
 /
 --
 CLEAR BREAK;

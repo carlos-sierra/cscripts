@@ -1,4 +1,4 @@
-CS Scripts Inventory by Type (2022-10-07)
+CS Scripts Inventory by Type (2023-07-29)
 ============================
 * Latency
 * Load
@@ -10,7 +10,6 @@ CS Scripts Inventory by Type (2022-10-07)
 * Kill Sessions
 * Blocked Sessions
 * Locks
-* Database Resource Manager (DBRM)
 * Space Reporting
 * Space Maintenance
 * Container
@@ -28,8 +27,6 @@ Latency
 * le.sql | cs_latency_extended.sql                              - Current SQL latency (elapsed time over executions) - Extended
 * lr.sql | cs_latency_range.sql                                 - SQL latency for a time range (elapsed time over executions) (AWR) - 15m Granularity 
 * lre.sql | cs_latency_range_extended.sql                       - SQL latency for a time range (elapsed time over executions) (AWR) - 15m Granularity - Extended
-* cs_latency_range_iod.sql                                      - SQL latency for a time range (elapsed time over executions) (IOD) - 1m Granularity 
-* cs_latency_range_iod_extended.sql                             - SQL latency for a time range (elapsed time over executions) (IOD) - 1m Granularity - Extended
 * cs_latency_1m.sql                                             - Last 1m SQL latency (elapsed time over executions)
 * cs_latency_1m_extended.sql                                    - Last 1m SQL latency (elapsed time over executions) - Extended
 * cs_latency_snapshot.sql                                       - Snapshot SQL latency (elapsed time over executions)
@@ -40,9 +37,7 @@ Latency
 * cs_dg_redo_dest_resp_histogram_chart.sql                      - Data Guard (DG) REDO Transport Duration Chart
 * cs_dg_redo_dest_resp_histogram_report.sql                     - Data Guard (DG) REDO Transport Duration Report
 * cs_LGWR_chart.sql                                             - Log Writer LGWR Slow Writes Duration Chart - from current LGWR trace
-* cs_LGWR_chart_iod.sql                                         - Log Writer LGWR Slow Writes Duration Chart - from historical IOD Table
 * cs_LGWR_report.sql                                            - Log Writer LGWR Slow Writes Duration Report - from current LGWR trace
-* cs_LGWR_report_iod.sql                                        - Log Writer LGWR Slow Writes Duration Report - from historical IOD Table
 
 Load
 ----
@@ -55,12 +50,10 @@ Load
 * mas.sql | cs_maximum_active_sessions.sql                      - Maximum Active Sessions (ASH Analytics on dbc_active_session)
 * cs_osstat_chart.sql                                           - OS Stats from AWR (time series chart)
 * cs_osstat_cpu_util_perc_chart.sql                             - CPU Utilization Percent Chart (AWR) - 15m Granularity
-* cs_osstat_cpu_util_perc_chart_iod.sql                         - CPU Utilization Percent Chart (IOD) - 1m Granularity 
 * cs_osstat_cpu_util_perc_now.sql                               - CPU Utilization Percent - Now
 * cs_osstat_cpu_report.sql                                      - CPU Cores Load and Busyness as per OS Stats from AWR (time series report)
 * cs_osstat_cpu_load_chart.sql                                  - CPU Cores Load as per OS Stats from AWR (time series chart)
 * cs_osstat_cpu_busy_chart.sql                                  - CPU Cores Busyness as per OS Stats from AWR (time series chart)
-* cs_sessions_on_cpu_iod_chart.sql                              - Percentiles of Sessions on CPU as per IOD metadata (time series chart)
 * cs_top_pdb_chart.sql                                          - Top PDBs as per use of CPU Cores, Disk Space or Sessions (time series chart)
 * cs_top_pdb_tps_chart.sql                                      - Top PDBs as per TPS (time series chart)
 * cs_timed_event_top_consumers_pie.sql                          - Top contributors of a given Wait Class or Event (pie chart)
@@ -69,11 +62,11 @@ Load
 SQL Performance
 ---------------
 * p.sql | cs_sqlperf.sql                                        - Basic SQL performance metrics for a given SQL_ID
+* pp.sql | cs_sqlperf_plus.sql                                  - Basic SQL performance metrics for a given SQL_ID + Top Keys
 * x.sql | cs_planx.sql                                          - Execution Plans and SQL performance metrics for a given SQL_ID
 * ssa.sql | cs_sqlstat_analytics.sql                            - SQL Statistics Analytics (AWR) - 15m Granularity
-* ssai.sql | cs_sqlstat_analytics_iod.sql                       - SQL Statistics Analytics (IOD) - 1m Granularity
+* ssaa.sql | cs_sqlstat_analytics_aggregate.sql                 - SQL Statistics Analytics Aggregate (AWR) - 15m Granularity
 * ssr.sql | cs_sqlstat_report.sql                               - SQL Statistics Report (AWR) - detailed(15m), hourly, daily, global
-* ssri.sql | cs_sqlstat_report_iod.sql                          - SQL Statistics Report (IOD) - detailed(1m)
 * pm.sql | cs_planm.sql                                         - Execution Plans in Memory for a given SQL_ID
 * ph.sql | cs_planh.sql                                         - Execution Plans in AWR for a given SQL_ID
 * dc.sql                                                        - Display Cursor Execution Plan. Execute this script after one SQL for which you want to see the Execution Plan
@@ -86,20 +79,25 @@ SQL Performance
 * cs_sqlmon_binds.sql                                           - SQL Monitor Binds for given SQL_ID
 * cs_sqlmon_top_binds.sql                                       - SQL Monitor Top Binds for given SQL_ID
 * cs_sql_bind_capture.sql                                       - SQL Bind Capture for given SQL_ID
+* cs_sql_bind_capture_one.sql                                   - SQL Bind Capture for given SQL_ID and Bind name (text report)
+* cs_sql_bind_capture_one_chart.sql                             - SQL Bind Capture for given SQL_ID and Bind name (time series chart)
 * cs_binds.sql                                                  - Binds for a given SQL_ID
 * cs_sql_sessions.sql                                           - Recent and Active Sessions executing a SQL_ID
+* cs_high_execution_rate_rps.sql                                - List executions by time for a given SQL_ID with high RPS 
 * cs_sql_perf_concurrency.sql                                   - Concurrency Histogram of SQL with more than N Concurrent Sessions
 * cs_sql_perf_high_aas.sql                                      - SQL with AAS per hour for a given Timed Event higher than N (time series text report)
 * cs_purge_cursor.sql                                           - Purge Cursor(s) for SQL_ID using DBMS_SHARED_POOL.PURGE and SQL Patch
 
 SPBL - SQL Plan Baselines
 -------------------------
+* cs_spbl_evolve.sql                                            - Evolve a SQL Plan Baseline for given SQL_ID
 * cs_spbl_create.sql                                            - Create a SQL Plan Baseline for given SQL_ID
 * cs_spbl_drop.sql                                              - Drop one or all SQL Plan Baselines for given SQL_ID
 * cs_spbl_drop_all.sql                                          - Drop all SQL Plan Baselines for some SQL Text string on PDB
 * cs_spbl_sprf_spch_drop_all.sql                                - Drop all SQL Plan Baselines, SQL Profiles and SQL Patches for some SQL Text string on PDB
 * cs_spbl_list.sql                                              - Summary list of SQL Plan Baselines for given SQL_ID
-* cs_spbl_list_all.sql                                          - List all SQL Plan Baselines for some SQL Text string on PDB
+* cs_spbl_list_all_pdb.sql                                      - List all SQL Plan Baselines for some SQL Text string on PDB
+* cs_spbl_list_all_cdb.sql                                      - List all SQL Plan Baselines for some SQL Text string on CDB
 * cs_spbl_sprf_spch_list_all.sql                                - List all SQL Plan Baselines, SQL Profiles and SQL Patches for some SQL Text string on PDB
 * cs_spbl_plan.sql                                              - Display SQL Plan Baseline for given SQL_ID
 * cs_spbl_enable.sql                                            - Enable one or all SQL Plan Baselines for given SQL_ID
@@ -118,8 +116,8 @@ SPBL - SQL Plan Baselines
 * cs_spbl_failed.sql                                            - List of SQL Plans with: "Failed to use SQL plan baseline for this statement"
 * cs_spbl_corrupt.sql                                           - List of Corrupt SQL Plans with: missing Plan Rows from sys.sqlobj$plan
 * cs_spbl_purge_outdated.sql                                    - Purge Outdated SQL Plan Baselines
-* create_spb_from_awr                                           - Create SQL Plan Baselin from AWR Plan (legacy script)
-* create_spb_from_cur                                           - Create SQL Plan Baseline from SQL Cursor (legacy script)
+* create_spb_from_awr.sql                                       - Create SQL Plan Baselin from AWR Plan (legacy script)
+* create_spb_from_cur.sql                                       - Create SQL Plan Baseline from SQL Cursor (legacy script)
 * spm_backup.sql                                                - Create DATAPUMP backup of SQL Plan Management (SPM) Repository for one PDB
 
 SPRF - SQL Profiles
@@ -128,7 +126,8 @@ SPRF - SQL Profiles
 * cs_sprf_drop.sql                                              - Drop all SQL Profiles for given SQL_ID
 * cs_sprf_drop_all.sql                                          - Drop all SQL Profiles for some SQL Text string on PDB
 * cs_sprf_list.sql                                              - Summary list of SQL Profiles for given SQL_ID
-* cs_sprf_list_all.sql                                          - List all SQL Profiles for some SQL Text string on PDB
+* cs_sprf_list_all_pdb.sql                                      - List all SQL Profiles for some SQL Text string on PDB
+* cs_sprf_list_all_cdb.sql                                      - List all SQL Profiles for some SQL Text string on CDB
 * cs_sprf_plan.sql                                              - Display SQL Profile Plan for given SQL_ID
 * cs_sprf_enable.sql                                            - Enable one or all SQL Profiles for given SQL_ID
 * cs_sprf_disable.sql                                           - Disable one or all SQL Profiles for given SQL_ID
@@ -139,20 +138,17 @@ SPRF - SQL Profiles
 * cs_sprf_unpack.sql                                            - Unpack from staging table one or all SQL Profiles for given SQL_ID
 * cs_sprf_category.sql                                          - Changes category for a SQL Profile for given SQL_ID
 * cs_sprf_indexes.sql                                           - List of Indexes Referenced by all SQL Profiles on PDB
-* cs_sprf_verify_wf.sql                                         - Verifies Current Execution Plan for some KIEV WF SQL in all PDBs
-* cs_sprf_verify_wf_flash.sql                                   - Verifies Current Execution Plan for some KIEV WF SQL in all PDBs (flash version)
-* cs_sprf_implement_wf.sql                                      - Implements (imports) Execution Plans for some KIEV WF SQL in some PDBs, using SQL Profile(s)
 * coe_xfr_sql_profile.sql                                       - Transfer (copy) a SQL Profile from PDBx on CDBa into PDBy on CDBb (legacy script)
 
 SPCH - SQL Patches
 ------------------
 * cs_spch_first_rows.sql                                        - Create a SQL Patch with FIRST_ROWS for given SQL_ID, and drops SQL Profile and SQL Plan Baselines
-* cs_spch_scan_create.sql                                       - Create a SQL Patch for slow KIEV performScanQuery without Baselines, Profiles and Patches
 * cs_spch_create.sql                                            - Create a SQL Patch for given SQL_ID
 * cs_spch_drop.sql                                              - Drop all SQL Patches for given SQL_ID
 * cs_spch_drop_all.sql                                          - Drop all SQL Patches for some SQL Text string on PDB
 * cs_spch_list.sql                                              - Summary list of SQL Patches for given SQL_ID
-* cs_spch_list_all.sql                                          - List all SQL Patches for some SQL Text string on PDB
+* cs_spch_list_all_pdb.sql                                      - List all SQL Patches for some SQL Text string on PDB
+* cs_spch_list_all_cdb.sql                                      - List all SQL Patches for some SQL Text string on CDB
 * cs_spch_plan.sql                                              - Display SQL Patch Plan for given SQL_ID
 * cs_spch_enable.sql                                            - Enable one or all SQL Patches for given SQL_ID
 * cs_spch_disable.sql                                           - Disable one or all SQL Patches for given SQL_ID
@@ -167,7 +163,6 @@ Sessions
 * a.sql | as.sql | cs_active_sessions.sql                       - Active Sessions including SQL Text and Exection Plan
 * am.sql | cs_ash_mem_sample_report.sql                         - ASH Samples from MEM
 * ah.sql | cs_ash_awr_sample_report.sql                         - ASH Samples from AWR
-* ahs.sql | cs_ash_snap_sample_report.sql                       - ASH Samples from iod_active_session_history Snapshot
 * cs_ash_awr_block_chains_report.sql                            - ASH Block Chains Report from AWR
 * cs_ash_mem_block_chains_report.sql                            - ASH Block Chains Report from MEM
 * cs_ash_awr_peaks_report.sql                                   - ASH Peaks Report from AWR
@@ -211,16 +206,6 @@ Locks
 * cs_locks_mon.sql                                              - Locks Summary and Details - Monitor
 * cs_wait_chains.sql                                            - Wait Chains (text report)
 
-Database Resource Manager (DBRM)
---------------------------------
-* dbrmr.sql | cs_rsrc_mgr_report.sql                            - Database Resource Manager (DBRM) Configuration Report
-* dbrmu.sql | cs_rsrc_mgr_update.sql                            - Database Resource Manager (DBRM) Update Directives
-* dbrmh.sql | cs_rsrc_mgr_hist.sql                              - Database Resource Manager (DBRM) Metrics History (by minute)
-* dbrma.sql | cs_rsrc_mgr_aggregate.sql                         - Database Resource Manager (DBRM) Metrics Aggregate per PDB
-* dbrmc.sql | cs_rsrc_mgr_cpu.sql                               - Database Resource Manager (DBRM) CPU Utilization per PDB (from ASH AWR)
-* dbrms.sql | cs_rsrc_mgr_sess_chart.sql                        - Database Resource Manager (DBRM) Sessions (running, headroom and waiting) Chart
-* dbrmi.sql | cs_rsrc_mgr_io_chart.sql                          - Database Resource Manager (DBRM) IO (MBPS and IOPS) Chart
-
 Space Reporting
 ---------------
 * cs_df_u02_chart.sql                                           - Disk FileSystem u02 Utilization Chart
@@ -234,7 +219,6 @@ Space Reporting
 * cs_segment_chart.sql                                          - Segment Size GBs for given Segment (time series chart)
 * cs_tempseg_usage.sql                                          - Temporary (Temp) Segment Usage (text report)
 * cs_table_segments_chart.sql                                   - Table-related Segment Size GBs (Table, Indexes and Lobs) for given Table (time series chart)
-* cs_table_redefinition_hist_report.sql                         - Table Redefinition History Report (IOD_REPEATING_SPACE_MAINTENANCE log)
 * cs_estimate_table_size.sql                                    - Estimate Table Size
 * cs_tables.sql                                                 - All Tables and Top N Tables (text report)
 * cs_top_tables.sql                                             - Top Tables according to Segment(s) size (text report)
@@ -252,7 +236,6 @@ Space Reporting
 * cs_top_indexes.sql                                            - Top Indexes according to Segment(s) size
 * cs_index_part_reorg.sql                                       - Calculate index reorg savings
 * cs_index_usage.sql                                            - Index Usage (is an index still in use?)
-* cs_index_rebuild_hist_report.sql                              - Index Rebuild History (IOD_REPEATING_SPACE_MAINTENANCE log)
 * cs_foreign_key_fk_constraints_missing_indexes.sql             - Generate DDL to create missing Indexes to support FK constraints
 * cs_recyclebin.sql                                             - Recyclebin Content
 * cs_top_lobs.sql                                               - Top Lobs according to Segment(s) size
@@ -271,6 +254,7 @@ Container
 ---------
 * cdb.sql                                                       - Connect into CDB$ROOT
 * pdb.sql                                                       - List all PDBs and Connect into one PDB
+* cs_pdbs.sql                                                   - PDBs attributes
 
 System Metrics
 --------------
@@ -289,7 +273,7 @@ System Metrics
 * cs_some_sysmetric_for_pdb_mem_chart.sql                       - Some System Metrics as per V$CON_SYSMETRIC_HISTORY View for a PDB (time series chart)
 * cs_some_sysmetric_for_cdb_hist_chart.sql                      - Some System Metrics as per DBA_HIST_SYSMETRIC_SUMMARY View for a CDB (time series chart)
 * cs_some_sysmetric_for_pdb_hist_chart.sql                      - Some System Metrics as per DBA_HIST_CON_SYSMETRIC_SUMM View for a PDB (time series chart)
-* cs_cpu_sysmetric_for_cdb_mem_chart.sql                        - CPU System Metrics as per V$SYSMETRIC_HISTORY View for a CDB (time series chart)   add UNDEF ****
+* cs_cpu_sysmetric_for_cdb_mem_chart.sql                        - CPU System Metrics as per V$SYSMETRIC_HISTORY View for a CDB (time series chart)
 * cs_cpu_sysmetric_for_pdb_mem_chart.sql                        - CPU System Metrics as per V$CON_SYSMETRIC_HISTORY View for a PDB (time series chart)
 * cs_cpu_sysmetric_for_cdb_hist_chart.sql                       - CPU System Metrics as per DBA_HIST_SYSMETRIC_SUMMARY View for a CDB (time series chart)
 * cs_cpu_sysmetric_for_pdb_hist_chart.sql                       - CPU System Metrics as per DBA_HIST_CON_SYSMETRIC_SUMM View for a PDB (time series chart)
@@ -352,6 +336,8 @@ Traces
 * trace_10046_mysid_off.sql                                     - Turn OFF SQL Trace on own Session
 * trace_10053_mysid_on.sql                                      - Turn ON CBO EVENT 10053 LEVEL 1 on own Session
 * trace_10053_mysid_off.sql                                     - Turn OFF CBO EVENT 10053 on own Session
+* trace_10046_10053_mysid_on.sql                                - Turn ON SQL Trace EVENT 10046 LEVEL 12 and 10053 on own Session
+* trace_10046_10053_mysid_off.sql                               - Turn OFF SQL Trace and 10053 on own Session
 
 Reports
 -------
@@ -369,11 +355,9 @@ Reports
 
 Miscellaneous Utilities
 -----------------------
-* cs_fs.sql                                                     - Find application SQL statements matching some string
-* cs_fas.sql                                                    - Find all SQL statements matching some string
+* cs_fs.sql                                                     - Find SQL statements matching some string
 * cs_mark_sql_hot.sql                                           - Use DBMS_SHARED_POOL.markhot to reduce contention during high concurency hard parse
 * cs_unmark_sql_hot.sql                                         - Use DBMS_SHARED_POOL.unmarkhot to undo cs_mark_sql_hot.sql
-* cs_ash_snapshot.sql                                           - Merges a snapshot of v$active_session_history into iod_active_session_history
 * pr.sql | cs_pr.sql                                            - Print Table (vertical display of result columns for last query)
 * cs_burn_cpu.sql                                               - Burn CPU in multiple cores/threads for some time
 * cs_hexdump_to_timestamp.sql                                   - Convert Hexadecimal Dump to Time
@@ -388,5 +372,5 @@ Miscellaneous Utilities
 
 Notes
 -----
-* To use them, connect to database server as oracle, then navigate to scripts directory above, and connect into SQL*Plus as SYS.
+* To use these cscripts scripts, connect to database server as oracle, navigate to cscripts scripts directory, and connect into SQL*Plus as SYS.
 * Execute h.sql or help.sql for full list above. Execute ls.sql for a full alphabetical list. Type q to exit. 

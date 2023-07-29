@@ -1,14 +1,14 @@
-COL owner FOR A30 TRUNC;
-COL segment_name FOR A30 TRUNC;
-COL partition_name FOR A30 TRUNC;
-COL column_name FOR A30 TRUNC;
+COL owner FOR A30;
+COL segment_name FOR A30;
+COL partition_name FOR A30;
+COL column_name FOR A30;
 COL segments FOR 9,999,990;
 --
 COL mebibytes FOR 999,999,990.000 HEA 'Size MiB';
 COL megabytes FOR 999,999,990.000 HEA 'Size MB';
 COL tablespace_name FOR A30 HEA 'Tablespace';
 BREAK ON REPORT;
-COMPUTE SUM LABEL 'TOTAL' OF MiB MB segments ON REPORT;
+COMPUTE SUM LABEL 'TOTAL' OF mebibytes megabytes segments ON REPORT;
 --
 PRO
 PRO SEGMENTS (dba_segments) top 100
@@ -79,8 +79,8 @@ SELECT 3 AS oby, s.segment_type, s.owner, s.segment_name, s.partition_name, l.co
    AND s.segment_name = l.segment_name
    AND s.segment_type LIKE 'LOB%'
 )
---SELECT ROUND(bytes/POWER(2,20),3) AS MiB, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
-SELECT ROUND(bytes/POWER(10,6),3) AS MB, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
+--SELECT ROUND(bytes/POWER(2,20),3) AS mebibytes, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
+SELECT ROUND(bytes/POWER(10,6),3) AS megabytes, segment_type, owner, column_name, segment_name, partition_name, tablespace_name
   FROM s
  ORDER BY bytes DESC, oby, segment_type, owner, column_name, segment_name, partition_name
  FETCH FIRST 100 ROWS ONLY
@@ -154,8 +154,8 @@ SELECT 3 AS oby, s.segment_type, s.owner, s.segment_name, s.partition_name, l.co
    AND s.segment_name = l.segment_name
    AND s.segment_type LIKE 'LOB%'
 )
---SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/POWER(2,20),3) AS MiB, tablespace_name
-SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/POWER(10,6),3) AS MB, tablespace_name
+--SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/POWER(2,20),3) AS mebibytes, tablespace_name
+SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/POWER(10,6),3) AS megabytes, tablespace_name
   FROM s
  GROUP BY oby, segment_type, tablespace_name
  ORDER BY oby, segment_type, tablespace_name

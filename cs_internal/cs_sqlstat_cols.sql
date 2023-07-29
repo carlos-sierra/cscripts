@@ -1,4 +1,4 @@
--- cs_sqlstat_cols.sql: called by cs_dba_hist_sqlstat_*.sql
+-- cs_sqlstat_cols.sql: called by cs_dba_hist_sqlstat_*.sql, cs_gv_sqlstat_global.sql.sql, cs_gv_sql_global.sql, cs_gv_sql_stability.sql, cs_iod_sqlstats_detailed.sql, cs_fs_internal_query_1.sql
 COL snap_id FOR A7 HEA 'Snap|ID';
 COL day FOR A10 HEA 'Day' TRUNC;
 COL hour FOR A13 HEA 'Hour' TRUNC;
@@ -89,7 +89,7 @@ COL obsolete_count FOR 999,990 HEA 'Obsolete|Count';
 COL shareable_count FOR 999,990 HEA 'Shareable|Count';
 COL pdb_or_parsing_schema_name FOR A30 HEA 'PDB or Parsing Schema Name' TRUNC;
 COL module FOR A30 HEA 'Module' TRUNC;
-COL sql_text FOR A60 HEA 'SQL Text' TRUNC &&cs_sql_id_col.;
+COL sql_text FOR A90 HEA 'SQL Text' TRUNC &&cs_sql_id_col.;
 COL sql_bl FOR A3 HEA 'SQL|BL';
 COL sql_prf FOR A3 HEA 'SQL|PRF';
 COL sql_pch FOR A3 HEA 'SQL|PCH';
@@ -107,14 +107,14 @@ COL sql_patch FOR A30 HEA 'SQL Patch|Name';
 COL spbl_created FOR A23 HEA 'SQL Plan Baseline|Created';
 COL sprf_created FOR A23 HEA 'SQL Profile|Created';
 COL spch_created FOR A23 HEA 'SQL Patch|Created';
-COL sep0 FOR A1 HEA '+|!|!|!';
-COL sep1 FOR A1 HEA '+|!|!|!';
-COL sep2 FOR A1 HEA '+|!|!|!';
-COL sep3 FOR A1 HEA '+|!|!|!';
-COL sep4 FOR A1 HEA '+|!|!|!';
-COL sep5 FOR A1 HEA '+|!|!|!';
+COL sep0 FOR A1 HEA '+|!|!|!' PRI;
+COL sep1 FOR A1 HEA '+|!|!|!' PRI;
+COL sep2 FOR A1 HEA '+|!|!|!' PRI;
+COL sep3 FOR A1 HEA '+|!|!|!' PRI;
+COL sep4 FOR A1 HEA '+|!|!|!' PRI;
+COL sep5 FOR A1 HEA '+|!|!|!' PRI;
 COL sep6 FOR A1 HEA '+|!|!|!' &&cs_delta_col.;
 COL sep7 FOR A1 HEA '+|!|!|!' &&cs_delta_col.;
-COL sep8 FOR A1 HEA '+|!|!|!';
-COL sep9 FOR A1 HEA '+|!|!|!';
+COL sep8 FOR A1 HEA '+|!|!|!' PRI;
+COL sep9 FOR A1 HEA '+|!|!|!' PRI;
 --

@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/10/06
+-- Version:     2023/02/10
 --
 -- Usage:       Connecting into PDB.
 --
@@ -29,16 +29,15 @@
 --
 DEF cs_script_name = 'cs_sprf_create';
 --
-PRO 1. SQL_ID: 
+PRO 1. Source SQL_ID: 
 DEF cs_sql_id = '&1.';
 UNDEF 1;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_signature.sql
-@@cs_internal/&&cs_zapper_sprf_export.
+@@cs_internal/&&cs_zapper_managed.
 --
--- @@cs_internal/cs_&&dba_or_cdb._plans_performance.sql (deprecated)
 @@cs_internal/cs_plans_performance.sql 
 @@cs_internal/cs_sprf_internal_list.sql
 --
@@ -47,21 +46,47 @@ PRO 2. PLAN_HASH_VALUE (required)
 DEF cs_plan_hash_value = "&2.";
 UNDEF 2;
 --
+PRO
+PRO 3. Target SQL_ID: [{&&cs_sql_id.}|SQL_ID]
+DEF cs_sql_id2 = '&3.';
+UNDEF 3;
+COL cs_sql_id2 NEW_V cs_sql_id2 NOPRI;
+SELECT COALESCE('&&cs_sql_id2.', '&&cs_sql_id.') AS cs_sql_id2 FROM DUAL
+/
+--
+VAR cs_signature2 NUMBER;
+VAR cs_sql_text2 CLOB;
+BEGIN
+  SELECT sql_fulltext INTO :cs_sql_text2 FROM v$sqlstats WHERE sql_id = '&&cs_sql_id2.' AND ROWNUM = 1;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    SELECT sql_text INTO :cs_sql_text2 FROM dba_hist_sqltext WHERE sql_id = '&&cs_sql_id2.' AND ROWNUM = 1;
+END;
+/
+EXEC :cs_signature2 := DBMS_SQLTUNE.SQLTEXT_TO_SIGNATURE(:cs_sql_text2);
+--
 @@cs_internal/cs_spool_head.sql
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." 
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." "&&cs_sql_id2."
 @@cs_internal/cs_spool_id.sql
 --
-PRO SQL_ID       : &&cs_sql_id.
+PRO SOURCE_SQL_ID: &&cs_sql_id.
 PRO SIGNATURE    : &&cs_signature.
 PRO SQL_HANDLE   : &&cs_sql_handle.
 PRO APPLICATION  : &&cs_application_category.
+PRO TABLE_OWNER  : &&table_owner.
+PRO TABLE_NAME   : &&table_name.
 PRO PLAN_HASH_VAL: &&cs_plan_hash_value. 
+PRO TARGET_SQL_ID: &&cs_sql_id2.
 --
 SET HEA OFF;
+PRO
+PRO Source &&cs_sql_id.
+PRO ~~~~~~
 PRINT :cs_sql_text
+PRO Target &&cs_sql_id2.
+PRO ~~~~~~
+PRINT :cs_sql_text2
 SET HEA ON;
--- drop existing profile if any
---@@cs_internal/cs_sprf_internal_drop.sql
 --
 SET SERVEROUT ON;
 DECLARE
@@ -106,25 +131,26 @@ BEGIN
   l_profile_attr.EXTEND; 
   l_profile_attr(l_index) := 'END_OUTLINE_DATA';  
   --
-  FOR i IN (SELECT name FROM dba_sql_profiles WHERE signature = TO_NUMBER('&&cs_signature.') AND name <> 'sprf_&&cs_sql_id._&&cs_plan_hash_value.') 
-  LOOP
-    DBMS_SQLTUNE.drop_sql_profile(name => i.name); 
-    DBMS_OUTPUT.put_line('dropped '||i.name);
-  END LOOP;
+  -- FOR i IN (SELECT name FROM dba_sql_profiles WHERE signature = TO_NUMBER('&&cs_signature.') AND name <> 'cs_&&cs_sql_id._&&cs_sql_id2.') 
+  -- LOOP
+  --   DBMS_SQLTUNE.drop_sql_profile(name => i.name); 
+  --   DBMS_OUTPUT.put_line('dropped '||i.name);
+  -- END LOOP;
   -- 
-  SELECT COUNT(*) INTO l_count FROM dba_sql_profiles WHERE signature = TO_NUMBER('&&cs_signature.') AND name = 'sprf_&&cs_sql_id._&&cs_plan_hash_value.';
+  SELECT COUNT(*) INTO l_count FROM dba_sql_profiles WHERE signature = TO_NUMBER('&&cs_signature.') AND name = 'cs_&&cs_sql_id._&&cs_sql_id2.';
   IF l_count = 0 THEN
     DBMS_SQLTUNE.import_sql_profile(
-        sql_text    => :cs_sql_text,
+        sql_text    => :cs_sql_text2,
         profile     => l_profile_attr,
-        name        => 'sprf_&&cs_sql_id._&&cs_plan_hash_value.',
-        description => 'cs_sprf_create.sql &&cs_sql_id. &&cs_plan_hash_value. &&cs_reference_sanitized.',
+        name        => 'cs_&&cs_sql_id._&&cs_sql_id2.',
+        description => 'cs_sprf_create.sql &&cs_sql_id. &&cs_plan_hash_value. &&cs_sql_id2. &&cs_reference_sanitized. &&who_am_i.',
         category    => 'DEFAULT',
-        validate    => TRUE
+        validate    => TRUE,
+        replace     => TRUE
     );
-    DBMS_OUTPUT.put_line('created sprf_&&cs_sql_id._&&cs_plan_hash_value.');
+    DBMS_OUTPUT.put_line('created cs_&&cs_sql_id._&&cs_sql_id2.');
   ELSE
-    DBMS_OUTPUT.put_line('profile already exists sprf_&&cs_sql_id._&&cs_plan_hash_value.');
+    DBMS_OUTPUT.put_line('profile already exists cs_&&cs_sql_id._&&cs_sql_id2.');
   END IF;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN
@@ -134,9 +160,10 @@ END;
 /
 SET SERVEROUT OFF;
 --
+EXEC :cs_signature := :cs_signature2;
 @@cs_internal/cs_sprf_internal_list.sql
 PRO
-PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." 
+PRO SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_plan_hash_value." "&&cs_sql_id2."
 --
 @@cs_internal/cs_spool_tail.sql
 @@cs_internal/cs_undef.sql

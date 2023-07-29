@@ -1,1 +1,0 @@
-@cs_rsrc_mgr_aggregate.sql

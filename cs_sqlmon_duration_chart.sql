@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/06/07
+-- Version:     2022/10/11
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -28,6 +28,10 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_sqlmon_duration_chart';
+DEF cs_hours_range_default = '168';
+--
+@@cs_internal/cs_sample_time_from_and_to.sql
+@@cs_internal/cs_snap_id_from_and_to.sql
 --
 COL key1 FOR A13 HEA 'SQL_ID';
 COL seconds FOR 999,999,990;
@@ -60,6 +64,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
    AND LENGTH(r.key1) = 13
    AND r.dbid = TO_NUMBER('&&cs_dbid.')
    AND r.instance_number = TO_NUMBER('&&cs_instance_number.')
+   AND r.period_end_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
    AND ROWNUM >= 1 /*+ MATERIALIZE NO_MERGE */
 )
 , sqlmonitor_grouped AS (
@@ -127,14 +132,16 @@ SELECT r.seconds,
 /
 --
 PRO
-PRO 1. SQL_ID: 
-DEF cs_sql_id = '&1.';
-UNDEF 1;
+PRO 3. SQL_ID: 
+DEF cs_sql_id = '&3.';
+UNDEF 3;
+--
+SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
 --
 PRO
-PRO 2. Trendlines Type: &&cs_trendlines_types.
-DEF cs_trendlines_type = '&2.';
-UNDEF 2;
+PRO 4. Trendlines Type: &&cs_trendlines_types.
+DEF cs_trendlines_type = '&4.';
+UNDEF 4;
 COL cs_trendlines_type NEW_V cs_trendlines_type NOPRI;
 COL cs_trendlines NEW_V cs_trendlines NOPRI;
 COL cs_hAxis_maxValue NEW_V cs_hAxis_maxValue NOPRI;
@@ -144,34 +151,9 @@ SELECT CASE WHEN LOWER(TRIM(NVL('&&cs_trendlines_type.', 'none'))) IN ('linear',
   FROM DUAL
 /
 --
-COL min_time NEW_V min_time FOR A19 NOPRI;
-COL max_time NEW_V max_time FOR A19 NOPRI;
-WITH
-my_query AS (
-SELECT period_end_time AS end_time,
-       ROUND((period_end_time - period_start_time) * 24 * 3600) AS seconds
-  FROM cdb_hist_reports h
- WHERE component_name = 'sqlmonitor'
-   AND dbid = TO_NUMBER('&&cs_dbid.')
-   AND instance_number = TO_NUMBER('&&cs_instance_number.')
-   AND ('&&cs_sql_id.' IS NULL OR h.key1 = '&&cs_sql_id.')
- UNION
-SELECT MAX(r.last_refresh_time) AS end_time,
-       ROUND(MAX(r.last_refresh_time - r.sql_exec_start) * 24 * 3600) AS seconds
-  FROM v$sql_monitor r
- WHERE ('&&cs_sql_id.' IS NULL OR r.sql_id = '&&cs_sql_id.')
- GROUP BY
-       r.sql_exec_id,
-       r.sql_exec_start
-)
-SELECT TO_CHAR(MIN(end_time), '&&cs_datetime_full_format.') AS min_time, TO_CHAR(MAX(end_time), '&&cs_datetime_full_format.') AS max_time FROM my_query
-/
---
-SELECT '&&cs_file_prefix._&&cs_script_name._&&cs_sql_id.' cs_file_name FROM DUAL;
---
 DEF report_title = 'SQL Monitored Executions of: &&cs_sql_id.';
 DEF chart_title = '&&report_title.';
-DEF xaxis_title = "between &&min_time. and &&max_time.";
+DEF xaxis_title = "between &&cs_sample_time_from. and &&cs_sample_time_to. UTC";
 DEF hAxis_maxValue = "&&cs_hAxis_maxValue.";
 DEF cs_trendlines_series = ", 0:{}, 1:{}, 2:{}, 3:{}";
 DEF vaxis_title = "Seconds";
@@ -185,13 +167,13 @@ DEF vaxis_baseline = "";
 DEF chart_foot_note_2 = "";
 DEF chart_foot_note_3 = "";
 DEF chart_foot_note_4 = "";
-DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sql_id." "&&cs_trendlines_type."';
+DEF report_foot_note = 'SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_sql_id." "&&cs_trendlines_type."';
 --
 @@cs_internal/cs_spool_head_chart.sql
 --
 PRO ,{label:'Duration Seconds', id:'1', type:'number'}
-PRO ,{label:'Elapsed Seconds', id:'1', type:'number'}
-PRO ,{label:'CPU Seconds', id:'1', type:'number'}
+-- PRO ,{label:'Elapsed Seconds', id:'1', type:'number'}
+-- PRO ,{label:'CPU Seconds', id:'1', type:'number'}
 PRO ]
 --
 SET HEA OFF PAGES 0;
@@ -217,6 +199,7 @@ SELECT period_end_time AS end_time,
    AND dbid = TO_NUMBER('&&cs_dbid.')
    AND instance_number = TO_NUMBER('&&cs_instance_number.')
    AND ('&&cs_sql_id.' IS NULL OR h.key1 = '&&cs_sql_id.')
+   AND period_end_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
  UNION
 SELECT MAX(r.last_refresh_time) AS end_time,
        ROUND(MAX(r.last_refresh_time - r.sql_exec_start) * 24 * 3600) AS duration_seconds,
@@ -224,6 +207,7 @@ SELECT MAX(r.last_refresh_time) AS end_time,
        ROUND(MAX(r.cpu_time)/1e6) AS cpu_seconds
   FROM v$sql_monitor r
  WHERE ('&&cs_sql_id.' IS NULL OR r.sql_id = '&&cs_sql_id.')
+   AND r.last_refresh_time BETWEEN TO_DATE('&&cs_sample_time_from.', '&&cs_datetime_full_format.') AND TO_DATE('&&cs_sample_time_to.', '&&cs_datetime_full_format.')
  GROUP BY
        r.key
 )
@@ -236,8 +220,8 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.end_time, 'SS')|| /* second */
        ')'||
        ','||num_format(q.duration_seconds)|| 
-       ','||num_format(q.elapsed_seconds)|| 
-       ','||num_format(q.cpu_seconds)|| 
+      --  ','||num_format(q.elapsed_seconds)|| 
+      --  ','||num_format(q.cpu_seconds)|| 
        ']'
   FROM my_query q
  ORDER BY

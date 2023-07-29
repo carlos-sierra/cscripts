@@ -26,6 +26,7 @@
 @@cs_internal/cs_file_prefix.sql
 --
 DEF cs_script_name = 'cs_top_range';
+DEF cs_script_acronym = 'tr.sql | ';
 --
 DEF cs_top = '30';
 --

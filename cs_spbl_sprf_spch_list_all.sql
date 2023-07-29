@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/10/05
+-- Version:     2022/11/29
 --
 -- Usage:       Connecting into PDB.
 --
@@ -37,7 +37,7 @@ PRO SQL> @&&cs_script_name..sql "&&cs2_sql_text_piece."
 --
 PRO SQL_TEXT     : &&cs2_sql_text_piece.
 --
-COL created FOR A19;
+COL created FOR A23;
 COL sql_id FOR A13;
 COL sql_text FOR A80 TRUNC;
 COL name FOR A30;
@@ -125,6 +125,7 @@ COL child_cursors FOR 99999 HEA 'Child|Cursors';
 COL origin FOR A29 HEA 'Origin';
 COL last_executed FOR A19 HEA 'Last Executed';
 COL last_modified FOR A19 HEA 'Last Modified';
+COL last_verified FOR A19 HEA 'Last Verified';
 COL description FOR A200 HEA 'Description';
 COL enabled FOR A10 HEA 'Enabled';
 COL accepted FOR A10 HEA 'Accepted';
@@ -133,7 +134,7 @@ COL reproduced FOR A10 HEA 'Reproduced';
 COL autopurge FOR A10 HEA 'Autopurge';
 COL adaptive FOR A10 HEA 'Adaptive';
 --
-COL created FOR A19;
+COL created FOR A23;
 COL sql_id FOR A13;
 COL sql_text FOR A80 TRUNC;
 COL name FOR A30;
@@ -269,6 +270,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
 SELECT TO_CHAR(s.created, '&&cs_timestamp_full_format.') AS created, 
        TO_CHAR(s.last_modified, '&&cs_datetime_full_format.') AS last_modified, 
        TO_CHAR(s.last_executed, '&&cs_datetime_full_format.') AS last_executed, 
+       TO_CHAR(s.last_verified, '&&cs_datetime_full_format.') AS last_verified, 
        compute_sql_id(s.sql_text) AS sql_id,
        DBMS_LOB.substr(s.sql_text, 1000) AS sql_text,
        s.plan_name, 

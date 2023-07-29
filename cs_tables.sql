@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2021/09/09
+-- Version:     2023/01/20
 --
 -- Usage:       Execute connected to PDB or CDB.
 --
@@ -34,8 +34,9 @@ PRO SQL> @&&cs_script_name..sql
 BREAK ON REPORT;
 COMPUTE SUM OF total_MB table_MB indexes_MB tabs lobs_MB est_data_MB lobs idxs num_rows ON REPORT;
 --
+DEF specific_owner = '';
 DEF specific_table = '';
-DEF order_by = 't.pdb_name, t.owner, t.table_name';
+DEF order_by = 't.owner, t.table_name';
 DEF fetch_first_N_rows = '10000';
 PRO
 PRO All Tables

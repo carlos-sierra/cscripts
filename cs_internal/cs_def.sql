@@ -36,7 +36,7 @@ DEF vaxis_baseline = "";
 DEF vaxis_viewwindow = "";
 DEF hAxis_maxValue = "";
 DEF cs_hAxis_maxValue = "";
-DEF hAxis_maxValue_forecast = '0.2';
+DEF hAxis_maxValue_forecast = '0.375';
 -- [{linear}|polynomial|exponential|none]
 DEF cs_trendlines_types = '[{none}|linear|polynomial|exponential]'
 DEF cs_trendlines_type = 'none';
@@ -72,6 +72,7 @@ DEF cs_skip = '';
 DEF cs_dbid = '';
 DEF cs_db_name = '';
 DEF cs_db_name_u = '';
+DEF cs_mysid = '';
 DEF cs_con_id = '';
 DEF cs_con_name = '';
 DEF cs_instance_number = '';
@@ -110,8 +111,7 @@ DEF cs_signature = '';
 DEF cs_sql_handle = '';
 DEF cs_plan_hash_value = '';
 DEF cs_application_category = '';
-DEF cs_normalized_signature = '';
-DEF cs_sqlid = '';
+DEF cs_sql_hv = '';
 --
 DEF cs_sample_time_from = '';
 DEF cs_sample_time_to = '';
@@ -122,8 +122,6 @@ DEF cs_snap_type = 'AUTO';
 DEF cs_sid = '-666';
 --
 DEF pdb_creation = '';
---
-EXEC DBMS_SESSION.set_identifier(NULL);
 --
 COL cs_realm NEW_V cs_realm FOR A3 NOPRI;
 COL cs_region NEW_V cs_region FOR A14 NOPRI;
@@ -137,6 +135,7 @@ COL cs_db_name NEW_V cs_db_name FOR A9 NOPRI;
 COL cs_db_name_u NEW_V cs_db_name_u FOR A9 NOPRI;
 COL cs_db_open_mode NEW_V cs_db_open_mode FOR A10 NOPRI;
 COL cs_con_id NEW_V cs_con_id FOR A4 NOPRI;
+COL cs_mysid NEW_V cs_mysid NOPRI;
 COL cs_con_name NEW_V cs_con_name FOR A30 NOPRI;
 COL cs_current_schema NEW_V cs_current_schema FOR A30 NOPRI;
 COL cs_oracle_home NEW_V cs_oracle_home NOPRI;
@@ -194,11 +193,13 @@ COL cs_elapsed_time NEW_V cs_elapsed_time NOPRI;
 --
 VAR cs_signature NUMBER;
 VAR cs_sql_text CLOB;
+VAR cs_zapper_managed_sql_banner CLOB;
 VAR kiev_metadata_date VARCHAR2(30);
 --
 SET TERM OFF;
 --
-SELECT SYS_CONTEXT('USERENV', 'CON_ID') AS cs_con_id,
+SELECT SYS_CONTEXT('USERENV', 'SID') AS cs_mysid,
+       SYS_CONTEXT('USERENV', 'CON_ID') AS cs_con_id,
        SYS_CONTEXT('USERENV', 'CON_NAME') AS cs_con_name,
        SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS cs_current_schema,
        SYS_CONTEXT('USERENV', 'ORACLE_HOME') AS cs_oracle_home,
@@ -239,7 +240,8 @@ COL cs_spbl_create_post NEW_V cs_spbl_create_post NOPRI;
 COL cs_spbl_validate NEW_V cs_spbl_validate NOPRI;
 COL cs_list_cbo_hints NEW_V cs_list_cbo_hints NOPRI;
 COL cs_list_cbo_hints_b NEW_V cs_list_cbo_hints_b NOPRI;
-COL cs_zapper_sprf_export NEW_V cs_zapper_sprf_export NOPRI;
+COL cs_zapper_managed NEW_V cs_zapper_managed NOPRI;
+DEF cs_zapper_managed_sql = 'N';
 --
 SELECT CASE WHEN '&&cs_odis.' = 'Y' THEN '--' END AS cs_skip,
        CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_spbl_internal_list_simple.sql' ELSE 'cs_spbl_internal_list_debug.sql' END AS list_sqlbaseline_script,
@@ -254,7 +256,7 @@ SELECT CASE WHEN '&&cs_odis.' = 'Y' THEN '--' END AS cs_skip,
        CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_null.sql' ELSE 'cs_spbl_validate.sql' END AS cs_spbl_validate,
        CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_null.sql' ELSE 'cs_list_cbo_hints.sql' END AS cs_list_cbo_hints,
        CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_null.sql' ELSE 'cs_list_cbo_hints_b.sql' END AS cs_list_cbo_hints_b,
-       CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_null.sql' ELSE 'cs_zapper_sprf_export.sql' END AS cs_zapper_sprf_export
+       CASE WHEN '&&cs_odis.' = 'Y' THEN 'cs_null.sql' ELSE 'cs_zapper_managed.sql' END AS cs_zapper_managed
   FROM DUAL
 /
 --
@@ -406,13 +408,19 @@ DEF cs_blackout_times = '';
 DEF cs_avg_running_sessions_cdb = '?';
 COL cs_avg_running_sessions_cdb NEW_V cs_avg_running_sessions_cdb NOPRI;
 SELECT TRIM(TO_CHAR(ROUND(avg_running_sessions))) AS cs_avg_running_sessions_cdb FROM (
-SELECT end_time, SUM(avg_running_sessions) AS avg_running_sessions, ROW_NUMBER() OVER (ORDER BY end_time DESC) AS rn FROM &&cs_tools_schema..dbc_rsrcmgrmetric_history WHERE consumer_group_name = 'OTHER_GROUPS' AND end_time > SYSDATE - (1/24) GROUP BY end_time
+SELECT end_time, SUM(avg_running_sessions) AS avg_running_sessions, ROW_NUMBER() OVER (ORDER BY end_time DESC) AS rn 
+FROM &&cs_tools_schema..dbc_rsrcmgrmetric_history 
+WHERE /*consumer_group_name = 'OTHER_GROUPS' AND*/ end_time > SYSDATE - (1/24) 
+GROUP BY end_time
 ) WHERE rn = 1
 /
 DEF cs_avg_running_sessions_pdb = '?';
 COL cs_avg_running_sessions_pdb NEW_V cs_avg_running_sessions_pdb NOPRI;
 SELECT TRIM(TO_CHAR(ROUND(avg_running_sessions))) AS cs_avg_running_sessions_pdb FROM (
-SELECT end_time, SUM(avg_running_sessions) AS avg_running_sessions, ROW_NUMBER() OVER (ORDER BY end_time DESC) AS rn FROM &&cs_tools_schema..dbc_rsrcmgrmetric_history WHERE pdb_name = '&&cs_con_name.' AND consumer_group_name = 'OTHER_GROUPS' AND end_time > SYSDATE - (1/24) GROUP BY end_time
+SELECT end_time, SUM(avg_running_sessions) AS avg_running_sessions, ROW_NUMBER() OVER (ORDER BY end_time DESC) AS rn 
+FROM &&cs_tools_schema..dbc_rsrcmgrmetric_history 
+WHERE pdb_name = '&&cs_con_name.' AND /*consumer_group_name = 'OTHER_GROUPS' AND*/ end_time > SYSDATE - (1/24) 
+GROUP BY end_time
 ) WHERE rn = 1
 /
 -- replaced due to performance concerns (it would take up to 8 seconds in some environments)
@@ -439,6 +447,28 @@ COL kiev_metadata_date NEW_V kiev_metadata_date NOPRI;
 SELECT :kiev_metadata_date AS kiev_metadata_date FROM DUAL
 / 
 -- 
+-- time when host was rebooted (executed from CD$ROOT only)
+DEF cs_system_boot_time = '';
+COL cs_system_boot_time NEW_V cs_system_boot_time FOR A19 NOPRI;
+SELECT TO_CHAR(MAX(system_boot_time), '&&cs_datetime_full_format.') AS cs_system_boot_time FROM &&cs_tools_schema..dbc_system;
+--
+-- phonebook, compartment_id and kiev_data_store
+DEF cs_phonebook_pdb = '';
+DEF cs_compartment_id_pdb = '';
+DEF cs_kiev_store_name = '';
+--
+COL cs_phonebook_pdb NEW_V cs_phonebook_pdb FOR A256 NOPRI;
+COL cs_compartment_id_pdb NEW_V cs_compartment_id_pdb FOR A128 NOPRI;
+COL cs_kiev_store_name NEW_V cs_kiev_store_name FOR A128 NOPRI;
+--
+-- executed from CD$ROOT only
+SELECT NVL(phonebook, 'UNKNOWN') AS cs_phonebook_pdb, -- out of horizon (oc1) else from kiev/dbpcs metadata
+       NVL(compartment_id, 'UNKNOWN') AS cs_compartment_id_pdb, -- out of kiev or dbcps metadata
+       NVL(kiev_store_name, 'N/A') AS cs_kiev_store_name -- null for kiev multi-schema pdbs
+  FROM &&cs_tools_schema..dbc_pdb_metadata_v
+ WHERE pdb_name = '&&cs_con_name.' -- from SYS_CONTEXT('USERENV', 'CON_NAME') when connected into PDB
+/
+--
 ALTER SESSION SET CONTAINER = &&cs_con_name.;
 --
 /****************************************************************************************/
@@ -577,3 +607,25 @@ SELECT '&&cs_reference.'||
 SPO /tmp/cs_default_reference.sql;
 PRO DEF cs_default_reference = "&&cs_reference.";
 SPO OFF;
+--
+SET TERM OFF;
+VAR who_am_i CLOB;
+!who am i > /tmp/get_who_am_i.txt
+get /tmp/get_who_am_i.txt
+.
+999999 ]'; END;;
+0 BEGIN :who_am_i := q'[
+/
+DEF who_am_i = 'oracle';
+COL who_am_i NEW_V who_am_i NOPRI;
+SELECT REGEXP_SUBSTR(:who_am_i, '[a-z]+') AS who_am_i FROM DUAL
+/
+DEF engineer_info = '';
+COL engineer_info NEW_V engineer_info NOPRI;
+SELECT SUBSTR('&&who_am_i. '||SUBSTR(REPLACE('&&cs_reference.', ' '), 1, 30)||' &&cs_date_time.', 1, 64) AS engineer_info FROM DUAL
+/
+-- V$SESSION.CLIENT_INFO
+EXEC DBMS_APPLICATION_INFO.set_client_info(client_info => '&&engineer_info.');
+-- V$SESSION.CLIENT_IDENTIFIER V$ACTIVE_SESSION_HISTORY.CLIENT_ID DBA_HIST_ACTIVE_SESS_HISTORY.CLIENT_ID
+EXEC DBMS_SESSION.set_identifier(client_id => '&&engineer_info.');
+SET TERM ON;

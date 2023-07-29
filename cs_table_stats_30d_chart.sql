@@ -27,7 +27,7 @@
 --
 DEF cs_script_name = 'cs_table_stats_30d_chart';
 --
-COL owner NEW_V owner FOR A30 TRUNC PRI HEA 'TABLE_OWNER';
+COL owner NEW_V owner FOR A30 PRI HEA 'TABLE_OWNER';
 COL tables FOR 999,990;
 --
 SELECT o.owner,
@@ -45,7 +45,7 @@ SELECT o.owner,
  ORDER BY 1
 /
 --
-COL table_owner NEW_V table_owner FOR A30 TRUNC PRI;
+COL table_owner NEW_V table_owner FOR A30 PRI;
 PRO
 PRO 1. Table Owner:
 DEF table_owner = '&1.';
@@ -53,7 +53,7 @@ UNDEF 1;
 SELECT UPPER(NVL('&&table_owner.', '&&owner.')) AS table_owner FROM DUAL
 /
 --
-COL table_name FOR A30 TRUNC PRI;
+COL table_name FOR A30 PRI;
 COL avg_rows FOR 999,999,999,990;
 COL max_rows FOR 999,999,999,990;
 COL min_last_analyzed FOR A19;
@@ -78,7 +78,7 @@ PRO
 PRO 2. Table Name:
 DEF table_name = '&2.';
 UNDEF 2;
-COL table_name NEW_V table_name FOR A30 TRUNC NOPRI;
+COL table_name NEW_V table_name FOR A30 NOPRI;
 SELECT UPPER(TRIM('&&table_name.')) AS table_name FROM DUAL;
 --
 COL cs_gap_days NEW_V cs_gap_days NOPRI;

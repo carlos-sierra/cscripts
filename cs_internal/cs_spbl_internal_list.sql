@@ -9,6 +9,7 @@ COL ori FOR 999 HEA 'Ori';
 COL timestamp FOR A19 HEA 'Timestamp';
 COL last_executed FOR A19 HEA 'Last Executed';
 COL last_modified FOR A19 HEA 'Last Modified';
+COL last_verified FOR A19 HEA 'Last Verified';
 COL description FOR A100 HEA 'Description' WOR;
 COL executions FOR 999,999,990 HEA 'Executions';
 COL et_per_exec_ms FOR 999,999,990.000 HEA 'Elapsed Time|AVG (ms)';
@@ -42,6 +43,7 @@ PRO ~~~~~~~~~~~~~~~~~~~~~~~~~
 SELECT TO_CHAR(s.created, '&&cs_timestamp_full_format.') AS created, 
        TO_CHAR(s.last_modified, '&&cs_datetime_full_format.') AS last_modified, 
        TO_CHAR(s.last_executed, '&&cs_datetime_full_format.') AS last_executed, 
+       TO_CHAR(s.last_verified, '&&cs_datetime_full_format.') AS last_verified, 
        s.con_id,
        c.name AS pdb_name,
        s.plan_name, 

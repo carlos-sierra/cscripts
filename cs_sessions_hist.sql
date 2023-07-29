@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/10/05
+-- Version:     2023/02/06
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -40,7 +40,7 @@ COL sessions FOR 999,990;
 COL snap_time NEW_V snap_time;
 SELECT TO_CHAR(snap_time, '&&cs_datetime_full_format.') AS snap_time, COUNT(*) sessions
   FROM &&cs_tools_schema..iod_session
- WHERE snap_time > SYSDATE - TO_NUMBER('&&num_days.')
+ WHERE &&cs_con_id. IN (1, con_id) AND snap_time > SYSDATE - TO_NUMBER('&&num_days.')
  GROUP BY
        snap_time
  ORDER BY
@@ -103,7 +103,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
        taddr,
        logon_time,
        last_call_et,
-       (SYSDATE - logon_time) * 24 * 3600 AS logon_age,
+       (TO_DATE('&&cs_snap_time.', '&&cs_datetime_full_format.') - logon_time) * 24 * 3600 AS logon_age,
        COALESCE(sql_id, prev_sql_id) sql_id,
        machine,
        's:'||state||
@@ -117,7 +117,7 @@ SELECT /*+ MATERIALIZE NO_MERGE */
   FROM v_session
 )
 SELECT se.last_call_et,
-       (SYSDATE - (se.last_call_et / 3600 / 24)) AS last_call_time,
+       (TO_DATE('&&cs_snap_time.', '&&cs_datetime_full_format.') - (se.last_call_et / 3600 / 24)) AS last_call_time,
        se.logon_age,
        se.logon_time,
        se.sid||','||se.serial# sid_serial,

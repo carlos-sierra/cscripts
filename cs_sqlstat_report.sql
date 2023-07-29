@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2022/08/16
+-- Version:     2023/03/30
 --
 -- Usage:       Execute connected to CDB or PDB.
 --
@@ -27,8 +27,6 @@
 --
 DEF cs_script_name = 'cs_sqlstat_report';
 DEF cs_script_acronym = 'ssr.sql | ';
---
-SELECT '&&cs_file_prefix._&&cs_script_name.' cs_file_name FROM DUAL;
 --
 DEF cs_hours_range_default = '24';
 @@cs_internal/cs_sample_time_from_and_to.sql
@@ -99,6 +97,8 @@ SELECT CASE LENGTH('&&cs_sql_id.') WHEN 13 THEN 'sql_id = ''&&cs_sql_id.''' ELSE
        CASE LENGTH('&&cs_sql_id.') WHEN 13 THEN 'NOPRI' ELSE 'PRI' END AS cs_sql_id_col
 FROM DUAL
 /
+--
+SELECT '&&cs_file_prefix._&&cs_script_name.'||NVL2('&&cs_sql_id.', '_&&cs_sql_id.', NULL) AS cs_file_name FROM DUAL;
 --
 @@cs_internal/cs_spool_head.sql
 PRO SQL> @&&cs_script_name..sql "&&cs_sample_time_from." "&&cs_sample_time_to." "&&cs_report_type." "&&cs_include_uncommon_columns." "&&cs_include_delta_columns." "&&cs_include_sys." "&&cs2_sql_text_piece." "&&cs_sql_id."

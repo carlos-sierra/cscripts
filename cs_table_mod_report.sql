@@ -65,7 +65,7 @@ UNDEF 3;
 SELECT UPPER(NVL('&&table_owner.', '&&owner.')) table_owner FROM DUAL
 /
 --
-COL table_name FOR A30 TRUNC PRI;
+COL table_name FOR A30 PRI;
 COL num_rows FOR 999,999,999,990;
 COL blocks FOR 9,999,999,990;
 WITH 
@@ -93,7 +93,7 @@ PRO
 PRO 4. Table Name:
 DEF table_name = '&4.';
 UNDEF 4;
-COL table_name NEW_V table_name FOR A30 TRUNC NOPRI;
+COL table_name NEW_V table_name FOR A30 NOPRI;
 SELECT UPPER(TRIM('&&table_name.')) table_name FROM DUAL;
 --
 SELECT '&&cs_file_prefix._&&cs_script_name._&&table_owner..&&table_name.' cs_file_name FROM DUAL;
@@ -115,7 +115,7 @@ COL inserts FOR 999,999,990;
 COL deletes FOR 999,999,990;
 COL growth FOR 999,999,990;
 COL updates FOR 999,999,990;
-COL partition_name FOR A30 TRUNC;
+COL partition_name FOR A30;
 BREAK ON REPORT;
 COMPUTE AVG LABEL 'AVG' MAX LABEL 'MAX' OF inserts_per_sec updates_per_sec deletes_per_sec growth_per_sec inserts deletes growth updates ON REPORT;
 --

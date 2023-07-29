@@ -20,8 +20,10 @@ END get_pdb_name;
 FUNCTION get_sql_hv (p_sqltext IN CLOB)
 RETURN VARCHAR2
 IS
+  l_sqltext CLOB := REGEXP_REPLACE(p_sqltext, '/\* REPO_[A-Z0-9]{1,25} \*/ '); -- removes "/* REPO_IFCDEXZQGAYDAMBQHAYQ */ " DBPERF-8819
 BEGIN
-  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN p_sqltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(p_sqltext, '\[([[:digit:]]{4})\] ') ELSE p_sqltext END),100000),5,'0');
+  IF l_sqltext LIKE '%/* %(%,%)% [%] */%' THEN l_sqltext := REGEXP_REPLACE(l_sqltext, '\[([[:digit:]]{4,5})\] '); END IF; -- removes bucket_id "[1001] "
+  RETURN LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(l_sqltext),100000),5,'0');
 END get_sql_hv;
 /****************************************************************************************/
 sqlstats_deltas AS (
@@ -36,7 +38,8 @@ SELECT LAG(s.snap_timestamp) OVER (PARTITION BY s.snap_type, s.sid, s.con_id, s.
        &&cs_tools_schema..iod_spm.application_category(s.sql_text, 'UNKNOWN') AS sql_type, -- passing UNKNOWN else KIEV envs would show a lot of unrelated SQL under RO
       --  LPAD(MOD(DBMS_SQLTUNE.sqltext_to_signature(CASE WHEN s.sql_fulltext LIKE '/* %(%,%)% [____] */%' THEN REGEXP_REPLACE(s.sql_fulltext, '\[([[:digit:]]{4})\] ') ELSE s.sql_fulltext END),100000),5,'0') AS sqlid,
        get_sql_hv(s.sql_fulltext) AS sqlid,
-       s.sql_text,
+      --  s.sql_text,
+       DBMS_LOB.substr(REGEXP_SUBSTR(s.sql_fulltext, '.*$', 1, 1, 'm'), 1000) AS sql_text,
        s.sql_fulltext,
        GREATEST(s.executions - LAG(s.executions) OVER (PARTITION BY s.snap_type, s.sid, s.con_id, s.sql_id ORDER BY s.snap_timestamp), 0) AS delta_execution_count,
        GREATEST(s.elapsed_time - LAG(s.elapsed_time) OVER (PARTITION BY s.snap_type, s.sid, s.con_id, s.sql_id ORDER BY s.snap_timestamp), 0) AS delta_elapsed_time,
@@ -194,6 +197,7 @@ SELECT MIN(d.begin_timestamp) AS begin_timestamp,
 )
 /****************************************************************************************/
 SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
+       '!' AS sep0,
        CASE WHEN v.parsing_schema_name = 'SYS' THEN 'SYS' ELSE s.sql_type END AS sql_type,
        s.latency_rn,
        s.load_rn,
@@ -252,6 +256,8 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
        v.has_patch,
        s.sql_text,
        CASE SYS_CONTEXT('USERENV', 'CON_ID') WHEN '1' THEN get_pdb_name(s.con_id) ELSE v.parsing_schema_name END AS pdb_or_parsing_schema_name,
+       t.num_rows, 
+       t.blocks,
        s.begin_timestamp,
        s.end_timestamp,
        s.seconds
@@ -260,7 +266,9 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
          SELECT CASE WHEN v.sql_plan_baseline IS NULL THEN 'N' ELSE 'Y' END AS has_baseline, 
                 CASE WHEN v.sql_profile IS NULL THEN 'N' ELSE 'Y' END AS has_profile, 
                 CASE WHEN v.sql_patch IS NULL THEN 'N' ELSE 'Y' END AS has_patch,
-                v.parsing_schema_name
+                v.parsing_schema_name,
+                v.hash_value,
+                v.address
            FROM v$sql v
           WHERE v.sql_id = s.sql_id
             AND v.con_id = s.con_id
@@ -269,6 +277,23 @@ SELECT /*+ MONITOR GATHER_PLAN_STATISTICS */
                 v.last_active_time DESC
           FETCH FIRST 1 ROW ONLY
        ) v
+  OUTER APPLY ( -- only works when executed within a PDB
+        SELECT  t.num_rows, t.blocks
+          FROM  v$object_dependency d, dba_users u, dba_tables t
+         WHERE  d.from_hash = v.hash_value
+           AND  d.from_address = v.address
+           AND  d.to_type = 2 -- table
+           AND  d.to_owner <> 'SYS'
+           AND  d.con_id = s.con_id
+           AND  u.username = d.to_owner
+           AND  u.oracle_maintained = 'N'
+           AND  u.common = 'NO'
+           AND  t.owner = d.to_owner
+           AND  t.table_name = d.to_name
+         ORDER BY 
+               t.num_rows DESC NULLS LAST
+         FETCH FIRST 1 ROW ONLY
+       ) t
  WHERE ((s.latency_rn <= &&cs_top_latency. AND s.et_aas >= &&cs_aas_threshold_latency.) OR (s.load_rn <= &&cs_top_load. AND s.et_aas >= &&cs_aas_threshold_load.))
    AND s.et_ms_per_exec >= &&cs_ms_threshold_latency.
  ORDER BY

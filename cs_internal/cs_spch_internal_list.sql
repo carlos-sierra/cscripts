@@ -3,7 +3,7 @@
 --
 COL con_id FOR 999 HEA 'Con|ID';
 COL pdb_name FOR A30 HEA 'PDB Name' FOR A30 TRUNC;
-COL created FOR A19;
+COL created FOR A23;
 COL name FOR A30;
 COL category FOR A30;
 COL status FOR A8;

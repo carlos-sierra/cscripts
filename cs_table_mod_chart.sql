@@ -6,7 +6,7 @@
 --
 -- Author:      Carlos Sierra
 --
--- Version:     2020/12/025
+-- Version:     2023/06/22
 --
 -- Usage:       Execute connected to PDB.
 --
@@ -65,7 +65,7 @@ UNDEF 3;
 SELECT UPPER(NVL('&&table_owner.', '&&owner.')) table_owner FROM DUAL
 /
 --
-COL table_name FOR A30 TRUNC PRI;
+COL table_name FOR A30 PRI;
 COL num_rows FOR 999,999,999,990;
 COL blocks FOR 9,999,999,990;
 WITH 
@@ -93,7 +93,7 @@ PRO
 PRO 4. Table Name:
 DEF table_name = '&4.';
 UNDEF 4;
-COL table_name NEW_V table_name FOR A30 TRUNC NOPRI;
+COL table_name NEW_V table_name FOR A30 NOPRI;
 SELECT UPPER(TRIM('&&table_name.')) table_name FROM DUAL;
 --
 PRO
@@ -170,9 +170,9 @@ SELECT ', [new Date('||
        ','||TO_CHAR(q.timestamp, 'MI')|| /* minute */
        ','||TO_CHAR(q.timestamp, 'SS')|| /* second */
        ')'||
-       ','||num_format(q.inserts_per_sec)|| 
-       ','||num_format(q.deletes_per_sec)|| 
-       ','||num_format(q.updates_per_sec)|| 
+       ','||num_format(q.inserts_per_sec, 3)|| 
+       ','||num_format(q.deletes_per_sec, 3)|| 
+       ','||num_format(q.updates_per_sec, 3)|| 
        ']'
   FROM my_query q
  ORDER BY

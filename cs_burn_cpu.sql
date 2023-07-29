@@ -60,7 +60,7 @@ END;
 --
 DECLARE
 w CLOB := q'[
-DECLARE
+DECLARE -- job_instance
   d DATE := SYSDATE + (&&seconds./24/3600);
   x NUMBER; 
 BEGIN
